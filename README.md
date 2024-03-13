@@ -17,6 +17,10 @@ npm i zod react-hook-form resend
 
 ```sh
 npx tailwindcss int -p
+npx shadcn-ui@latest init
+
+npx shadcn-ui@latest add button dropdown-menu
+
 ```
 
 - Add Environment Variables to your `.env.local`

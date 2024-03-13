@@ -1,4 +1,6 @@
 import Link from "next/link";
+import ThemeToggle from "@/app/components/ui/ThemeToggle";
+import { Button } from "./components/ui/button";
 
 export default function HomePage() {
   return (
@@ -9,18 +11,13 @@ export default function HomePage() {
           <span className="sr-only">Acme Inc</span>
         </Link>
         <nav className="ml-auto flex gap-4 sm:gap-6">
-          <Link
-            className="text-sm font-medium hover:underline underline-offset-4"
-            href="#features"
-          >
-            Features
-          </Link>
-          <Link
-            className="text-sm font-medium hover:underline underline-offset-4"
-            href="/sign-in"
-          >
-            Sign In
-          </Link>
+          <Button asChild variant="link">
+            <Link href="#features">Features</Link>
+          </Button>
+          <Button asChild variant="link">
+            <Link href="/sign-in">Sign In</Link>
+          </Button>
+          <ThemeToggle />
         </nav>
       </header>
       <main className="flex-1">
@@ -41,6 +38,7 @@ export default function HomePage() {
                   </p>
                 </div>
                 <div className="flex flex-col gap-2 min-[400px]:flex-row">
+                  <Button variant="secondary">test</Button>
                   <Link
                     className="inline-flex h-10 items-center justify-center rounded-md bg-neutral-900 px-8 text-sm font-medium text-neutral-50 shadow transition-colors hover:bg-neutral-900/90 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-neutral-950 disabled:pointer-events-none disabled:opacity-50 dark:bg-neutral-50 dark:text-neutral-900 dark:hover:bg-neutral-50/90 dark:focus-visible:ring-neutral-300"
                     href="#"
