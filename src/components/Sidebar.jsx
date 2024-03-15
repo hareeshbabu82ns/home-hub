@@ -4,22 +4,23 @@ import SidebarItems from "./SidebarItems";
 import { Avatar, AvatarFallback } from "./ui/avatar";
 
 import { getUserAuth } from "@/lib/auth/utils";
-import MountainIcon from "./MountainIcon";
+import AppTitleLogo from "./AppTitleLogo";
 
 const Sidebar = async () => {
   const session = await getUserAuth();
   if (session.session === null) return null;
 
   return (
-    <aside className="h-screen min-w-52 bg-muted hidden md:block p-4 pt-8 border-r border-border shadow-inner">
-      <div className="flex flex-col justify-between h-full">
-        <div className="space-y-4">
-          <div className="flex">
-            <MountainIcon width="20" stroke="red" />
-            <h3 className="text-lg font-semibold ml-4">Logo</h3>
-          </div>
+    <aside className="flex flex-col justify-between h-full bg-muted pt-4">
+      <div className="h-full space-y-2">
+        <div className="pl-4 pt-2">
+          <AppTitleLogo />
+        </div>
+        <div className="py-4 pl-4 pr-6 md:py-6">
           <SidebarItems />
         </div>
+      </div>
+      <div className="py-2 px-2">
         <UserDetails session={session} />
       </div>
     </aside>

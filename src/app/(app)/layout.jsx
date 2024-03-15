@@ -1,24 +1,25 @@
 import { checkAuth } from "@/lib/auth/utils";
 import { Toaster } from "@/components/ui/sonner";
-import Navbar from "@/components/Navbar";
 import Sidebar from "@/components/Sidebar";
+import AppTitleLogo from "@/components/AppTitleLogo";
 import NextAuthProvider from "@/lib/auth/Provider";
+import { WithSidebar } from "@/components/WithSidebar";
 
 export default async function AppLayout({ children }) {
   await checkAuth();
   return (
-    <main>
+    <>
       <NextAuthProvider>
-        <div className="flex h-screen">
-          <Sidebar />
-          <main className="flex-1 md:p-8 pt-2 p-8 overflow-y-auto">
-            <Navbar />
-            {children}
-          </main>
-        </div>
+        <WithSidebar
+          sidebarContent={Sidebar}
+          mobileDashboardHeader={AppTitleLogo}
+          className="p-1 md:p-4"
+        >
+          {children}
+        </WithSidebar>
       </NextAuthProvider>
 
       <Toaster richColors />
-    </main>
+    </>
   );
 }
