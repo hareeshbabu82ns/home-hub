@@ -5,22 +5,17 @@ import colors from "tailwindcss/colors";
 import tinycolor from "tinycolor2";
 
 import { twThemeGen } from "./src/lib/themes/tw-theme-gen-plugin";
-
-const primaryHsl = tinycolor(colors.orange[500]).toHsl();
-
-const primaryHue = primaryHsl.h;
-const saturation = "100"; //primaryHsl.s;
-// const luminance = primaryHsl.l;
-
-// const secondaryHue = (primaryHue + 60) % 360;
-// const tertiaryHue = (secondaryHue + 180) % 360;
+import { setTinyColorLuminance } from "./src/lib/themes/utils";
 
 const twThemeGenPlugin = twThemeGen({
-  primaryHue,
-  // saturation,
-  // luminance,
-  // secondaryHue,
-  // tertiaryHue,
+  primary: setTinyColorLuminance(tinycolor(colors.fuchsia[500]), 0.5),
+  // secondary,
+  // tertiary,
+});
+
+const twThemeGenRainforestPlugin = twThemeGen({
+  scope: "rainforest",
+  primary: tinycolor({ h: 111, s: 0.5, l: 0.5 }),
 });
 
 /** @type {import('tailwindcss').Config} */
@@ -31,5 +26,10 @@ module.exports = {
     "./app/**/*.{js,jsx}",
     "./src/**/*.{js,jsx}",
   ],
-  plugins: [animatePlugin, containerQueries, twThemeGenPlugin],
+  plugins: [
+    animatePlugin,
+    containerQueries,
+    twThemeGenPlugin,
+    twThemeGenRainforestPlugin,
+  ],
 };

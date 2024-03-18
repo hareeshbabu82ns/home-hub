@@ -105,12 +105,17 @@ export const genColorPalette = ({ paletteName = "primary" }) => {
 // generate theme base color variables
 export const genTailwindThemeBase = ({
   theme,
-  primaryHue,
-  saturation,
-  luminance,
-  secondaryHue,
-  tertiaryHue,
+  darkMode = "class",
+  scope,
+  scopeAttr = "data-theme",
+  primary,
+  secondary,
+  tertiary,
 }) => {
+  const pHsl = primary.toHsl();
+  const sHsl = secondary.toHsl();
+  const tHsl = tertiary.toHsl();
+
   const root = {};
   const dark = {};
 
@@ -118,142 +123,100 @@ export const genTailwindThemeBase = ({
   const successHue = tinycolor(colors.green[500]).toHsl().h;
   const warningHue = tinycolor(colors.amber[500]).toHsl().h;
 
-  root["--background"] = `${primaryHue}, 40%, 90%`;
-  dark["--background"] = `${primaryHue}, 80%, 10%`;
+  // <body />
+  root["--background"] = `${pHsl.h}, 30%, 95%`;
+  dark["--background"] = `${pHsl.h}, 30%, 5%`;
 
-  root["--foreground"] = `${primaryHue}, 80%, 10%`;
-  dark["--foreground"] = `${primaryHue}, 40%, 90%`;
+  root["--foreground"] = `${pHsl.h}, ${pHsl.s * 100}%, 10%`;
+  dark["--foreground"] = `${pHsl.h}, ${pHsl.s * 100}%, 90%`;
 
-  root["--card"] = `${primaryHue}, 0%, 100%`;
-  dark["--card"] = `${primaryHue}, 80%, 5%`;
+  // <Card />
+  root["--card"] = `${sHsl.h}, 30%, 90%`;
+  dark["--card"] = `${sHsl.h}, 30%, 10%`;
 
-  root["--card-foreground"] = `${primaryHue}, 80%, 5%`;
-  dark["--card-foreground"] = `${primaryHue}, 40%, 95%`;
+  root["--card-foreground"] = `${sHsl.h}, ${sHsl.s * 100}%, 10%`;
+  dark["--card-foreground"] = `${sHsl.h}, ${sHsl.s * 100}%, 90%`;
 
-  root["--popover"] = `${primaryHue}, 0%, 100%`;
-  dark["--popover"] = `${primaryHue}, 80%, 5%`;
+  // <DropdownMenu />, <HoverCard />, <Popover />
+  root["--popover"] = `${pHsl.h}, 35%, 95%`;
+  dark["--popover"] = `${pHsl.h}, 35%, 5%`;
 
-  root["--popover-foreground"] = `${primaryHue}, 80%, 5%`;
-  dark["--popover-foreground"] = `${primaryHue}, 40%, 95%`;
+  root["--popover-foreground"] = `${pHsl.h}, ${pHsl.s * 100}%, 10%`;
+  dark["--popover-foreground"] = `${pHsl.h}, ${pHsl.s * 100}%, 90%`;
 
-  root["--primary"] = `${primaryHue}, ${saturation}%, ${luminance}%`;
-  dark["--primary"] = `${primaryHue}, ${saturation}%, ${100 - luminance}%`;
+  root["--primary"] = `${pHsl.h}, ${pHsl.s * 100}%, ${pHsl.l * 100}%`;
+  dark["--primary"] = `${pHsl.h}, ${pHsl.s * 100}%, ${100 - pHsl.l * 100}%`;
 
-  root["--primary-foreground"] = `${primaryHue}, ${saturation}%, 95%`;
-  dark["--primary-foreground"] = `${primaryHue}, ${saturation}%, 85%`;
+  root["--primary-foreground"] = `${pHsl.h}, ${pHsl.s * 100}%, 10%`;
+  dark["--primary-foreground"] = `${pHsl.h}, ${pHsl.s * 100}%, 90%`;
 
-  root["--secondary"] = `${secondaryHue}, 40%, 70%`;
-  dark["--secondary"] = `${secondaryHue}, 30%, 30%`;
+  root["--secondary"] = `${sHsl.h}, ${sHsl.s * 100}%, ${sHsl.l * 100}%`;
+  dark["--secondary"] = `${sHsl.h}, ${sHsl.s * 100}%, ${sHsl.l * 100}%`;
 
-  root["--secondary-foreground"] = `${secondaryHue}, 50%, 20%`;
-  dark["--secondary-foreground"] = `${secondaryHue}, 40%, 90%`;
+  root["--secondary-foreground"] = `${sHsl.h}, ${sHsl.s * 100}%, 10%`;
+  dark["--secondary-foreground"] = `${sHsl.h}, ${sHsl.s * 100}%, 90%`;
 
-  root["--tertiary"] = `${tertiaryHue}, 40%, 70%`;
-  dark["--tertiary"] = `${tertiaryHue}, 30%, 30%`;
+  root["--tertiary"] = `${tHsl.h}, ${tHsl.s * 100}%, ${tHsl.l * 100}%`;
+  dark["--tertiary"] = `${tHsl.h}, ${tHsl.s * 100}%, ${tHsl.l * 100}%`;
 
-  root["--tertiary-foreground"] = `${tertiaryHue}, 50%, 20%`;
-  dark["--tertiary-foreground"] = `${tertiaryHue}, 40%, 90%`;
+  root["--tertiary-foreground"] = `${tHsl.h}, ${tHsl.s * 100}%, 10%`;
+  dark["--tertiary-foreground"] = `${tHsl.h}, ${tHsl.s * 100}%, 90%`;
 
-  root["--muted"] = `${primaryHue}, 40%, 90%`;
-  dark["--muted"] = `${primaryHue}, 30%, 20%`;
+  // <TabsList />, <Skeleton /> and <Switch />
+  root["--muted"] = `${pHsl.h}, 30%, 90%`;
+  dark["--muted"] = `${pHsl.h}, 30%, 10%`;
 
-  root["--muted-foreground"] = `${primaryHue}, 16%, 50%`;
-  dark["--muted-foreground"] = `${primaryHue}, 20%, 65%`;
+  root["--muted-foreground"] = `${pHsl.h}, 25%, 30%`;
+  dark["--muted-foreground"] = `${pHsl.h}, 25%, 75%`;
 
-  root["--accent"] = `${primaryHue}, 40%, 95%`;
-  dark["--accent"] = `${primaryHue}, 30%, 20%`;
+  // hover effects on <DropdownMenuItem>, <SelectItem>
+  root["--accent"] = `${tHsl.h}, ${tHsl.s * 100}%, 10%`;
+  dark["--accent"] = `${tHsl.h}, ${tHsl.s * 100}%, 90%`;
 
-  root["--accent-foreground"] = `${primaryHue}, 50%, 10%`;
-  dark["--accent-foreground"] = `${primaryHue}, 40%, 95%`;
+  root["--accent-foreground"] = `${tHsl.h}, ${tHsl.s * 100}%, 90%`;
+  dark["--accent-foreground"] = `${tHsl.h}, ${tHsl.s * 100}%, 10%`;
 
-  root["--destructive"] = `${destructiveHue}, ${saturation}%, ${luminance}%`;
-  dark["--destructive"] = `${destructiveHue}, ${saturation}%, 30%`;
+  root["--destructive"] = `${destructiveHue}, ${pHsl.s * 100}%, 60%`;
+  dark["--destructive"] = `${destructiveHue}, ${pHsl.s * 100}%, 30%`;
 
-  root["--destructive-foreground"] = `${primaryHue}, 40%, 95%`;
-  dark["--destructive-foreground"] = `${primaryHue}, 40%, 95%`;
+  root["--destructive-foreground"] = `${destructiveHue}, 25%, 10%`;
+  dark["--destructive-foreground"] = `${destructiveHue}, 25%, 85%`;
 
-  root["--success"] = `${successHue}, 100%, 50%`;
-  dark["--success"] = `${successHue}, 100%, 50%`;
+  root["--success"] = `${successHue}, ${pHsl.s * 100}%, 50%`;
+  dark["--success"] = `${successHue}, ${pHsl.s * 100}%, 30%`;
 
-  root["--success-foreground"] = `${primaryHue}, 80%, 5%`;
-  dark["--success-foreground"] = `${primaryHue}, 80%, 5%`;
+  root["--success-foreground"] = `${successHue}, 80%, 10%`;
+  dark["--success-foreground"] = `${successHue}, 80%, 10%`;
 
-  root["--warning"] = `${warningHue}, 90%, 50%`;
-  dark["--warning"] = `${warningHue}, 90%, 50%`;
+  root["--warning"] = `${warningHue}, ${pHsl.s * 100}%, 50%`;
+  dark["--warning"] = `${warningHue}, ${pHsl.s * 100}%, 30%`;
 
-  root["--warning-foreground"] = "50, 95%, 90%";
-  dark["--warning-foreground"] = "50, 95%, 90%";
+  root["--warning-foreground"] = `${warningHue}, ${pHsl.s * 100}%, 10%`;
+  dark["--warning-foreground"] = `${warningHue}, ${pHsl.s * 100}%, 80%`;
 
-  root["--border"] = `${primaryHue}, 30%, 90%`;
-  dark["--border"] = `${primaryHue}, 30%, 20%`;
+  root["--border"] = `${sHsl.h}, 30%, 90%`;
+  dark["--border"] = `${sHsl.h}, 30%, 20%`;
 
-  root["--input"] = `${primaryHue}, 30%, 90%`;
-  dark["--input"] = `${primaryHue}, 30%, 20%`;
+  root["--input"] = `${sHsl.h}, 30%, 90%`;
+  dark["--input"] = `${sHsl.h}, 30%, 20%`;
 
-  root["--ring"] = `${primaryHue}, 80%, 5%`;
-  dark["--ring"] = `${primaryHue}, 30%, 80%`;
+  // focus ring
+  root["--ring"] = `${tHsl.h}, 80%, 5%`;
+  dark["--ring"] = `${tHsl.h}, 30%, 80%`;
 
+  // card, input and buttons
   root["--radius"] = "0.5rem";
 
-  return {
-    ":root": root,
-    ".dark": dark,
-    // ":root": {
-    //   "--background": `${primaryHue} 40% 90%`,
-    //   "--foreground": `${primaryHue} 80% 10%`,
-    //   "--card": "0 0% 100%",
-    //   "--card-foreground": `${primaryHue} 80% 5%`,
-    //   "--popover": "0 0% 100%",
-    //   "--popover-foreground": `${primaryHue} 80% 5%`,
-    //   "--primary": `${primaryHue} ${saturation}% ${luminance}%`,
-    //   "--primary-foreground": `${primaryHue} ${saturation}% 95%`,
-    //   "--secondary": `${secondaryHue} 40% 70%`,
-    //   "--secondary-foreground": `${secondaryHue} 50% 20%`,
-    //   "--tertiary": `${tertiaryHue} 40% 70%`,
-    //   "--tertiary-foreground": `${tertiaryHue} 50% 20%`,
-    //   "--muted": `${primaryHue} 40% 90%`,
-    //   "--muted-foreground": `${primaryHue} 16% 50%`,
-    //   "--accent": `${primaryHue} 40% 95%`,
-    //   "--accent-foreground": `${primaryHue} 50% 10%`,
-    //   "--destructive": `0 ${saturation}% ${luminance}%`,
-    //   "--destructive-foreground": `${primaryHue} 40% 95%`,
-    //   "--success": "120 100% 50%",
-    //   "--success-foreground": `${primaryHue} 80% 5%`,
-    //   "--warning": "40 90% 50%",
-    //   "--warning-foreground": "50 95% 90%",
-    //   "--border": `${primaryHue} 30% 90%`,
-    //   "--input": `${primaryHue} 30% 90%`,
-    //   "--ring": `${primaryHue} 80% 5%`,
-    //   "--radius": "0.5rem",
-    // },
-    // ".dark": {
-    //   "--background": `${primaryHue} 80% 10%`,
-    //   "--foreground": "210 40% 90%",
-    //   "--card": `${primaryHue} 80% 5%`,
-    //   "--card-foreground": "210 40% 95%",
-    //   "--popover": `${primaryHue} 80% 5%`,
-    //   "--popover-foreground": "210 40% 95%",
-    //   "--primary": `${primaryHue} ${saturation}% ${100 - luminance}%`,
-    //   "--primary-foreground": `${primaryHue} ${saturation}% 85%`,
-    //   "--secondary": `${secondaryHue} 30% 30%`,
-    //   "--secondary-foreground": `${secondaryHue} 40% 90%`,
-    //   "--tertiary": `${tertiaryHue} 30% 30%`,
-    //   "--tertiary-foreground": `${tertiaryHue} 40% 90%`,
-    //   "--muted": `${primaryHue} 30% 20%`,
-    //   "--muted-foreground": "215 20% 65%",
-    //   "--accent": `${primaryHue} 30% 20%`,
-    //   "--accent-foreground": "210 40% 95%",
-    //   "--destructive": "0 60% 30%",
-    //   "--destructive-foreground": "210 40% 95%",
-    //   "--success": "120 100% 50%",
-    //   "--success-foreground": `${primaryHue} 80% 5%`,
-    //   "--warning": "40 90% 50%",
-    //   "--warning-foreground": "50 95% 90%",
-    //   "--border": `${primaryHue} 30% 20%`,
-    //   "--input": `${primaryHue} 30% 20%`,
-    //   "--ring": `${primaryHue} 30% 80%`,
-    // },
-  };
+  return scope
+    ? {
+        [`[${scopeAttr}="${scope}"]`]: root,
+        [`[${scopeAttr}="${scope}"] .dark`]: dark,
+        [`[${darkMode}="dark"] [${scopeAttr}="${scope}"]`]: dark,
+      }
+    : {
+        ":root": root,
+        ".dark": dark,
+      };
 };
 
 export function withOpacity(cssVariable) {
@@ -310,3 +273,13 @@ export const reverseColorPalette = ({
   };
   return res;
 };
+
+export function setTinyColorLuminance(color, l) {
+  const hsla = color.toHsl();
+  return tinycolor({ ...hsla, l });
+}
+
+export function setTinyColorSaturation(color, s) {
+  const hsla = color.toHsl();
+  return tinycolor({ ...hsla, s });
+}

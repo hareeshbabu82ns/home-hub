@@ -1,24 +1,22 @@
 import plugin from "tailwindcss/plugin";
+import tinycolor from "tinycolor2";
+
 import { genColorPalette, genTailwindThemeBase, withOpacity } from "./utils";
 
-// const primaryHue = 222;
-// const saturation = "30";
-// const luminance = "50";
-
-// const secondaryHue = (primaryHue + 60) % 360;
-// const tertiaryHue = (secondaryHue + 180) % 360;
-
 export const twThemeGen = ({
-  primaryHue = 0,
-  saturation = 50,
-  luminance = 50,
-  secondaryHue,
-  tertiaryHue,
+  primary,
+  secondary,
+  tertiary,
   prefix = "",
-  darkMode = ["class"],
+  darkMode = "class",
+  scopeAttr = "data-theme",
+  scope, // can be used as `[${scopeAttr}="${scope}"]` on html elements
 }) => {
-  const secondaryHueCalc = secondaryHue || (primaryHue + 60) % 360;
-  const tertiaryHueCalc = tertiaryHue || (secondaryHueCalc + 180) % 360;
+  const triadColors = primary.triad();
+
+  const primaryCalc = triadColors[0];
+  const secondaryCalc = secondary || triadColors[1];
+  const tertiaryCalc = tertiary || triadColors[2];
 
   const paletteColors = ["primary", "secondary", "tertiary"].reduce(
     (acc, paletteName) => {
@@ -55,73 +53,79 @@ export const twThemeGen = ({
       addBase(
         genTailwindThemeBase({
           theme,
-          primaryHue,
-          saturation,
-          luminance,
-          secondaryHue: secondaryHueCalc,
-          tertiaryHue: tertiaryHueCalc,
+          scope,
+          scopeAttr,
+          darkMode,
+          primary: primaryCalc,
+          secondary: secondaryCalc,
+          tertiary: tertiaryCalc,
         })
       );
-
       addBase({
-        "*": { "@apply border-border": true },
-        body: { "@apply bg-background text-foreground": true },
+        [scope ? `[${scopeAttr}="${scope}"] *` : "*"]: {
+          "@apply border-border": true,
+        },
+        [scope ? `[${scopeAttr}="${scope}"]` : "body"]: {
+          "@apply bg-background text-foreground": true,
+        },
       });
     },
     // extend theme with "themable" utilities
-    {
-      prefix,
-      darkMode,
-      theme: {
-        container: {
-          center: true,
-          padding: "2rem",
-          screens: {
-            "2xl": "1400px",
-          },
-        },
-        extend: {
-          colors: {
-            border: "hsl(var(--border))",
-            input: "hsl(var(--input))",
-            ring: "hsl(var(--ring))",
-            background: "hsl(var(--background))",
-            foreground: "hsl(var(--foreground))",
-            ...paletteColors,
-            ...simpleColors,
-          },
-          borderRadius: {
-            lg: "var(--radius)",
-            md: "calc(var(--radius) - 2px)",
-            sm: "calc(var(--radius) - 4px)",
-          },
-          keyframes: {
-            "accordion-down": {
-              from: { height: "0" },
-              to: { height: "var(--radix-accordion-content-height)" },
+    scope
+      ? undefined
+      : {
+          prefix,
+          darkMode,
+          theme: {
+            container: {
+              center: true,
+              padding: "2rem",
+              screens: {
+                "2xl": "1400px",
+              },
             },
-            "accordion-up": {
-              from: { height: "var(--radix-accordion-content-height)" },
-              to: { height: "0" },
+            extend: {
+              colors: {
+                border: "hsl(var(--border))",
+                input: "hsl(var(--input))",
+                ring: "hsl(var(--ring))",
+                background: "hsl(var(--background))",
+                foreground: "hsl(var(--foreground))",
+                ...paletteColors,
+                ...simpleColors,
+              },
+              borderRadius: {
+                lg: "var(--radius)",
+                md: "calc(var(--radius) - 2px)",
+                sm: "calc(var(--radius) - 4px)",
+              },
+              keyframes: {
+                "accordion-down": {
+                  from: { height: "0" },
+                  to: { height: "var(--radix-accordion-content-height)" },
+                },
+                "accordion-up": {
+                  from: { height: "var(--radix-accordion-content-height)" },
+                  to: { height: "0" },
+                },
+              },
+              animation: {
+                "accordion-down": "accordion-down 0.2s ease-out",
+                "accordion-up": "accordion-up 0.2s ease-out",
+              },
             },
           },
-          animation: {
-            "accordion-down": "accordion-down 0.2s ease-out",
-            "accordion-up": "accordion-up 0.2s ease-out",
-          },
-        },
-      },
-      safelist: [
-        {
-          pattern: /\-primary\-/,
-        },
-        {
-          pattern: /\-secondary\-/,
-        },
-        {
-          pattern: /\-tertiary\-/,
-        },
-      ],
-    }
+          safelist: [
+            {
+              pattern: /\-primary\-/,
+            },
+            {
+              pattern: /\-secondary\-/,
+            },
+            {
+              pattern: /\-tertiary\-/,
+            },
+          ],
+        }
   );
 };
