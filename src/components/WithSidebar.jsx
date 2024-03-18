@@ -51,7 +51,7 @@ const WithDesktopSidebar = ({
       <section className="h-screen flex-1 flex flex-col overflow-hidden">
         {NavbarContent && (
           <div className="hidden md:block">
-            <NavbarContent />
+            <NavbarContent themeToggle={true} />
           </div>
         )}
 

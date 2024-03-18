@@ -11,6 +11,44 @@ export default async function Home() {
         </pre>
       ) : null}
       <SignIn />
+      <div className="flex gap-2">
+        <ul style={{ width: "200px" }}>
+          {[50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950].map(
+            (variant) => (
+              <li
+                className={`bg-primary-${variant} px-3 py-2 text-primary-foreground-${variant}`}
+                key={variant}
+              >
+                {variant}
+              </li>
+            )
+          )}
+        </ul>
+        <ul style={{ width: "200px" }}>
+          {[50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950].map(
+            (variant) => (
+              <li
+                className={`bg-secondary-${variant} px-3 py-2 text-secondary-foreground-${variant}`}
+                key={variant}
+              >
+                {variant}
+              </li>
+            )
+          )}
+        </ul>
+        <ul style={{ width: "200px" }}>
+          {[50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950].map(
+            (variant) => (
+              <li
+                className={`bg-tertiary-${variant} px-3 py-2 text-tertiary-foreground-${variant}`}
+                key={variant}
+              >
+                {variant}
+              </li>
+            )
+          )}
+        </ul>
+      </div>
     </main>
   );
 }
