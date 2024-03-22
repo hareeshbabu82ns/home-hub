@@ -1,7 +1,7 @@
 ### init project
 
 ```sh
-npx create-next-app@latest home-hub
+npx create-next-app@latest home-hub --typescript --tailwind --eslint
 
 git config --local commit.gpgsign false
 git config --local user.email hareeshbabu82ns@gmail.com
@@ -11,13 +11,14 @@ git config --local user.email hareeshbabu82ns@gmail.com
 npm i prisma -D
 
 npm i next-auth @auth/core @prisma/client @auth/prisma-adapter
-npm i @mui/base clsx next-themes tailwind-merge tailwindcss-animate lucide-react
-npm i @t3-oss/env-nextjs
+# npm i clsx next-themes tailwind-merge tailwindcss-animate lucide-react
+npm i @t3-oss/env-nextjs dotenv
 npm i zod react-hook-form resend
 ```
 
 ```sh
-npx tailwindcss int -p
+npx tailwindcss int -p # optional, if not done with nextjs install
+
 npx shadcn-ui@latest init
 
 npx shadcn-ui@latest add button dropdown-menu
