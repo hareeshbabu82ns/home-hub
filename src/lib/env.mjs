@@ -9,6 +9,13 @@ export const env = createEnv({
       .default("development"),
     DATABASE_URL: z.string().min(1),
 
+    APPWRITE_HOST: z.string().min(1),
+    APPWRITE_API_KEY: z.string().min(1),
+    APPWRITE_PROJECT_ID: z.string().min(1),
+    APPWRITE_DATABASE_ID: z.string().min(1),
+    APPWRITE_BUCKET_ID: z.string().min(1),
+    APPWRITE_SESSION_COOKIE_KEY: z.string().min(1),
+
     NEXTAUTH_SECRET:
       process.env.NODE_ENV === "production"
         ? z.string().min(1)
