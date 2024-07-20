@@ -6,8 +6,7 @@ import NextAuthProvider from "@/lib/auth/Provider";
 import { cn } from "@/lib/utils";
 import { type ClassValue } from "clsx";
 import AppTitleLogo from "@/components/AppTitleLogo";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { Button } from "@/components/ui/button";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
 export default async function AppLayout({
   children,
 }: {
@@ -45,7 +44,7 @@ function WithNavSidebar({
     >
       <aside
         className={cn(
-          "border-border hidden h-screen w-full min-w-52 shrink-0 border-r shadow-inner md:sticky md:block",
+          "hidden h-screen w-full min-w-52 shrink-0 border-r border-border shadow-inner md:sticky md:block",
           classNameSidebar,
         )}
       >

@@ -14,7 +14,7 @@ import { type Color } from "chroma-js";
 // shades gen repo - https://github.com/javisperez/tailwindcolorshades
 
 export const updateBrowserTwThemeVariables = (color: Color) => {
-  const root = document.documentElement;
+  // const root = document.documentElement;
 
   const triadColors = triad(color);
 

@@ -10,6 +10,46 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// Track Items Schema
+model TrackItem {
+  id     String @id @default(auto()) @map("_id") @db.ObjectId
+  userId String @db.ObjectId
+
+  title       String
+  description String?
+
+  user            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  TrackAttributes TrackAttributes[]
+}
+
+enum TrackAttributeValueType {
+  STRING
+  INT
+  FLOAT
+  DATETIME
+}
+
+model TrackAttributes {
+  id      String @id @default(auto()) @map("_id") @db.ObjectId
+  userId  String @db.ObjectId
+  trackId String @db.ObjectId
+
+  title      String
+  value      String?
+  valueInt   Int?
+  valueFloat Float?
+  valueDate  DateTime?
+  valueType  TrackAttributeValueType @default(STRING)
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  trackItem TrackItem @relation(fields: [trackId], references: [id], onDelete: Cascade)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+// User Management Schema
 model Account {
   id                String  @id @default(auto()) @map("_id") @db.ObjectId
   userId            String  @db.ObjectId
@@ -40,13 +80,15 @@ model Session {
 }
 
 model User {
-  id            String    @id @default(auto()) @map("_id") @db.ObjectId
-  name          String?
-  email         String?   @unique
-  emailVerified DateTime?
-  image         String?
-  accounts      Account[]
-  sessions      Session[]
+  id              String            @id @default(auto()) @map("_id") @db.ObjectId
+  name            String?
+  email           String?           @unique
+  emailVerified   DateTime?
+  image           String?
+  accounts        Account[]
+  sessions        Session[]
+  TrackItem       TrackItem[]
+  TrackAttributes TrackAttributes[]
 }
 
 model VerificationToken {

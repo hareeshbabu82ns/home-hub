@@ -40,7 +40,7 @@ export function genTWColorPaletteVariables(paletteName: string) {
     {
       ["DEFAULT"]: withOpacity(colorVar),
       foreground: withOpacity(colorForegroundVar),
-    } as Record<string, any>,
+    } as Record<string, unknown>,
   );
 }
 
@@ -61,27 +61,30 @@ export const genTWColorPalette = ({
     ? foregroundPaletteParam.colors
     : genForegroundColorPalette(palette).colors;
 
-  return Object.entries(palette.colors).reduce((acc: any, [key, value]) => {
-    acc[`${colorVar}-${key}`] = colorHslCss({
-      color: value,
-      rounded: true,
-      onlyColors: true,
-    });
-    acc[`${colorForegroundVar}-${key}`] = colorHslCss({
-      color: foregroundPalette[key],
-      rounded: true,
-      onlyColors: true,
-    });
-    // const [h, s, l] = colorHslPercent(value, true);
-    // const [hF, sF, lF] = colorHslPercent(foregroundPalette[key], true);
-    // acc[`${colorVar}-${key}`] = `${h}, ${s}%, ${l}%`;
-    // acc[`${colorForegroundVar}-${key}`] = `${hF}, ${sF}%, ${lF}%`;
-    return acc;
-  }, {});
+  return Object.entries(palette.colors).reduce(
+    (acc: Record<string, string>, [key, value]) => {
+      acc[`${colorVar}-${key}`] = colorHslCss({
+        color: value,
+        rounded: true,
+        onlyColors: true,
+      });
+      acc[`${colorForegroundVar}-${key}`] = colorHslCss({
+        color: foregroundPalette[key],
+        rounded: true,
+        onlyColors: true,
+      });
+      // const [h, s, l] = colorHslPercent(value, true);
+      // const [hF, sF, lF] = colorHslPercent(foregroundPalette[key], true);
+      // acc[`${colorVar}-${key}`] = `${h}, ${s}%, ${l}%`;
+      // acc[`${colorForegroundVar}-${key}`] = `${hF}, ${sF}%, ${lF}%`;
+      return acc;
+    },
+    {},
+  );
 };
 
 export type TwThemeGenBaseOptions = {
-  theme?: any;
+  theme?: unknown;
   darkMode?: "class" | "media";
   scope?: string;
   scopeAttr?: string;
@@ -89,6 +92,17 @@ export type TwThemeGenBaseOptions = {
   secondary: Color;
   tertiary: Color;
 };
+
+const colorHslToOklch = (color: string) =>
+  chroma(
+    color
+      .split(",")
+      .map(parseFloat)
+      .map((n, i) => (i > 0 ? n * 0.01 : n)),
+    "hsl",
+  )
+    .oklch()
+    .join(" ");
 
 const adjustHslColor = (color: string, idx: number, adjustTo: string) =>
   color
@@ -98,7 +112,7 @@ const adjustHslColor = (color: string, idx: number, adjustTo: string) =>
 
 // generate theme base color variables
 export const genTailwindThemeBase = ({
-  theme,
+  // theme,
   darkMode = "class",
   scope,
   scopeAttr = "data-theme",
@@ -106,9 +120,10 @@ export const genTailwindThemeBase = ({
   secondary,
   tertiary,
 }: TwThemeGenBaseOptions) => {
-  const [pH, pS, pL] = colorHslPercent(primary, true);
-  const [sH, sS, sL] = colorHslPercent(secondary, true);
-  const [tH, tS, tL] = colorHslPercent(tertiary, true);
+  // const [pH, pS, pL] = colorHslPercent(primary, true);
+  // const [sH, sS, sL] = colorHslPercent(secondary, true);
+  // const [tH, tS, tL] = colorHslPercent(tertiary, true);
+  const pS = colorHslPercent(primary, true)[1];
 
   const root: Record<string, string> = {};
   const dark: Record<string, string> = {};
@@ -145,6 +160,7 @@ export const genTailwindThemeBase = ({
   });
 
   // <body />
+
   root["--background"] = root["--primary-50"];
   dark["--background"] = root["--primary-950"];
   // root["--background"] = `${pHsl.h}, 30%, 95%`;
@@ -265,6 +281,57 @@ export const genTailwindThemeBase = ({
 
   // card, input and buttons
   root["--radius"] = "0.5rem";
+
+  // daisyui colors
+
+  root["--p"] = colorHslToOklch(root["--primary"]);
+  dark["--p"] = colorHslToOklch(dark["--primary"]);
+  root["--pc"] = colorHslToOklch(root["--primary-foreground"]);
+  dark["--pc"] = colorHslToOklch(dark["--primary-foreground"]);
+
+  root["--s"] = colorHslToOklch(root["--secondary"]);
+  dark["--s"] = colorHslToOklch(dark["--secondary"]);
+  root["--sc"] = colorHslToOklch(root["--secondary-foreground"]);
+  dark["--sc"] = colorHslToOklch(dark["--secondary-foreground"]);
+
+  root["--t"] = colorHslToOklch(root["--tertiary"]);
+  dark["--t"] = colorHslToOklch(dark["--tertiary"]);
+  root["--tc"] = colorHslToOklch(root["--tertiary-foreground"]);
+  dark["--tc"] = colorHslToOklch(dark["--tertiary-foreground"]);
+
+  root["--a"] = colorHslToOklch(root["--accent"]);
+  dark["--a"] = colorHslToOklch(dark["--accent"]);
+  root["--ac"] = colorHslToOklch(root["--accent-foreground"]);
+  dark["--ac"] = colorHslToOklch(dark["--accent-foreground"]);
+
+  root["--su"] = colorHslToOklch(root["--success"]);
+  dark["--su"] = colorHslToOklch(dark["--success"]);
+  root["--suc"] = colorHslToOklch(root["--success-foreground"]);
+  dark["--suc"] = colorHslToOklch(dark["--success-foreground"]);
+
+  root["--wa"] = colorHslToOklch(root["--warning"]);
+  dark["--wa"] = colorHslToOklch(dark["--warning"]);
+  root["--wac"] = colorHslToOklch(root["--warning-foreground"]);
+  dark["--wac"] = colorHslToOklch(dark["--warning-foreground"]);
+
+  root["--er"] = colorHslToOklch(root["--destructive"]);
+  dark["--er"] = colorHslToOklch(dark["--destructive"]);
+  root["--erc"] = colorHslToOklch(root["--destructive-foreground"]);
+  dark["--erc"] = colorHslToOklch(dark["--destructive-foreground"]);
+
+  root["--n"] = colorHslToOklch(root["--muted"]);
+  dark["--n"] = colorHslToOklch(dark["--muted"]);
+  root["--nc"] = colorHslToOklch(root["--muted-foreground"]);
+  dark["--nc"] = colorHslToOklch(dark["--muted-foreground"]);
+
+  root["--b1"] = colorHslToOklch(root["--primary-50"]);
+  dark["--b1"] = colorHslToOklch(root["--primary-950"]);
+  root["--b2"] = colorHslToOklch(root["--primary-100"]);
+  dark["--b2"] = colorHslToOklch(root["--primary-900"]);
+  root["--b3"] = colorHslToOklch(root["--primary-200"]);
+  dark["--b3"] = colorHslToOklch(root["--primary-800"]);
+  root["--bc"] = colorHslToOklch(root["--primary-foreground"]);
+  dark["--bc"] = colorHslToOklch(root["--primary-foreground"]);
 
   // console.log(root, dark);
 

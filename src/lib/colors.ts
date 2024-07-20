@@ -40,8 +40,8 @@ export const colorHslCss = ({
   onlyColors = false,
 }: {
   color: Color;
-  rounded?: Boolean;
-  onlyColors?: Boolean;
+  rounded?: boolean;
+  onlyColors?: boolean;
 }) => {
   const [h, s, l] = color.hsl();
   const [rH, rS, rL] = [
@@ -54,7 +54,7 @@ export const colorHslCss = ({
     : `hsl( ${isNaN(rH) ? 0 : rH}, ${rS}%, ${rL}% )`;
 };
 
-export const colorHslPercent = (color: Color, rounded: Boolean = false) => {
+export const colorHslPercent = (color: Color, rounded: boolean = false) => {
   const [h, s, l] = color.hsl();
   return [
     rounded ? Math.round(h) : h,
@@ -65,7 +65,7 @@ export const colorHslPercent = (color: Color, rounded: Boolean = false) => {
 
 export const genColorPalette = (
   base: Color,
-  useBezier: Boolean = true,
+  useBezier: boolean = true,
 ): ColorPalette => {
   // console.log("generatePalette for: ", base.hex(), base.hsl());
   const palette: Record<string, Color> = {};
@@ -97,26 +97,26 @@ export const genColorPalette = (
   return { name: "", colors: palette };
 };
 
-const genSafePalette = (base: Color): ColorPalette => {
-  const palette = genColorPalette(
-    base.get("hsl.l") < 5 ? base.set("hsl.l", 10) : base,
-  ).colors;
+// const genSafePalette = (base: Color): ColorPalette => {
+//   const palette = genColorPalette(
+//     base.get("hsl.l") < 5 ? base.set("hsl.l", 10) : base,
+//   ).colors;
 
-  const latestWhite = Object.keys(palette)
-    .reverse()
-    .find((key) => {
-      return palette[key].get("hsl.l") >= 100;
-    });
-  if (latestWhite && latestWhite !== "50") {
-    const whiteIndex = paletteColorKeys.indexOf(latestWhite);
-    const halfIndex = Math.round(paletteColorKeys.length / 2);
-    const newIndex = halfIndex + whiteIndex;
-    // console.log("latestWhite", latestWhite, whiteIndex, newIndex);
-    return genColorPalette(base.darken(whiteIndex * 0.15));
-  }
+//   const latestWhite = Object.keys(palette)
+//     .reverse()
+//     .find((key) => {
+//       return palette[key].get("hsl.l") >= 100;
+//     });
+//   if (latestWhite && latestWhite !== "50") {
+//     const whiteIndex = paletteColorKeys.indexOf(latestWhite);
+//     // const halfIndex = Math.round(paletteColorKeys.length / 2);
+//     // const newIndex = halfIndex + whiteIndex;
+//     // console.log("latestWhite", latestWhite, whiteIndex, newIndex);
+//     return genColorPalette(base.darken(whiteIndex * 0.15));
+//   }
 
-  return { name: "", colors: palette };
-};
+//   return { name: "", colors: palette };
+// };
 
 export function negateColor(color: Color) {
   const rgb = color.rgb();
@@ -127,14 +127,13 @@ export function negateColor(color: Color) {
 }
 
 export function complementColor(color: Color) {
-  var [h, s, l] = color.hsl();
-  h = (h + 180) % 360;
-  return chroma.hsl(h, s, l);
+  const [h, s, l] = color.hsl();
+  const hCalc = (h + 180) % 360;
+  return chroma.hsl(hCalc, s, l);
 }
 
 export function splitcomplementColors(color: Color) {
-  var [h, s, l] = color.hsl();
-  var h = h;
+  const [h, s, l] = color.hsl();
   return [
     color,
     chroma.hsl((h + 72) % 360, s, l),
@@ -148,12 +147,13 @@ export function analogousColors(
 ) {
   results = results || 6;
   slices = slices || 30;
-  var [h, s, l] = color.hsl();
-  var part = 360 / slices;
-  var ret = [color];
-  for (h = (h - ((part * results) >> 1) + 720) % 360; --results; ) {
-    h = (h + part) % 360;
-    ret.push(chroma.hsl(h, s, l));
+  const [h, s, l] = color.hsl();
+  const part = 360 / slices;
+  const ret = [color];
+  let hCalc = h;
+  for (hCalc = (hCalc - ((part * results) >> 1) + 720) % 360; --results; ) {
+    hCalc = (hCalc + part) % 360;
+    ret.push(chroma.hsl(hCalc, s, l));
   }
   return ret;
 }
@@ -162,10 +162,10 @@ export function triadColors(color: Color, number: number = 3) {
   if (isNaN(number) || number <= 0) {
     throw new Error("Argument to polyad must be a positive number");
   }
-  var [h, s, l] = color.hsl();
-  var result = [color];
-  var step = 360 / number;
-  for (var i = 1; i < number; i++) {
+  const [h, s, l] = color.hsl();
+  const result = [color];
+  const step = 360 / number;
+  for (let i = 1; i < number; i++) {
     result.push(chroma.hsl((h + i * step) % 360, s, l));
   }
   return result;

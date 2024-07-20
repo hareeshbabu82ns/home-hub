@@ -1,5 +1,11 @@
 import { SidebarLink } from "@/components/SidebarItems";
-import { Cog, Globe, HomeIcon } from "lucide-react";
+import {
+  Cog,
+  Palette as Themes,
+  HomeIcon,
+  Timer as Tracks,
+  IndianRupee as Loans,
+} from "lucide-react";
 
 type AdditionalLinks = {
   title: string;
@@ -14,22 +20,27 @@ export const defaultLinks: SidebarLink[] = [
 
 export const additionalLinks: AdditionalLinks[] = [
   {
+    title: "Entities",
+    links: [
+      {
+        href: "/tracks",
+        title: "Tracks",
+        icon: Tracks,
+      },
+      {
+        href: "/loans",
+        title: "Loans",
+        icon: Loans,
+      },
+    ],
+  },
+  {
     title: "Themes",
     links: [
       {
         href: "/theme/colors",
         title: "Colors",
-        icon: Globe,
-      },
-    ],
-  },
-  {
-    title: "Entities",
-    links: [
-      {
-        href: "/pages",
-        title: "Pages",
-        icon: Globe,
+        icon: Themes,
       },
     ],
   },

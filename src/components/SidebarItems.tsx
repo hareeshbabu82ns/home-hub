@@ -46,9 +46,9 @@ const SidebarLinkGroup = ({
   const pathname = "/" + fullPathname.split("/")[1];
 
   return (
-    <div className={border ? "border-border my-8 border-t pt-4" : ""}>
+    <div className={border ? "my-8 border-t border-border pt-4" : ""}>
       {title ? (
-        <h4 className="text-muted-foreground mb-2 px-2 text-xs uppercase tracking-wider">
+        <h4 className="mb-2 px-2 text-xs uppercase tracking-wider text-muted-foreground">
           {title}
         </h4>
       ) : null}
@@ -72,14 +72,15 @@ const SidebarLink = ({
   return (
     <Link
       href={link.href}
-      className={cn("text-muted-foreground hover:bg-popover hover:text-popover-foreground group inline-block w-full rounded-md p-2 text-xs transition-colors hover:shadow",
-        active ? " text-popover-foreground font-semibold" : ""
+      className={cn(
+        "group inline-block w-full rounded-md p-2 text-xs text-muted-foreground transition-colors hover:bg-popover hover:text-popover-foreground hover:shadow",
+        active ? " font-semibold text-popover-foreground" : "",
       )}
     >
       <div className="flex items-center">
         <div
           className={cn(
-            "bg-accent absolute left-0 h-6 w-[4px] rounded-r-lg  opacity-0",
+            "absolute left-0 h-6 w-[4px] rounded-r-lg bg-accent  opacity-0",
             active ? "opacity-100" : "",
           )}
         />

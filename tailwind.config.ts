@@ -1,6 +1,8 @@
 import type { Config } from "tailwindcss";
 // import { fontFamily } from "tailwindcss/defaultTheme";
 import animatePlugin from "tailwindcss-animate";
+import daisyUI from "daisyui";
+// import themes from "daisyui/src/theming/themes";
 import twScrollbarPluginWithOptions from "./src/lib/tw-scroll-bar-plugin";
 import twThemeGenPluginCreator from "./src/lib/tw-theme-gen-plugin";
 import containerQueryPlugin from "@tailwindcss/container-queries";
@@ -73,9 +75,22 @@ const config = {
     "./src/**/*.{ts,tsx}",
   ],
 
+  // daisyui: {
+  //   themes: [
+  //     {
+  //       light: {
+  //         ...themes["light"],
+  //         primary: "blue",
+  //         secondary: "teal",
+  //       },
+  //     },
+  //   ],
+  // },
+
   plugins: [
     animatePlugin,
     containerQueryPlugin,
+    daisyUI,
     twScrollbarPlugin,
     twThemeGenPlugin,
     ...twColorThemePlugins,
