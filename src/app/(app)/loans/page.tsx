@@ -1,15 +1,17 @@
 import { Card } from "@/components/ui/card";
 import { calculateEMISplitsWithStats } from "@/lib/loans/calc";
 import { ExtraPayment, LoanData } from "@/lib/loans/types";
+import EmiSPlitsBarChart from "./emi-splits-bar-chart";
+import { EMISplitsStatsPieChart } from "./emi-splits-stats-pie-chart";
 
 export default async function Home() {
   const loanData: LoanData = {
-    amount: 420000,
+    amount: 380000,
     roi: 1.5,
     term: 240,
     emi: 0,
-    startDate: Date.parse("2022-03-01").valueOf(), //Date.now(),
-    emiPaid: 1344,
+    startDate: Date.parse("2022-03-01").valueOf(),
+    emiPaid: 1844,
   };
 
   const loanExtraPayments: ExtraPayment[] = [];
@@ -33,7 +35,7 @@ export default async function Home() {
 
   const splits = calculateEMISplitsWithStats(loanData, [], [], true);
   const splitsExtras = calculateEMISplitsWithStats(
-    { ...loanData, emiPaid: 1544 },
+    { ...loanData, emiPaid: 2044 },
     [],
     loanExtraPayments,
     true,
@@ -45,6 +47,20 @@ export default async function Home() {
       <Card>
         <pre>{JSON.stringify(loanData, null, 2)}</pre>
       </Card>
+      <div className="flex flex-row gap-4">
+        <EMISplitsStatsPieChart stats={splits.stats} title="Base Splits" />
+        <EMISplitsStatsPieChart
+          stats={splitsExtras.stats}
+          title="Splits with extras"
+        />
+      </div>
+      <div className="flex flex-row gap-4">
+        <EmiSPlitsBarChart splits={splits.splits} title="Base Splits" />
+        <EmiSPlitsBarChart
+          splits={splitsExtras.splits}
+          title="Splits with extras"
+        />
+      </div>
       <div className="flex flex-row gap-4">
         <Card className="flex-1">
           <pre>{JSON.stringify(splits, null, 2)}</pre>

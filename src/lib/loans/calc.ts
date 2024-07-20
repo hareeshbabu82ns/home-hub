@@ -2,20 +2,19 @@ import {
   addMonths,
   endOfYear,
   isAfter,
-  isBefore,
   isSameDay,
   isSameMonth,
   isSameYear,
-  sub,
-  subMonths,
   toDate,
 } from "date-fns";
 import {
   EMIRecord,
   EMISplit,
+  EMISplitStats,
   ExtraPayment,
   LoanData,
   RateOfInterest,
+  SplitsWithStats,
 } from "./types";
 
 export const calculateEMI = (amount: number, roi: number, term: number) => {
@@ -44,11 +43,11 @@ const getROIOfMonth = (
 
 const getExtraPaymentsOfMonth = (date: Date, extraPayments: ExtraPayment[]) => {
   let amount = 0;
-  const monthAgo = subMonths(date, 1);
+  // const monthAgo = subMonths(date, 1);
   extraPayments.forEach((payment) => {
     if (isSameMonth(date, payment.date)) {
       // if (isAfter(monthAgo, payment.date) && isBefore(date, payment.date)) {
-      console.log({ monthAgo, paymentDate: toDate(payment.date), date });
+      // console.log({ monthAgo, paymentDate: toDate(payment.date), date });
       amount += payment.amount;
     }
   });
@@ -154,7 +153,7 @@ export const calculateEMISplitsWithStats = (
   roiChanges: RateOfInterest[],
   extraPayments: ExtraPayment[],
   byYear: boolean = false,
-) => {
+): SplitsWithStats => {
   const splits = calculateEMISplits(
     loanData,
     roiChanges,
@@ -162,7 +161,7 @@ export const calculateEMISplitsWithStats = (
     byYear,
   );
 
-  const stats = {
+  const stats: EMISplitStats = {
     total: 0,
     interest: 0,
     interestPercent: 0,

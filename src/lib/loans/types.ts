@@ -34,3 +34,13 @@ export interface EMISplit {
   balancePrinciple: number;
   finishedPercent: number;
 }
+export interface EMISplitStats {
+  total: number;
+  interestPercent: number;
+  interest: number;
+}
+
+export interface SplitsWithStats {
+  splits: EMISplit[];
+  stats: EMISplitStats;
+}

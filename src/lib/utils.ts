@@ -282,6 +282,18 @@ export const genTailwindThemeBase = ({
   // card, input and buttons
   root["--radius"] = "0.5rem";
 
+  // charts
+  root["--chart-1"] = "12 76% 61%";
+  dark["--chart-1"] = "220 70% 50%";
+  root["--chart-2"] = "173 58% 39%";
+  dark["--chart-2"] = "160 60% 45%";
+  root["--chart-3"] = "197 37% 24%";
+  dark["--chart-3"] = "30 80% 55%";
+  root["--chart-4"] = "43 74% 66%";
+  dark["--chart-4"] = "280 65% 60";
+  root["--chart-5"] = "27 87% 67%";
+  dark["--chart-5"] = "340 75% 55%";
+
   // daisyui colors
 
   root["--p"] = colorHslToOklch(root["--primary"]);
