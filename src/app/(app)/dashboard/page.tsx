@@ -1,6 +1,8 @@
 import SignIn from "@/components/auth/SignIn";
+import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { getUserAuth } from "@/lib/auth/utils";
+import Link from "next/link";
 
 export default async function Home() {
   const { session } = await getUserAuth();
@@ -15,6 +17,9 @@ export default async function Home() {
         </Card>
       ) : null}
       <SignIn />
+      <Button asChild>
+        <Link href="/dashboard/extras/scrap-web">Project Chalam </Link>
+      </Button>
     </main>
   );
 }
