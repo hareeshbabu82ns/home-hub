@@ -84,7 +84,6 @@ export const login = async ({
 }) => {
   try {
     return account.createEmailPasswordSession(email, password);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } catch (error: any) {
     throw new Error(error?.message);
   }
@@ -101,7 +100,6 @@ export const logout = async ({
     if (sessionId) await account.deleteSession(sessionId);
     else if (userId) await account.deleteSessions();
     else account.deleteSession("current");
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } catch (error: any) {
     throw new Error(error?.message);
   }
@@ -118,7 +116,6 @@ export const register = async ({
 }) => {
   try {
     return account.create("unique()", email, password, name);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } catch (error: any) {
     throw new Error(error?.message);
   }
@@ -127,7 +124,6 @@ export const register = async ({
 export const getUserData = async () => {
   try {
     return account.get();
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } catch (error: any) {
     throw new Error(error?.message);
   }

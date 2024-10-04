@@ -118,11 +118,11 @@ export async function updateTrackItemAttribute(
       where: { id: data.id },
       data: {
         title: data.title,
-        value: data.value,
-        valueType: data.valueType,
-        valueInt: data.valueInt,
-        valueFloat: data.valueFloat,
-        valueDate: data.valueDate,
+        // value: data.value,
+        // valueType: data.valueType,
+        // valueInt: data.valueInt,
+        // valueFloat: data.valueFloat,
+        // valueDate: data.valueDate,
         userId: session.user.id,
       },
     });

@@ -9,7 +9,7 @@ export default async function Home() {
   return (
     <main className="my-4 space-y-4">
       <h1 className="text-2xl font-semibold">Track</h1>
-      <div className="border border-base-300">
+      <div className="border-base-300 border">
         <div className="navbar bg-secondary/50">
           <div className="navbar-start">
             <a className="text-xl">Trackings</a>
@@ -26,7 +26,7 @@ export default async function Home() {
   );
 }
 
-function TrackItemTable({ tracks }: { tracks: TrackItem[] }) {
+function TrackItemTable( { tracks }: { tracks: TrackItem[] } ) {
   return (
     <div className="overflow-x-auto">
       <table className="table">
@@ -39,7 +39,7 @@ function TrackItemTable({ tracks }: { tracks: TrackItem[] }) {
           </tr>
         </thead>
         <tbody>
-          {tracks.map((track) => (
+          {tracks.map( ( track ) => (
             <tr key={track.id} className="hover">
               <td>
                 <Link href={`/tracks/${track.id}`}>{track.title}</Link>
@@ -47,7 +47,7 @@ function TrackItemTable({ tracks }: { tracks: TrackItem[] }) {
               <td>{track.description}</td>
               <td>{track.updatedAt.toISOString()}</td>
             </tr>
-          ))}
+          ) )}
         </tbody>
       </table>
     </div>

@@ -8,7 +8,7 @@ interface CompProps {
   className?: string;
 }
 
-const Loader = ({ className }: CompProps) => {
+const Loader = ( { className }: CompProps ) => {
   return (
     <div
       className={cn(
@@ -16,7 +16,7 @@ const Loader = ({ className }: CompProps) => {
         className,
       )}
     >
-      <LoaderCircle className="size-8 animate-spin text-primary" />
+      <LoaderCircle className="text-primary size-8 animate-spin" />
     </div>
   );
 };

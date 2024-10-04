@@ -1,5 +1,6 @@
 "use server";
 
+import config from "@/config";
 import * as cheerio from "cheerio";
 import fs from "fs/promises";
 import { createWriteStream } from "fs";
@@ -10,7 +11,7 @@ import { ArchiveOrgFieldType, ArchiveOrgSearchResult } from "./types";
 
 const csvWriter = createObjectCsvWriter({
   append: true,
-  path: "data/project-chalam-downloaded-links.csv",
+  path: path.resolve(config.dataFolder, "project-chalam-downloaded-links.csv"),
   header: [
     { id: "title", title: "Title" },
     { id: "url", title: "URL" },
@@ -25,11 +26,14 @@ export async function downloadValidLinks({
 }) {
   // read title and link from csv file
   const data = await fs.readFile(
-    "data/project-chalam-telugu-books-collection.csv",
+    path.resolve(
+      config.dataFolder,
+      "project-chalam-telugu-books-collection.csv",
+    ),
     "utf-8",
   );
   const downloadedLinksFile = await fs.readFile(
-    "data/project-chalam-downloaded-links.csv",
+    path.resolve(config.dataFolder, "project-chalam-downloaded-links.csv"),
     "utf-8",
   );
   const downloadedLinks = downloadedLinksFile
@@ -168,7 +172,7 @@ async function fileStreamDownload(
   );
 
   // Use readable stream to pipe the response data and track progress
-  const readableStream = Readable.from(response.body);
+  const readableStream = Readable.from(response.body as never);
   readableStream.on("data", (chunk: Buffer) => {
     downloadedBytes += chunk.length;
     const progress = (downloadedBytes / totalBytes) * 100;

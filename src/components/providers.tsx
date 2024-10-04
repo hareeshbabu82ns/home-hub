@@ -13,7 +13,7 @@ import { toastVariants } from "./custom-toast";
 
 export const queryClient = new QueryClient();
 
-export function ThemeProvider({ children, ...props }: ThemeProviderProps) {
+export function ThemeProvider( { children, ...props }: ThemeProviderProps ) {
   return (
     <JotaiProvider>
       <QueryClientProvider client={queryClient}>
@@ -22,15 +22,15 @@ export function ThemeProvider({ children, ...props }: ThemeProviderProps) {
             <ShadcnToaster />
             <Toaster
               position="top-center"
-              className="group toast w-full max-w-xl border-border bg-background text-foreground shadow-lg"
+              className="toast border-border bg-background text-foreground group w-full max-w-xl shadow-lg"
               toastOptions={{
                 unstyled: true,
                 classNames: {
-                  toast: cn(toastVariants({ variant: "default" })),
-                  error: cn(toastVariants({ variant: "destructive" })),
-                  success: cn(toastVariants({ variant: "success" })),
-                  warning: cn(toastVariants({ variant: "warning" })),
-                  info: cn(toastVariants({ variant: "default" })),
+                  toast: cn( toastVariants( { variant: "default" } ) ),
+                  error: cn( toastVariants( { variant: "destructive" } ) ),
+                  success: cn( toastVariants( { variant: "success" } ) ),
+                  warning: cn( toastVariants( { variant: "warning" } ) ),
+                  info: cn( toastVariants( { variant: "default" } ) ),
                   closeButton: "left-1 top-1",
                 },
               }}

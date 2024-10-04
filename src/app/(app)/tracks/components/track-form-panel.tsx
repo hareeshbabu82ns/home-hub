@@ -10,19 +10,19 @@ const initialTrackItem: Omit<TrackItem, "userId"> = {
   updatedAt: new Date(),
 };
 
-export default async function TrackDetailsPanel({
+export default async function TrackDetailsPanel( {
   params: { id },
 }: {
   params: { id: string };
-}) {
+} ) {
   const track = (
-    id === "new" ? initialTrackItem : await fetchTrackItem(id)
+    id === "new" ? initialTrackItem : await fetchTrackItem( id )
   ) as TrackItem;
 
   return (
     <main className="my-4 space-y-4">
-      <div className="border border-base-300">
-        <div className="navbar min-h-2 bg-secondary/50">
+      <div className="border-base-300 border">
+        <div className="navbar bg-secondary/50 min-h-2">
           <div className="navbar-start">
             <h3 className="text-xl">
               {track.id === "new" ? "Create " : "Edit "} Track

@@ -17,21 +17,21 @@ const initialTrackAttr: Omit<TrackAttributes, "userId"> = {
   updatedAt: new Date(),
 };
 
-export default async function TrackDetailsForm({
+export default async function TrackDetailsForm( {
   params: { id, attributeId },
 }: {
   params: { id: string; attributeId: string };
-}) {
+} ) {
   const attr = (
     id === "new" || attributeId === "new"
       ? initialTrackAttr
-      : await fetchTrackAttribute(attributeId)
+      : await fetchTrackAttribute( attributeId )
   ) as TrackAttributes;
 
   return (
     <main className="space-y-4">
-      <div className="border border-base-300">
-        <div className="navbar min-h-2 bg-secondary/50">
+      <div className="border-base-300 border">
+        <div className="navbar bg-secondary/50 min-h-2">
           <div className="navbar-start">
             <h3 className="text-xl">
               {attr.id === "new" ? "Create " : "Edit "} TrackAttribute
@@ -39,7 +39,7 @@ export default async function TrackDetailsForm({
           </div>
         </div>
         <div className="p-4">
-          <TrackAttributeForm attr={attr} />
+          {/* <TrackAttributeForm attr={attr} /> */}
         </div>
       </div>
     </main>

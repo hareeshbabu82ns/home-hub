@@ -16,9 +16,22 @@ import {
 } from "@/components/ui/card";
 import useDebouncedCallback from "@/lib/hooks/useDebouncedCallback";
 
+// https://archive.org/services/search/v1/scrape?fields=title,language,date,format,subject,collection&q=(language:tel OR language:"Telugu") AND collection:"digitallibraryindia"&count=100
+// total: 18221
+// https://archive.org/services/search/v1/scrape?fields=title,language,date,format,subject,collection&q=(language:tel OR language:"Telugu") AND mediatype:"audio"&count=100
+// total: 2478
+// https://archive.org/services/search/v1/scrape?fields=title,language,date,format,subject,collection&q=(language:san OR language:"Sanskrit") AND collection:"digitallibraryindia"&count=100
+// total: 54496
+// https://archive.org/services/search/v1/scrape?fields=title,language,date,format,subject,collection&q=(language:san OR language:"Sanskrit") AND mediatype:"audio"&count=100
+// total: 1361
 const ArchiveOrgPage = () => {
   const [query, setQuery] = useState(
-    '(language:san OR language:"Sanskrit") AND mediatype:"audio" AND ramayanam',
+    // '(language:san OR language:"Sanskrit") AND mediatype:"audio" AND ramayanam',
+    // 'creator:"Digital Library Of India"' / 'collection:"digitallibraryindia"'
+    // '(language:san OR language:"Sanskrit" or language:tel OR language:"Telugu") AND collection:"JaiGyan"', // from bharath ek khoj
+    // 'creator:"Gita Press Gorakhpur"',
+    // 'subject:"IIIT"',
+    '(language:san OR language:"Sanskrit") AND collection:"digitallibraryindia" AND veda',
   );
   const debouncedQuery = useDebouncedCallback(setQuery, 1000);
 

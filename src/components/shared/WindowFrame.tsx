@@ -7,12 +7,12 @@ interface WindowFrameProps {
   className?: string;
   classNameNavbar?: string;
 }
-const WindowFrame = ({
+const WindowFrame = ( {
   title,
   children,
   className,
   classNameNavbar,
-}: WindowFrameProps) => {
+}: WindowFrameProps ) => {
   return (
     <div
       className={cn(
@@ -28,13 +28,13 @@ const WindowFrame = ({
           classNameNavbar,
         )}
       >
-        <div className="my-2.5 ml-20 rounded-md bg-gray-400/40 px-5 py-1 text-xs text-slate-600 dark:bg-zinc-500/40 dark:text-slate-300 sm:mx-auto md:px-10">
+        <div className="my-2.5 ml-20 rounded-md bg-gray-400/40 px-5 py-1 text-xs text-slate-600 sm:mx-auto md:px-10 dark:bg-zinc-500/40 dark:text-slate-300">
           {title}
         </div>
         <div className="absolute left-4 top-3.5 flex flex-row forced-color-adjust-none">
-          <div className="mr-2 h-3 w-3 rounded-full border border-black/5 bg-red-500"></div>
-          <div className="mr-2 h-3 w-3 rounded-full border border-black/5 bg-yellow-500"></div>
-          <div className="h-3 w-3 rounded-full border border-black/5 bg-green-500"></div>
+          <div className="mr-2 size-3 rounded-full border border-black/5 bg-red-500"></div>
+          <div className="mr-2 size-3 rounded-full border border-black/5 bg-yellow-500"></div>
+          <div className="size-3 rounded-full border border-black/5 bg-green-500"></div>
         </div>
       </div>
 

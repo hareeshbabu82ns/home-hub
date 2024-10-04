@@ -1,37 +1,37 @@
 import { useRef, useEffect, useCallback } from "react";
 
-function useDebouncedCallback(
-  callback: (...args: never[]) => void,
+function useDebouncedCallback<T extends ( ...args: any[] ) => void>(
+  callback: T,
   delay: number,
 ) {
-  const callbackRef = useRef(callback);
+  const callbackRef = useRef( callback );
   const timeoutRef = useRef<NodeJS.Timeout>();
 
   // Update current callback to the latest one each time it changes
-  useEffect(() => {
+  useEffect( () => {
     callbackRef.current = callback;
-  }, [callback]);
+  }, [ callback ] );
 
-  const debouncedCallback: (...args: never[]) => void = useCallback(
-    (...args: []) => {
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
+  const debouncedCallback: ( ...args: Parameters<T> ) => void = useCallback(
+    ( ...args: Parameters<T> ) => {
+      if ( timeoutRef.current ) {
+        clearTimeout( timeoutRef.current );
       }
-      timeoutRef.current = setTimeout(() => {
-        callbackRef.current(...args);
-      }, delay);
+      timeoutRef.current = setTimeout( () => {
+        callbackRef.current( ...args );
+      }, delay );
     },
-    [delay],
+    [ delay ],
   );
 
   // Clean up on unmount
-  useEffect(() => {
+  useEffect( () => {
     return () => {
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
+      if ( timeoutRef.current ) {
+        clearTimeout( timeoutRef.current );
       }
     };
-  }, []);
+  }, [] );
 
   return debouncedCallback;
 }

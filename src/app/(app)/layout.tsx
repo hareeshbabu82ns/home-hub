@@ -7,11 +7,11 @@ import { cn } from "@/lib/utils";
 import { type ClassValue } from "clsx";
 import AppTitleLogo from "@/components/AppTitleLogo";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
-export default async function AppLayout({
+export default async function AppLayout( {
   children,
 }: {
   children: React.ReactNode;
-}) {
+} ) {
   await checkAuth();
   return (
     <main>
@@ -24,7 +24,7 @@ export default async function AppLayout({
   );
 }
 
-function WithNavSidebar({
+function WithNavSidebar( {
   children,
   classNamePage,
   classNameSidebar,
@@ -34,7 +34,7 @@ function WithNavSidebar({
   classNamePage?: ClassValue;
   classNameSidebar?: ClassValue;
   classNameContents?: ClassValue;
-}) {
+} ) {
   return (
     <div
       className={cn(
@@ -44,7 +44,7 @@ function WithNavSidebar({
     >
       <aside
         className={cn(
-          "hidden h-screen w-full min-w-52 shrink-0 border-r border-border shadow-inner md:sticky md:block",
+          "border-border hidden h-screen w-full min-w-52 shrink-0 border-r shadow-inner md:sticky md:block",
           classNameSidebar,
         )}
       >
@@ -61,7 +61,7 @@ function WithNavSidebar({
         </Sheet>
 
         <main className="flex-1 overflow-y-auto overflow-x-hidden">
-          <div className={cn("md:py px-4 py-2 md:px-6", classNameContents)}>
+          <div className={cn( "md:py px-4 py-2 md:px-6", classNameContents )}>
             {children}
           </div>
         </main>
