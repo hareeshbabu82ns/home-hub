@@ -12,14 +12,11 @@ export default async function Home() {
       {session ? (
         <Card>
           <pre className="whitespace-break-spaces break-all rounded-sm p-4 shadow-sm">
-            {JSON.stringify(session, null, 2)}
+            {JSON.stringify( session, null, 2 )}
           </pre>
         </Card>
       ) : null}
       <SignIn />
-      <Button asChild>
-        <Link href="/dashboard/extras/scrap-web">Project Chalam </Link>
-      </Button>
     </main>
   );
 }
