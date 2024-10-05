@@ -51,6 +51,9 @@ export default function Home() {
                   >
                     Contact Sales
                   </Link>
+                  <Button asChild>
+                    <Link href="/extras/scrap-web">Project Chalam </Link>
+                  </Button>
                 </div>
               </div>
             </div>
