@@ -27,12 +27,14 @@ export default function RootLayout({
           "bg-background min-h-screen font-sans antialiased",
           fontSans.variable,
         )}
+        suppressHydrationWarning
       >
         <ThemeProvider
           attribute="class"
           defaultTheme="system"
           enableSystem
           disableTransitionOnChange
+          storageKey="homehub-theme"
         >
           {children}
         </ThemeProvider>

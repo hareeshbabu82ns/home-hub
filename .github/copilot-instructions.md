@@ -7,6 +7,8 @@ applyTo: "**/*.tsx, **/*.ts, **/*.jsx, **/*.js, **/*.css"
 
 This file provides guidelines for GitHub Copilot to ensure consistent, clean, and performant code generation for React and Next.js applications.
 
+Note: for **Validating Changes by GitHub Copilot** do not build the app, instead check the errors from the terminal and fix them. If app is not running, suggest to run `pnpm dev` to start the development server. or compile using `tsc --noEmit` to check for TypeScript errors.
+
 # Next.js + Tailwind Development Instructions
 
 Instructions for high-quality Next.js applications with Tailwind CSS styling and TypeScript.

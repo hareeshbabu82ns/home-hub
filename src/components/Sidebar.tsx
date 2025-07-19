@@ -8,52 +8,54 @@ import AppTitleLogo from "./AppTitleLogo";
 
 const Sidebar = async () => {
   const session = await getUserAuth();
-  if ( session.session === null ) return null;
+  if (session.session === null) return null;
 
   return (
-    <aside className="bg-muted flex h-full flex-col justify-between">
-      <div className="h-full space-y-2">
-        <div className="pl-2 md:pl-4">
-          <AppTitleLogo />
-        </div>
-        <div className="py-4 pl-4 pr-6 md:py-6">
+    <div className="flex h-full flex-col">
+      {/* Navigation Items */}
+      <div className="flex-1 overflow-y-auto py-4">
+        <div className="px-4 lg:px-6">
           <SidebarItems />
         </div>
       </div>
-      <div className="p-2">
+
+      {/* User Details at bottom */}
+      <div className="border-border bg-muted/30 border-t p-4">
         <UserDetails session={session as AuthSession} />
       </div>
-    </aside>
+    </div>
   );
 };
 
 export default Sidebar;
 
-const UserDetails = ( { session }: { session: AuthSession } ) => {
-  if ( session.session === null ) return null;
+const UserDetails = ({ session }: { session: AuthSession }) => {
+  if (session.session === null) return null;
   const { user } = session.session;
 
-  if ( !user?.name || user.name.length == 0 ) return null;
+  if (!user?.name || user.name.length == 0) return null;
 
   return (
-    <Link href="/account">
-      <div className="border-border flex w-full items-center justify-between border-t px-2 pt-4">
-        <div className="text-muted-foreground">
-          <p className="text-xs">{user.name ?? "John Doe"}</p>
-          <p className="pr-4 text-xs font-light">
-            {user.email ?? "john@doe.com"}
-          </p>
-        </div>
-        <Avatar className="size-10">
-          <AvatarFallback className="border-border text-muted-foreground border-2">
+    <Link href="/account" className="block w-full">
+      <div className="hover:bg-accent hover:text-accent-foreground flex items-center gap-3 rounded-lg p-2 transition-colors">
+        <Avatar className="h-8 w-8 shrink-0">
+          <AvatarFallback className="border-border border text-xs">
             {user.name
               ? user.name
-                ?.split( " " )
-                .map( ( word: string ) => word[ 0 ].toUpperCase() )
-                .join( "" )
+                  ?.split(" ")
+                  .map((word: string) => word[0].toUpperCase())
+                  .join("")
               : "~"}
           </AvatarFallback>
         </Avatar>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-medium">
+            {user.name ?? "John Doe"}
+          </p>
+          <p className="text-muted-foreground truncate text-xs">
+            {user.email ?? "john@doe.com"}
+          </p>
+        </div>
       </div>
     </Link>
   );

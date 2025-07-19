@@ -20,20 +20,31 @@ export default function Navbar({
   themeToggle?: boolean;
 }) {
   const pathname = usePathname();
+
   return (
-    <header className="bg-muted text-muted-foreground border-b-1 flex h-14 items-center justify-between p-2 md:px-4">
-      <div className="flex items-center space-x-4">{children}</div>
-      <div className="flex items-center space-x-2">
-        {actions}
-        {themeToggle && <ThemeToggle />}
+    <nav className="flex w-full items-center justify-between px-4 py-2 sm:px-6">
+      {/* Left side - Logo and hamburger menu */}
+      <div className="flex items-center gap-3">
         {sidebarTrigger && (
-          <SheetTrigger asChild className="flex md:hidden">
-            <Button variant="ghost" size="icon">
-              <MenuIcon />
+          <SheetTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="lg:hidden"
+              aria-label="Toggle sidebar"
+            >
+              <MenuIcon className="h-5 w-5" />
             </Button>
           </SheetTrigger>
         )}
+        <div className="flex items-center">{children}</div>
       </div>
-    </header>
+
+      {/* Right side - Actions and theme toggle */}
+      <div className="flex items-center gap-2">
+        {actions}
+        {themeToggle && <ThemeToggle />}
+      </div>
+    </nav>
   );
 }

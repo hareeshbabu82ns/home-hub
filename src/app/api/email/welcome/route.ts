@@ -1,17 +1,17 @@
+import { resend } from "@/lib/email";
 import { WelcomeEmail } from "@/components/emails/WelcomeEmail";
-import { resend } from "@/lib/email/index";
-import { emailWelcomeSchema } from "@/lib/email/utils";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import React from "react";
 
-export async function POST(request: Request) {
-  const body = await request.json();
-  const { name, email } = emailWelcomeSchema.parse(body);
+export async function POST(request: NextRequest) {
+  const { name, email } = await request.json();
+
   try {
     const data = await resend.emails.send({
       from: "TerabitIO <onboarding@resend.dev>",
       to: [email],
       subject: "Welcome to HomeHub",
-      react: WelcomeEmail({ firstName: name }),
+      react: React.createElement(WelcomeEmail, { firstName: name }),
       text: "Email powered by Resend.",
     });
 

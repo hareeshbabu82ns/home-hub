@@ -25,7 +25,7 @@ export function useValidatedForm<Entity>(insertEntityZodSchema: ZodSchema) {
         });
         const fieldError = result.success
           ? undefined
-          : result.error.flatten().fieldErrors[field];
+          : (result.error.flatten().fieldErrors[field] as string[] | undefined);
 
         setErrors((prev) => ({
           ...prev,
