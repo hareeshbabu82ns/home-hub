@@ -1,65 +1,211 @@
-import { Card } from "@/components/ui/card";
+"use client";
+
+import { useState } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
 import { calculateEMISplitsWithStats } from "@/lib/loans/calc";
 import { ExtraPayment, LoanData } from "@/lib/loans/types";
 import EmiSPlitsBarChart from "./emi-splits-bar-chart";
 import { EMISplitsStatsPieChart } from "./emi-splits-stats-pie-chart";
+import { format } from "date-fns";
 
-export default async function Home() {
-  const loanData: LoanData = {
+export default function LoansPage() {
+  const [loanInputs, setLoanInputs] = useState({
     amount: 43000,
     roi: 4.5,
     term: 240,
-    emi: 0,
-    startDate: Date.parse("2020-03-01").valueOf(),
-    emiPaid: 1440,
+    startDate: "2020-03-01",
+  });
+
+  const [extraPayments, setExtraPayments] = useState<ExtraPayment[]>([
+    {
+      amount: 20000,
+      date: Date.parse("2022-07-04").valueOf(),
+    },
+    {
+      amount: 10000,
+      date: Date.parse("May 10, 2023").valueOf(),
+    },
+  ]);
+
+  const [showExtras, setShowExtras] = useState(true);
+
+  const handleInputChange = (field: string, value: string | number) => {
+    setLoanInputs(prev => ({
+      ...prev,
+      [field]: value,
+    }));
   };
 
-  const loanExtraPayments: ExtraPayment[] = [];
+  const calculateLoans = () => {
+    const loanData: LoanData = {
+      amount: loanInputs.amount,
+      roi: loanInputs.roi,
+      term: loanInputs.term,
+      emi: 0,
+      startDate: Date.parse(loanInputs.startDate).valueOf(),
+      emiPaid: 0,
+    };
 
-  loanExtraPayments.push({
-    amount: 20000,
-    date: Date.parse("2022-07-04").valueOf(),
-  });
-  loanExtraPayments.push({
-    amount: 10000,
-    date: Date.parse("May 10, 2023").valueOf(),
-  });
+    const baseSplits = calculateEMISplitsWithStats(loanData, [], [], true);
+    const splitsWithExtras = calculateEMISplitsWithStats(
+      loanData,
+      [],
+      extraPayments,
+      true,
+    );
 
-  const splits = calculateEMISplitsWithStats(loanData, [], [], true);
-  const splitsExtras = calculateEMISplitsWithStats(
-    { ...loanData, emiPaid: 2044 },
-    [],
-    loanExtraPayments,
-    true,
-  );
+    return { baseSplits, splitsWithExtras };
+  };
+
+  const { baseSplits, splitsWithExtras } = calculateLoans();
 
   return (
-    <main className="space-y-4 p-4">
-      <h1 className="text-2xl font-semibold">Loans</h1>
+    <main className="space-y-6 p-4">
+      <h1 className="text-3xl font-bold">Loan Calculator</h1>
+      
+      {/* Input Form */}
       <Card>
-        <pre>{JSON.stringify(loanData, null, 2)}</pre>
+        <CardHeader>
+          <CardTitle>Loan Parameters</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="amount">Loan Amount</Label>
+              <Input
+                id="amount"
+                type="number"
+                value={loanInputs.amount}
+                onChange={(e) => handleInputChange("amount", Number(e.target.value))}
+                placeholder="Enter loan amount"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="roi">Rate of Interest (%)</Label>
+              <Input
+                id="roi"
+                type="number"
+                step="0.1"
+                value={loanInputs.roi}
+                onChange={(e) => handleInputChange("roi", Number(e.target.value))}
+                placeholder="Enter ROI"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="term">Term (Months)</Label>
+              <Input
+                id="term"
+                type="number"
+                value={loanInputs.term}
+                onChange={(e) => handleInputChange("term", Number(e.target.value))}
+                placeholder="Enter term in months"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="startDate">Start Date</Label>
+              <Input
+                id="startDate"
+                type="date"
+                value={loanInputs.startDate}
+                onChange={(e) => handleInputChange("startDate", e.target.value)}
+              />
+            </div>
+          </div>
+          <div className="mt-4 flex items-center gap-4">
+            <Button 
+              variant={showExtras ? "default" : "outline"}
+              onClick={() => setShowExtras(!showExtras)}
+            >
+              {showExtras ? "Hide" : "Show"} Extra Payments
+            </Button>
+          </div>
+        </CardContent>
       </Card>
-      <div className="flex flex-row gap-4">
-        <EMISplitsStatsPieChart stats={splits.stats} title="Base Splits" />
-        <EMISplitsStatsPieChart
-          stats={splitsExtras.stats}
-          title="Splits with extras"
+
+      {/* Statistics Overview */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <EMISplitsStatsPieChart 
+          stats={baseSplits.stats} 
+          title="Base Loan Analysis" 
+          description="Interest vs Principal breakdown"
         />
+        {showExtras && (
+          <EMISplitsStatsPieChart
+            stats={splitsWithExtras.stats}
+            title="With Extra Payments"
+            description="Impact of additional payments"
+          />
+        )}
       </div>
-      <div className="flex flex-row gap-4">
-        <EmiSPlitsBarChart splits={splits.splits} title="Base Splits" />
-        <EmiSPlitsBarChart
-          splits={splitsExtras.splits}
-          title="Splits with extras"
+
+      {/* Payment Schedule Charts */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <EmiSPlitsBarChart 
+          splits={baseSplits.splits} 
+          title="Base Payment Schedule" 
+          description="Monthly EMI breakdown over time"
         />
+        {showExtras && (
+          <EmiSPlitsBarChart
+            splits={splitsWithExtras.splits}
+            title="With Extra Payments"
+            description="Optimized payment schedule"
+          />
+        )}
       </div>
-      <div className="flex flex-row gap-4">
-        <Card className="flex-1">
-          <pre>{JSON.stringify(splits, null, 2)}</pre>
+
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Base Loan Summary</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Total Amount:</span>
+              <span className="font-medium">₹{baseSplits.stats.total.toLocaleString()}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Total Interest:</span>
+              <span className="font-medium" style={{ color: "hsl(var(--chart-1))" }}>₹{baseSplits.stats.interest.toLocaleString()}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Interest Percentage:</span>
+              <span className="font-medium">{baseSplits.stats.interestPercent.toFixed(1)}%</span>
+            </div>
+          </CardContent>
         </Card>
-        <Card className="flex-1">
-          <pre>{JSON.stringify(splitsExtras, null, 2)}</pre>
-        </Card>
+        
+        {showExtras && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">With Extra Payments</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Total Amount:</span>
+                <span className="font-medium">₹{splitsWithExtras.stats.total.toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Total Interest:</span>
+                <span className="font-medium" style={{ color: "hsl(var(--chart-1))" }}>₹{splitsWithExtras.stats.interest.toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Interest Percentage:</span>
+                <span className="font-medium">{splitsWithExtras.stats.interestPercent.toFixed(1)}%</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Savings:</span>
+                <span className="font-medium" style={{ color: "hsl(var(--chart-4))" }}>
+                  ₹{(baseSplits.stats.interest - splitsWithExtras.stats.interest).toLocaleString()}
+                </span>
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </main>
   );
