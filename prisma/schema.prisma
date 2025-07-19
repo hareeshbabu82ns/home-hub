@@ -100,3 +100,37 @@ model VerificationToken {
 
   @@unique([identifier, token])
 }
+
+// Exercise Schema
+model Exercise {
+  id         String @id @default(auto()) @map("_id") @db.ObjectId
+  exerciseId Int    @unique // Original exercise ID from the data source
+  title      String
+  titleRaw   String @map("title_raw")
+
+  // Image data as JSON for flexibility
+  img        Json? // Contains male, female, mid, fid URLs
+  imgPng     Json? @map("img_png") // PNG versions
+  anim       Json? // Animation URLs and IDs
+  singleAnim Json? @map("single_anim") // Single animation URLs
+
+  permalink            String?
+  type                 String  @default("Work Out")
+  tags                 String?
+  isCardio             Boolean @default(false) @map("is_cardio")
+  isNewEx              Boolean @default(false) @map("is_new_ex")
+  presetNotes          String? @map("preset_notes")
+  isPersonalPresetNote Boolean @default(false) @map("is_personal_preset_note")
+  isYoga               Boolean @default(false) @map("is_yoga")
+  sanskrit             String?
+  sanskritRaw          String? @map("sanskrit_raw")
+  alignmentCues        String? @map("alignment_cues")
+  commonName           String? @map("common_name")
+  eet                  String?
+  isYogaPremium        Boolean @default(false) @map("is_yoga_premium")
+  audio                String?
+  isFav                Boolean @default(false) @map("is_fav")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}

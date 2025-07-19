@@ -5,6 +5,7 @@ import {
   HomeIcon,
   Timer as Tracks,
   IndianRupee as Loans,
+  Dumbbell,
 } from "lucide-react";
 
 type AdditionalLinks = {
@@ -31,6 +32,11 @@ export const additionalLinks: AdditionalLinks[] = [
         href: "/loans",
         title: "Loans",
         icon: Loans,
+      },
+      {
+        href: "/exercises",
+        title: "Exercises",
+        icon: Dumbbell,
       },
     ],
   },
