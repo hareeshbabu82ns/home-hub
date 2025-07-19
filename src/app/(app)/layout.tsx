@@ -82,7 +82,7 @@ function MobileFirstLayout({
           <main className="flex-1 overflow-y-auto">
             <div
               className={cn(
-                "container mx-auto max-w-7xl p-4 sm:p-6 lg:p-8",
+                "mx-auto sm:max-w-7xl lg:max-w-none",
                 classNameContents,
               )}
             >

@@ -33,7 +33,7 @@ export default async function Home() {
   }
 
   return (
-    <main className="space-y-6">
+    <main className="space-y-6 p-4">
       {/* Header */}
       <div className="space-y-2">
         <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">

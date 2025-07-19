@@ -1,16 +1,25 @@
 import UserSettings from "./UserSettings";
-import { checkAuth, getUserAuth } from "@/lib/auth/utils";
+import { getUserAuth } from "@/lib/auth/utils";
 
-export default async function Account() {
-  await checkAuth();
+export default async function ProfilePage() {
   const { session } = await getUserAuth();
 
   return (
-    <main>
-      <h1 className="my-4 text-2xl font-semibold">Account</h1>
-      <div className="space-y-4">
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold">Profile</h1>
+          <p className="text-muted-foreground">
+            Manage your personal information and account details
+          </p>
+        </div>
+      </div>
+
+      {/* Profile Settings */}
+      <div className="space-y-6">
         <UserSettings session={session} />
       </div>
-    </main>
+    </div>
   );
 }

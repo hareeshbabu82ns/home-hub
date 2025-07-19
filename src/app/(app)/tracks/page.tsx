@@ -8,7 +8,7 @@ export default async function Home() {
   const tracks = await fetchTrackItems();
 
   return (
-    <main className="my-4 space-y-4">
+    <main className="space-y-4 p-4">
       <h1 className="text-2xl font-semibold">Track</h1>
       <div className="border-border border">
         <div className="bg-secondary/50 flex items-center justify-between p-4">

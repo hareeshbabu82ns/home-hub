@@ -4,7 +4,6 @@ import SidebarItems from "./SidebarItems";
 import { Avatar, AvatarFallback } from "./ui/avatar";
 
 import { AuthSession, getUserAuth } from "@/lib/auth/utils";
-import AppTitleLogo from "./AppTitleLogo";
 
 const Sidebar = async () => {
   const session = await getUserAuth();
@@ -20,7 +19,7 @@ const Sidebar = async () => {
       </div>
 
       {/* User Details at bottom */}
-      <div className="border-border bg-muted/30 border-t p-4">
+      <div className="border-border bg-muted/30 space-y-3 border-t p-4">
         <UserDetails session={session as AuthSession} />
       </div>
     </div>
