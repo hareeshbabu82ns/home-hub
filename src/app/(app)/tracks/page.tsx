@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { fetchTrackItems } from "./actions";
-import { TrackItem } from "@prisma/client";
+import { TrackItem } from "@/app/generated/prisma";
 import { SquarePen as NewTrackIcon } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 export default async function Home() {
   const tracks = await fetchTrackItems();
@@ -9,15 +10,15 @@ export default async function Home() {
   return (
     <main className="my-4 space-y-4">
       <h1 className="text-2xl font-semibold">Track</h1>
-      <div className="border-base-300 border">
-        <div className="navbar bg-secondary/50">
-          <div className="navbar-start">
-            <a className="text-xl">Trackings</a>
+      <div className="border-border border">
+        <div className="bg-secondary/50 flex items-center justify-between p-4">
+          <div className="flex items-center">
+            <h2 className="text-xl">Trackings</h2>
           </div>
-          <div className="navbar-end">
-            <button className="btn btn-circle btn-ghost">
+          <div className="flex items-center">
+            <Button variant="ghost" size="icon">
               <NewTrackIcon className="size-6" />
-            </button>
+            </Button>
           </div>
         </div>
         <TrackItemTable tracks={tracks} />
@@ -26,7 +27,7 @@ export default async function Home() {
   );
 }
 
-function TrackItemTable( { tracks }: { tracks: TrackItem[] } ) {
+function TrackItemTable({ tracks }: { tracks: TrackItem[] }) {
   return (
     <div className="overflow-x-auto">
       <table className="table">
@@ -39,7 +40,7 @@ function TrackItemTable( { tracks }: { tracks: TrackItem[] } ) {
           </tr>
         </thead>
         <tbody>
-          {tracks.map( ( track ) => (
+          {tracks.map((track) => (
             <tr key={track.id} className="hover">
               <td>
                 <Link href={`/tracks/${track.id}`}>{track.title}</Link>
@@ -47,7 +48,7 @@ function TrackItemTable( { tracks }: { tracks: TrackItem[] } ) {
               <td>{track.description}</td>
               <td>{track.updatedAt.toISOString()}</td>
             </tr>
-          ) )}
+          ))}
         </tbody>
       </table>
     </div>

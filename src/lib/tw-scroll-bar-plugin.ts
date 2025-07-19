@@ -1,10 +1,16 @@
 // ref - https://github.com/gradints/tailwindcss-scrollbar/blob/main/README.md
-import { withOptions } from "tailwindcss/plugin";
-import {
-  CSSRuleObject,
-  DarkModeConfig,
-  PluginAPI,
-} from "tailwindcss/types/config";
+import plugin from "tailwindcss/plugin";
+
+// Type definitions for Tailwind CSS v4+ compatibility
+interface PluginAPI {
+  addBase: (styles: any) => void;
+  addUtilities: (utilities: any) => void;
+  theme: (path: string, defaultValue?: any) => any;
+  config: (path: string) => any;
+}
+
+type CSSRuleObject = Record<string, any>;
+type DarkModeConfig = "media" | "class" | ["class", string];
 
 interface StyleOptions {
   background?: string;
@@ -244,8 +250,8 @@ const scrollbarNoneStyle: CSSRuleObject[] = [
   },
 ];
 
-export default withOptions<PluginOptions>(function (options) {
-  return function (pluginAPI) {
+export default plugin.withOptions<PluginOptions>((options = {}) => {
+  return (pluginAPI: PluginAPI) => {
     const { addBase, addUtilities } = pluginAPI;
 
     addBase(getDefaultStyle(options, pluginAPI));

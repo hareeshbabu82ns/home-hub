@@ -1,4 +1,4 @@
-import { TrackItem } from "@prisma/client";
+import { TrackItem } from "@/app/generated/prisma";
 import { fetchTrackItem } from "../actions";
 import { TrackForm } from "./track-form";
 
@@ -10,20 +10,20 @@ const initialTrackItem: Omit<TrackItem, "userId"> = {
   updatedAt: new Date(),
 };
 
-export default async function TrackDetailsPanel( {
+export default async function TrackDetailsPanel({
   params: { id },
 }: {
   params: { id: string };
-} ) {
+}) {
   const track = (
-    id === "new" ? initialTrackItem : await fetchTrackItem( id )
+    id === "new" ? initialTrackItem : await fetchTrackItem(id)
   ) as TrackItem;
 
   return (
     <main className="my-4 space-y-4">
-      <div className="border-base-300 border">
-        <div className="navbar bg-secondary/50 min-h-2">
-          <div className="navbar-start">
+      <div className="border-border border">
+        <div className="bg-secondary/50 flex min-h-[3rem] items-center justify-between p-4">
+          <div className="flex items-center">
             <h3 className="text-xl">
               {track.id === "new" ? "Create " : "Edit "} Track
             </h3>

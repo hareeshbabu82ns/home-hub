@@ -1,159 +1,319 @@
 import Link from "next/link";
 import ThemeToggle from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import MountainIcon from "@/components/MountainIcon";
+import {
+  Timer,
+  IndianRupee,
+  User,
+  Settings,
+  Shield,
+  Smartphone,
+} from "lucide-react";
 
 export default function Home() {
   return (
     <div className="flex min-h-screen flex-col">
-      <header className="flex h-14 items-center px-4 lg:px-6">
-        <Link className="flex items-center justify-center" href="#">
-          <MountainIcon className="size-6" />
-          <span className="sr-only">Acme Inc</span>
-        </Link>
-        <nav className="ml-auto flex gap-4 sm:gap-6">
-          <Button asChild variant="link">
-            <Link href="#features">Features</Link>
-          </Button>
-          <Button asChild variant="link">
-            <Link href="/sign-in">Sign In</Link>
-          </Button>
-          <ThemeToggle />
-        </nav>
+      <header className="bg-background/95 supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50 w-full border-b backdrop-blur">
+        <div className="container mx-auto flex h-14 max-w-6xl items-center px-4">
+          <Link className="flex items-center space-x-2" href="/">
+            <MountainIcon className="size-6" />
+            <span className="font-bold">HomeHub</span>
+          </Link>
+          <nav className="ml-auto flex items-center gap-2 sm:gap-4">
+            <Button asChild variant="ghost" size="sm">
+              <Link href="#features">Features</Link>
+            </Button>
+            <Button asChild variant="outline" size="sm">
+              <Link href="/sign-in">Sign In</Link>
+            </Button>
+            <ThemeToggle />
+          </nav>
+        </div>
       </header>
+
       <main className="flex-1">
-        <section className="w-full py-6 sm:py-12 md:py-24 lg:py-32 xl:py-48">
-          <div className="container px-4 md:px-6">
-            <div className="grid gap-6 lg:grid-cols-[1fr_400px] lg:gap-12 xl:grid-cols-[1fr_600px]">
-              <div className="mx-auto aspect-video overflow-hidden rounded-xl bg-neutral-100 object-cover sm:w-full lg:order-last lg:aspect-square dark:bg-neutral-800" />
-              <div className="flex flex-col justify-center space-y-4">
-                <div className="space-y-2">
-                  <h1 className="text-3xl font-bold tracking-tighter sm:text-5xl xl:text-6xl/none">
-                    The complete platform <br />
-                    for building the Web
-                  </h1>
-                  <p className="max-w-[600px] text-neutral-500 md:text-xl dark:text-neutral-400">
-                    Give your team the toolkit to stop configuring and start
-                    innovating. Securely build, deploy, and scale the best web
-                    experiences.
-                  </p>
-                </div>
-                <div className="flex flex-col gap-2 min-[400px]:flex-row">
-                  <Link
-                    className="inline-flex h-10 items-center justify-center rounded-md bg-neutral-900 px-8 text-sm font-medium text-neutral-50 shadow transition-colors hover:bg-neutral-900/90 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-neutral-950 disabled:pointer-events-none disabled:opacity-50 dark:bg-neutral-50 dark:text-neutral-900 dark:hover:bg-neutral-50/90 dark:focus-visible:ring-neutral-300"
-                    href="#"
-                  >
-                    Get Started
-                  </Link>
-                  <Link
-                    className="inline-flex h-10 items-center justify-center rounded-md border border-neutral-200 bg-white px-8 text-sm font-medium shadow-sm transition-colors hover:bg-neutral-100 hover:text-neutral-900 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-neutral-950 disabled:pointer-events-none disabled:opacity-50 dark:border-neutral-800 dark:bg-neutral-950 dark:hover:bg-neutral-800 dark:hover:text-neutral-50 dark:focus-visible:ring-neutral-300"
-                    href="#"
-                  >
-                    Contact Sales
-                  </Link>
-                  <Button asChild>
-                    <Link href="/extras/scrap-web">Project Chalam </Link>
-                  </Button>
+        {/* Hero Section - Mobile First */}
+        <section className="w-full px-4 py-8 sm:py-16 md:py-24 lg:py-32">
+          <div className="container mx-auto max-w-6xl">
+            <div className="flex flex-col items-center space-y-6 text-center lg:space-y-8">
+              <div className="space-y-4">
+                <h1 className="text-3xl font-bold tracking-tight sm:text-4xl md:text-5xl lg:text-6xl">
+                  Your Personal{" "}
+                  <span className="from-primary to-primary/60 bg-gradient-to-r bg-clip-text text-transparent">
+                    Management Hub
+                  </span>
+                </h1>
+                <p className="text-muted-foreground mx-auto max-w-2xl text-base sm:text-lg md:text-xl">
+                  Organize your financial life, track your time, and manage your
+                  digital presence with HomeHub - your all-in-one personal
+                  productivity platform.
+                </p>
+              </div>
+
+              <div className="flex flex-col gap-3 sm:flex-row sm:gap-4">
+                <Button asChild size="lg" className="w-full sm:w-auto">
+                  <Link href="/sign-in">Get Started Free</Link>
+                </Button>
+                <Button
+                  asChild
+                  variant="outline"
+                  size="lg"
+                  className="w-full sm:w-auto"
+                >
+                  <Link href="#features">Explore Features</Link>
+                </Button>
+              </div>
+
+              {/* Hero Visual */}
+              <div className="mt-8 w-full max-w-4xl">
+                <div className="bg-muted/30 relative mx-auto aspect-video overflow-hidden rounded-lg border shadow-2xl">
+                  <div className="from-primary/20 to-secondary/20 absolute inset-0 bg-gradient-to-br" />
+                  <div className="relative flex h-full items-center justify-center">
+                    <div className="text-center">
+                      <MountainIcon className="text-primary mx-auto size-20" />
+                      <p className="text-muted-foreground mt-4 text-sm">
+                        Your Dashboard Preview
+                      </p>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
         </section>
-        <section id="features" className="w-full py-12 md:py-24 lg:py-32">
-          <div className="container px-4 md:px-6">
-            <div className="flex flex-col items-center justify-center space-y-4 text-center">
-              <div className="space-y-2">
-                <div className="inline-block rounded-lg bg-neutral-100 px-3 py-1 text-sm dark:bg-neutral-800">
-                  Key Features
-                </div>
-                <h2 className="text-3xl font-bold tracking-tighter md:text-4xl/tight">
-                  Faster iteration. More innovation.
-                </h2>
-                <p className="max-w-[900px] text-neutral-500 md:text-xl/relaxed lg:text-base/relaxed xl:text-xl/relaxed dark:text-neutral-400">
-                  The platform for rapid progress. Let your team focus on
-                  shipping features instead of managing infrastructure with
-                  automated CI/CD.
-                </p>
+        {/* Features Section - App Specific */}
+        <section
+          id="features"
+          className="bg-muted/30 w-full px-4 py-12 sm:py-16 md:py-24"
+        >
+          <div className="container mx-auto max-w-6xl">
+            <div className="mb-12 space-y-4 text-center">
+              <div className="inline-flex items-center rounded-full border px-4 py-1.5 text-xs font-medium">
+                ✨ Core Features
               </div>
+              <h2 className="text-2xl font-bold tracking-tight sm:text-3xl md:text-4xl">
+                Everything you need to stay organized
+              </h2>
+              <p className="text-muted-foreground mx-auto max-w-2xl sm:text-lg">
+                HomeHub brings together all your personal management tools in
+                one secure, easy-to-use platform designed for modern life.
+              </p>
             </div>
-            <div className="mx-auto grid max-w-5xl items-center gap-6 py-12 lg:grid-cols-2 lg:gap-10">
-              <div className="mx-auto aspect-video overflow-hidden rounded-xl bg-neutral-100 object-cover object-center sm:w-full lg:order-last dark:bg-neutral-800" />
-              <div className="flex flex-col justify-center space-y-4">
-                <ul className="grid gap-6">
-                  <li>
-                    <div className="grid gap-1">
-                      <h3 className="text-xl font-bold">Collaboration</h3>
-                      <p className="text-neutral-500 dark:text-neutral-400">
-                        Make collaboration seamless with built-in code review
-                        tools.
-                      </p>
+
+            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              {/* Loan Management */}
+              <Card className="relative overflow-hidden">
+                <CardHeader>
+                  <div className="flex items-center space-x-2">
+                    <div className="rounded-lg bg-green-100 p-2 dark:bg-green-900">
+                      <IndianRupee className="size-5 text-green-600 dark:text-green-400" />
                     </div>
-                  </li>
-                  <li>
-                    <div className="grid gap-1">
-                      <h3 className="text-xl font-bold">Automation</h3>
-                      <p className="text-neutral-500 dark:text-neutral-400">
-                        Automate your workflow with continuous integration.
-                      </p>
+                    <CardTitle className="text-lg">Loan Management</CardTitle>
+                  </div>
+                  <CardDescription>
+                    Track personal loans, EMIs, and financial commitments with
+                    automated reminders and payment schedules.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <ul className="text-muted-foreground space-y-2 text-sm">
+                    <li>• Payment tracking & reminders</li>
+                    <li>• Interest calculations</li>
+                    <li>• Payment history</li>
+                    <li>• Multiple loan support</li>
+                  </ul>
+                </CardContent>
+              </Card>
+
+              {/* Time Tracking */}
+              <Card className="relative overflow-hidden">
+                <CardHeader>
+                  <div className="flex items-center space-x-2">
+                    <div className="rounded-lg bg-blue-100 p-2 dark:bg-blue-900">
+                      <Timer className="size-5 text-blue-600 dark:text-blue-400" />
                     </div>
-                  </li>
-                  <li>
-                    <div className="grid gap-1">
-                      <h3 className="text-xl font-bold">Scale</h3>
-                      <p className="text-neutral-500 dark:text-neutral-400">
-                        Deploy to the cloud with a single click and scale with
-                        ease.
-                      </p>
+                    <CardTitle className="text-lg">Time Tracking</CardTitle>
+                  </div>
+                  <CardDescription>
+                    Monitor your productivity with detailed time tracking for
+                    projects, work sessions, and personal activities.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <ul className="text-muted-foreground space-y-2 text-sm">
+                    <li>• Project time tracking</li>
+                    <li>• Activity categorization</li>
+                    <li>• Productivity insights</li>
+                    <li>• Export reports</li>
+                  </ul>
+                </CardContent>
+              </Card>
+
+              {/* Account Management */}
+              <Card className="relative overflow-hidden">
+                <CardHeader>
+                  <div className="flex items-center space-x-2">
+                    <div className="rounded-lg bg-purple-100 p-2 dark:bg-purple-900">
+                      <User className="size-5 text-purple-600 dark:text-purple-400" />
                     </div>
-                  </li>
-                </ul>
-              </div>
+                    <CardTitle className="text-lg">Account Hub</CardTitle>
+                  </div>
+                  <CardDescription>
+                    Centralized profile management with secure authentication
+                    and personalized settings.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <ul className="text-muted-foreground space-y-2 text-sm">
+                    <li>• Profile customization</li>
+                    <li>• Security settings</li>
+                    <li>• OAuth integration</li>
+                    <li>• Email management</li>
+                  </ul>
+                </CardContent>
+              </Card>
+
+              {/* Settings & Customization */}
+              <Card className="relative overflow-hidden">
+                <CardHeader>
+                  <div className="flex items-center space-x-2">
+                    <div className="rounded-lg bg-orange-100 p-2 dark:bg-orange-900">
+                      <Settings className="size-5 text-orange-600 dark:text-orange-400" />
+                    </div>
+                    <CardTitle className="text-lg">Smart Settings</CardTitle>
+                  </div>
+                  <CardDescription>
+                    Customize your experience with theme preferences,
+                    notifications, and workspace configurations.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <ul className="text-muted-foreground space-y-2 text-sm">
+                    <li>• Dark/Light themes</li>
+                    <li>• Notification preferences</li>
+                    <li>• Dashboard layouts</li>
+                    <li>• Data export options</li>
+                  </ul>
+                </CardContent>
+              </Card>
+
+              {/* Security & Privacy */}
+              <Card className="relative overflow-hidden">
+                <CardHeader>
+                  <div className="flex items-center space-x-2">
+                    <div className="rounded-lg bg-red-100 p-2 dark:bg-red-900">
+                      <Shield className="size-5 text-red-600 dark:text-red-400" />
+                    </div>
+                    <CardTitle className="text-lg">Security First</CardTitle>
+                  </div>
+                  <CardDescription>
+                    Your data is protected with enterprise-grade security, OAuth
+                    authentication, and privacy controls.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <ul className="text-muted-foreground space-y-2 text-sm">
+                    <li>• OAuth 2.0 authentication</li>
+                    <li>• Encrypted data storage</li>
+                    <li>• Session management</li>
+                    <li>• Privacy controls</li>
+                  </ul>
+                </CardContent>
+              </Card>
+
+              {/* Mobile Experience */}
+              <Card className="relative overflow-hidden">
+                <CardHeader>
+                  <div className="flex items-center space-x-2">
+                    <div className="rounded-lg bg-teal-100 p-2 dark:bg-teal-900">
+                      <Smartphone className="size-5 text-teal-600 dark:text-teal-400" />
+                    </div>
+                    <CardTitle className="text-lg">Mobile Optimized</CardTitle>
+                  </div>
+                  <CardDescription>
+                    Responsive design ensures a seamless experience across all
+                    your devices, from phone to desktop.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <ul className="text-muted-foreground space-y-2 text-sm">
+                    <li>• Progressive Web App</li>
+                    <li>• Touch-friendly interface</li>
+                    <li>• Offline capabilities</li>
+                    <li>• Cross-device sync</li>
+                  </ul>
+                </CardContent>
+              </Card>
             </div>
           </div>
         </section>
 
-        <section className="w-full border-t py-12 md:py-24 lg:py-32">
-          <div className="container px-4 md:px-6">
-            <div className="flex flex-col items-center justify-center space-y-4 text-center">
-              <div className="space-y-2">
-                <h2 className="text-3xl font-bold tracking-tighter md:text-4xl">
-                  Sign Up for Updates
+        {/* CTA Section */}
+        <section className="w-full border-t px-4 py-12 sm:py-16 md:py-24">
+          <div className="container mx-auto max-w-4xl text-center">
+            <div className="space-y-6">
+              <div className="space-y-3">
+                <h2 className="text-2xl font-bold tracking-tight sm:text-3xl md:text-4xl">
+                  Ready to organize your life?
                 </h2>
-                <p className="max-w-[600px] text-neutral-500 md:text-xl dark:text-neutral-400">
-                  Stay updated with the latest product news and updates.
+                <p className="text-muted-foreground mx-auto max-w-2xl sm:text-lg">
+                  Join thousands of users who have transformed their personal
+                  productivity with HomeHub. Start your journey today.
                 </p>
               </div>
-              <div className="w-full max-w-sm space-y-2">
-                <form className="flex flex-col space-y-2 sm:flex-row sm:space-x-2 sm:space-y-0">
-                  <input
-                    className="border-border max-w-lg flex-1 rounded-md border px-4 py-2 "
-                    placeholder="Enter your email"
-                    type="email"
-                  />
-                  <button
-                    type="submit"
-                    className="inline-flex h-10 items-center justify-center rounded-md bg-neutral-900 px-4 text-sm font-medium text-neutral-50 shadow transition-colors hover:bg-neutral-900/90 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-neutral-950 disabled:pointer-events-none disabled:opacity-50 dark:bg-neutral-50 dark:text-neutral-900 dark:hover:bg-neutral-50/90 dark:focus-visible:ring-neutral-300"
-                  >
-                    Sign Up
-                  </button>
-                </form>
+
+              <div className="flex flex-col gap-3 sm:flex-row sm:justify-center sm:gap-4">
+                <Button asChild size="lg" className="w-full sm:w-auto">
+                  <Link href="/sign-in">Start Free Today</Link>
+                </Button>
+                <Button
+                  asChild
+                  variant="outline"
+                  size="lg"
+                  className="w-full sm:w-auto"
+                >
+                  <Link href="/extras/scrap-web">View Demo</Link>
+                </Button>
+              </div>
+
+              <div className="pt-6 text-center">
+                <p className="text-muted-foreground text-sm">
+                  ✓ Free to start • ✓ No credit card required • ✓ Cancel anytime
+                </p>
               </div>
             </div>
           </div>
         </section>
       </main>
-      <footer className="flex w-full shrink-0 flex-col items-center gap-2 border-t px-4 py-6 sm:flex-row md:px-6">
-        <p className="text-xs text-neutral-500 dark:text-neutral-400">
-          © 2024 TerabitsIO. All rights reserved.
-        </p>
-        <nav className="flex gap-4 sm:ml-auto sm:gap-6">
-          <Link className="text-xs underline-offset-4 hover:underline" href="#">
-            Terms of Service
-          </Link>
-          <Link className="text-xs underline-offset-4 hover:underline" href="#">
-            Privacy
-          </Link>
-        </nav>
+
+      <footer className="bg-muted/30 w-full border-t px-4 py-6 sm:py-8">
+        <div className="container mx-auto max-w-6xl">
+          <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
+            <div className="flex items-center space-x-2">
+              <MountainIcon className="size-5" />
+              <span className="text-sm font-medium">HomeHub</span>
+            </div>
+            <p className="text-muted-foreground text-xs">
+              © 2024 HomeHub by TerabitsIO. All rights reserved.
+            </p>
+            <nav className="flex gap-4 text-xs">
+              <Link className="underline-offset-4 hover:underline" href="#">
+                Privacy Policy
+              </Link>
+              <Link className="underline-offset-4 hover:underline" href="#">
+                Terms of Service
+              </Link>
+            </nav>
+          </div>
+        </div>
       </footer>
     </div>
   );

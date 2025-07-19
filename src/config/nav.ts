@@ -34,14 +34,4 @@ export const additionalLinks: AdditionalLinks[] = [
       },
     ],
   },
-  {
-    title: "Themes",
-    links: [
-      {
-        href: "/theme/colors",
-        title: "Colors",
-        icon: Themes,
-      },
-    ],
-  },
 ];

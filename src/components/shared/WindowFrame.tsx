@@ -7,12 +7,12 @@ interface WindowFrameProps {
   className?: string;
   classNameNavbar?: string;
 }
-const WindowFrame = ( {
+const WindowFrame = ({
   title,
   children,
   className,
   classNameNavbar,
-}: WindowFrameProps ) => {
+}: WindowFrameProps) => {
   return (
     <div
       className={cn(
@@ -24,17 +24,17 @@ const WindowFrame = ( {
       <div
         id="navbar"
         className={cn(
-          "relative flex flex-row border-b border-gray-300 bg-gray-200/80 px-3 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.3)] backdrop-blur-md dark:border-white/10 dark:bg-zinc-700/80 dark:shadow-none",
+          "border-border bg-card/80 relative flex flex-row border-b px-3 shadow-sm backdrop-blur-md",
           classNameNavbar,
         )}
       >
-        <div className="my-2.5 ml-20 rounded-md bg-gray-400/40 px-5 py-1 text-xs text-slate-600 sm:mx-auto md:px-10 dark:bg-zinc-500/40 dark:text-slate-300">
+        <div className="bg-muted/40 text-muted-foreground my-2.5 ml-20 rounded-md px-5 py-1 text-xs sm:mx-auto md:px-10">
           {title}
         </div>
-        <div className="absolute left-4 top-3.5 flex flex-row forced-color-adjust-none">
-          <div className="mr-2 size-3 rounded-full border border-black/5 bg-red-500"></div>
-          <div className="mr-2 size-3 rounded-full border border-black/5 bg-yellow-500"></div>
-          <div className="size-3 rounded-full border border-black/5 bg-green-500"></div>
+        <div className="absolute top-3.5 left-4 flex flex-row forced-color-adjust-none">
+          <div className="border-border bg-destructive mr-2 size-3 rounded-full border"></div>
+          <div className="border-border bg-warning mr-2 size-3 rounded-full border"></div>
+          <div className="border-border bg-success size-3 rounded-full border"></div>
         </div>
       </div>
 

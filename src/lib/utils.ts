@@ -93,17 +93,6 @@ export type TwThemeGenBaseOptions = {
   tertiary: Color;
 };
 
-const colorHslToOklch = (color: string) =>
-  chroma(
-    color
-      .split(",")
-      .map(parseFloat)
-      .map((n, i) => (i > 0 ? n * 0.01 : n)),
-    "hsl",
-  )
-    .oklch()
-    .join(" ");
-
 const adjustHslColor = (color: string, idx: number, adjustTo: string) =>
   color
     .split(",")
@@ -293,57 +282,6 @@ export const genTailwindThemeBase = ({
   dark["--chart-4"] = "280 65% 60";
   root["--chart-5"] = "27 87% 67%";
   dark["--chart-5"] = "340 75% 55%";
-
-  // daisyui colors
-
-  root["--p"] = colorHslToOklch(root["--primary"]);
-  dark["--p"] = colorHslToOklch(dark["--primary"]);
-  root["--pc"] = colorHslToOklch(root["--primary-foreground"]);
-  dark["--pc"] = colorHslToOklch(dark["--primary-foreground"]);
-
-  root["--s"] = colorHslToOklch(root["--secondary"]);
-  dark["--s"] = colorHslToOklch(dark["--secondary"]);
-  root["--sc"] = colorHslToOklch(root["--secondary-foreground"]);
-  dark["--sc"] = colorHslToOklch(dark["--secondary-foreground"]);
-
-  root["--t"] = colorHslToOklch(root["--tertiary"]);
-  dark["--t"] = colorHslToOklch(dark["--tertiary"]);
-  root["--tc"] = colorHslToOklch(root["--tertiary-foreground"]);
-  dark["--tc"] = colorHslToOklch(dark["--tertiary-foreground"]);
-
-  root["--a"] = colorHslToOklch(root["--accent"]);
-  dark["--a"] = colorHslToOklch(dark["--accent"]);
-  root["--ac"] = colorHslToOklch(root["--accent-foreground"]);
-  dark["--ac"] = colorHslToOklch(dark["--accent-foreground"]);
-
-  root["--su"] = colorHslToOklch(root["--success"]);
-  dark["--su"] = colorHslToOklch(dark["--success"]);
-  root["--suc"] = colorHslToOklch(root["--success-foreground"]);
-  dark["--suc"] = colorHslToOklch(dark["--success-foreground"]);
-
-  root["--wa"] = colorHslToOklch(root["--warning"]);
-  dark["--wa"] = colorHslToOklch(dark["--warning"]);
-  root["--wac"] = colorHslToOklch(root["--warning-foreground"]);
-  dark["--wac"] = colorHslToOklch(dark["--warning-foreground"]);
-
-  root["--er"] = colorHslToOklch(root["--destructive"]);
-  dark["--er"] = colorHslToOklch(dark["--destructive"]);
-  root["--erc"] = colorHslToOklch(root["--destructive-foreground"]);
-  dark["--erc"] = colorHslToOklch(dark["--destructive-foreground"]);
-
-  root["--n"] = colorHslToOklch(root["--muted"]);
-  dark["--n"] = colorHslToOklch(dark["--muted"]);
-  root["--nc"] = colorHslToOklch(root["--muted-foreground"]);
-  dark["--nc"] = colorHslToOklch(dark["--muted-foreground"]);
-
-  root["--b1"] = colorHslToOklch(root["--primary-50"]);
-  dark["--b1"] = colorHslToOklch(root["--primary-950"]);
-  root["--b2"] = colorHslToOklch(root["--primary-100"]);
-  dark["--b2"] = colorHslToOklch(root["--primary-900"]);
-  root["--b3"] = colorHslToOklch(root["--primary-200"]);
-  dark["--b3"] = colorHslToOklch(root["--primary-800"]);
-  root["--bc"] = colorHslToOklch(root["--primary-foreground"]);
-  dark["--bc"] = colorHslToOklch(root["--primary-foreground"]);
 
   // console.log(root, dark);
 

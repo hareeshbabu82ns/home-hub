@@ -24,18 +24,18 @@ export default function Page() {
         >
           <div className="flex flex-col">
             <div className="border-muted hover:border-accent items-center rounded-md border-2 p-1">
-              <div className="space-y-2 rounded-sm bg-[#ecedef] p-2">
-                <div className="space-y-2 rounded-md bg-white p-2 shadow-sm">
-                  <div className="h-2 w-[80px] rounded-lg bg-[#ecedef]" />
-                  <div className="h-2 w-[100px] rounded-lg bg-[#ecedef]" />
+              <div className="bg-muted space-y-2 rounded-sm p-2">
+                <div className="bg-card space-y-2 rounded-md p-2 shadow-sm">
+                  <div className="bg-muted h-2 w-[80px] rounded-lg" />
+                  <div className="bg-muted h-2 w-[100px] rounded-lg" />
                 </div>
-                <div className="flex items-center space-x-2 rounded-md bg-white p-2 shadow-sm">
-                  <div className="size-4 rounded-full bg-[#ecedef]" />
-                  <div className="h-2 w-[100px] rounded-lg bg-[#ecedef]" />
+                <div className="bg-card flex items-center space-x-2 rounded-md p-2 shadow-sm">
+                  <div className="bg-muted size-4 rounded-full" />
+                  <div className="bg-muted h-2 w-[100px] rounded-lg" />
                 </div>
-                <div className="flex items-center space-x-2 rounded-md bg-white p-2 shadow-sm">
-                  <div className="size-4 rounded-full bg-[#ecedef]" />
-                  <div className="h-2 w-[100px] rounded-lg bg-[#ecedef]" />
+                <div className="bg-card flex items-center space-x-2 rounded-md p-2 shadow-sm">
+                  <div className="bg-muted size-4 rounded-full" />
+                  <div className="bg-muted h-2 w-[100px] rounded-lg" />
                 </div>
               </div>
             </div>
@@ -52,18 +52,18 @@ export default function Page() {
         >
           <div className="flex flex-col">
             <div className="border-muted bg-popover hover:bg-accent hover:text-accent-foreground items-center rounded-md border-2 p-1">
-              <div className="space-y-2 rounded-sm bg-neutral-950 p-2">
-                <div className="space-y-2 rounded-md bg-neutral-800 p-2 shadow-sm">
-                  <div className="h-2 w-[80px] rounded-lg bg-neutral-400" />
-                  <div className="h-2 w-[100px] rounded-lg bg-neutral-400" />
+              <div className="bg-background space-y-2 rounded-sm p-2">
+                <div className="bg-card space-y-2 rounded-md p-2 shadow-sm">
+                  <div className="bg-muted h-2 w-[80px] rounded-lg" />
+                  <div className="bg-muted h-2 w-[100px] rounded-lg" />
                 </div>
-                <div className="flex items-center space-x-2 rounded-md bg-neutral-800 p-2 shadow-sm">
-                  <div className="size-4 rounded-full bg-neutral-400" />
-                  <div className="h-2 w-[100px] rounded-lg bg-neutral-400" />
+                <div className="bg-card flex items-center space-x-2 rounded-md p-2 shadow-sm">
+                  <div className="bg-muted size-4 rounded-full" />
+                  <div className="bg-muted h-2 w-[100px] rounded-lg" />
                 </div>
-                <div className="flex items-center space-x-2 rounded-md bg-neutral-800 p-2 shadow-sm">
-                  <div className="size-4 rounded-full bg-neutral-400" />
-                  <div className="h-2 w-[100px] rounded-lg bg-neutral-400" />
+                <div className="bg-card flex items-center space-x-2 rounded-md p-2 shadow-sm">
+                  <div className="bg-muted size-4 rounded-full" />
+                  <div className="bg-muted h-2 w-[100px] rounded-lg" />
                 </div>
               </div>
             </div>
@@ -80,18 +80,18 @@ export default function Page() {
         >
           <div className="flex flex-col">
             <div className="border-muted bg-popover hover:bg-accent hover:text-accent-foreground items-center rounded-md border-2 p-1">
-              <div className="space-y-2 rounded-sm bg-neutral-300 p-2">
-                <div className="space-y-2 rounded-md bg-neutral-600 p-2 shadow-sm">
-                  <div className="h-2 w-[80px] rounded-lg bg-neutral-400" />
-                  <div className="h-2 w-[100px] rounded-lg bg-neutral-400" />
+              <div className="bg-muted space-y-2 rounded-sm p-2">
+                <div className="bg-card space-y-2 rounded-md p-2 shadow-sm">
+                  <div className="bg-muted-foreground h-2 w-[80px] rounded-lg" />
+                  <div className="bg-muted-foreground h-2 w-[100px] rounded-lg" />
                 </div>
-                <div className="flex items-center space-x-2 rounded-md bg-neutral-600 p-2 shadow-sm">
-                  <div className="size-4 rounded-full bg-neutral-400" />
-                  <div className="h-2 w-[100px] rounded-lg bg-neutral-400" />
+                <div className="bg-card flex items-center space-x-2 rounded-md p-2 shadow-sm">
+                  <div className="bg-muted-foreground size-4 rounded-full" />
+                  <div className="bg-muted-foreground h-2 w-[100px] rounded-lg" />
                 </div>
-                <div className="flex items-center space-x-2 rounded-md bg-neutral-600 p-2 shadow-sm">
-                  <div className="size-4 rounded-full bg-neutral-400" />
-                  <div className="h-2 w-[100px] rounded-lg bg-neutral-400" />
+                <div className="bg-card flex items-center space-x-2 rounded-md p-2 shadow-sm">
+                  <div className="bg-muted-foreground size-4 rounded-full" />
+                  <div className="bg-muted-foreground h-2 w-[100px] rounded-lg" />
                 </div>
               </div>
             </div>

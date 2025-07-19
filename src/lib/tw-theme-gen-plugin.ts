@@ -1,5 +1,5 @@
 import plugin from "tailwindcss/plugin";
-import { fontFamily } from "tailwindcss/defaultTheme";
+import defaultTheme from "tailwindcss/defaultTheme";
 
 import { Config } from "tailwindcss";
 import {
@@ -172,7 +172,7 @@ const twThemeGenPluginCreator = ({
             },
             extend: {
               fontFamily: {
-                sans: ["var(--font-sans)", ...fontFamily.sans],
+                sans: ["var(--font-sans)", ...defaultTheme.fontFamily.sans],
               },
               colors: {
                 border: "hsl(var(--border))",

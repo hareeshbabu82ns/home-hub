@@ -1,94 +1,140 @@
-name: Docker
-
-# This workflow uses actions that are not certified by GitHub.
-# They are provided by a third-party and are governed by
-# separate terms of service, privacy policy, and support
-# documentation.
+name: Build and Push Docker Image
 
 on:
   push:
     # branches: ["main"]
-    # Publish semver tags as releases.
     tags: ["v*.*.*"]
   pull_request:
     branches: ["main"]
+  workflow_dispatch: # Allow manual triggers
 
 env:
-  # Use docker.io for Docker Hub if empty
   REGISTRY: ghcr.io
-  # github.repository as <account>/<repo>
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
-  build:
+  build-and-push:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      packages: write
-      # This is used to complete the identity challenge
-      # with sigstore/fulcio when running outside of PRs.
-      id-token: write
+      packages: write # Needed for ghcr.io push
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
-      # Install the cosign tool except on PR
-      # https://github.com/sigstore/cosign-installer
-      - name: Install cosign
-        if: github.event_name != 'pull_request'
-        uses: sigstore/cosign-installer@v3
         with:
-          cosign-release: "v2.2.4"
+          fetch-depth: 0 # We need full history for versioning
 
-      # Set up BuildKit Docker container builder to be able to build
-      # multi-platform images and export cache
-      # https://github.com/docker/setup-buildx-action
+      - name: Extract version from Git tag
+        id: tag_version
+        run: |
+          # For tags (releases)
+          if [[ $GITHUB_REF == refs/tags/* ]]; then
+            VERSION=${GITHUB_REF#refs/tags/v}
+            echo "Using version from tag: $VERSION"
+          else
+            # For non-tag pushes, use short commit SHA
+            VERSION=$(git rev-parse --short HEAD)
+            echo "Using commit SHA as version: $VERSION"
+          fi
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Extract branch name
+        id: branch_name
+        run: |
+          # Get branch name
+          BRANCH_NAME=""
+          if [[ $GITHUB_REF == refs/heads/* ]]; then
+            BRANCH_NAME=${GITHUB_REF#refs/heads/}
+          elif [[ $GITHUB_HEAD_REF ]]; then
+            # For pull requests
+            BRANCH_NAME=$GITHUB_HEAD_REF
+          else
+            BRANCH_NAME="unknown"
+          fi
+
+          # Debug information
+          echo "GITHUB_REF: $GITHUB_REF"
+          echo "GITHUB_HEAD_REF: $GITHUB_HEAD_REF"
+
+          # Sanitize branch name for Docker tag compatibility:
+          # 1. Convert to lowercase
+          # 2. Replace invalid characters with dashes
+          # 3. Remove leading and trailing special chars
+          # Docker tags can only contain lowercase letters, digits, underscores, periods, and dashes
+          SAFE_BRANCH_NAME=$(echo "$BRANCH_NAME" | tr '[:upper:]' '[:lower:]' | sed -r 's/[^a-z0-9._-]/-/g' | sed -r 's/^[^a-z0-9]+//g' | sed -r 's/[^a-z0-9]+$//g')
+
+          # If branch name is empty after sanitization, use "unknown"
+          if [ -z "$SAFE_BRANCH_NAME" ]; then
+            SAFE_BRANCH_NAME="unknown"
+          fi
+
+          echo "Original branch name: $BRANCH_NAME"
+          echo "Sanitized branch name for Docker: $SAFE_BRANCH_NAME"
+          echo "BRANCH_NAME=$SAFE_BRANCH_NAME" >> $GITHUB_ENV
+          echo "branch=$SAFE_BRANCH_NAME" >> $GITHUB_OUTPUT
+
+      - name: Set Docker tags
+        id: docker_tags
+        run: |
+          # Initialize tags with the version tag
+          TAGS="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.VERSION }}"
+
+          # Check if this is a tag build
+          if [[ $GITHUB_REF == refs/tags/* ]]; then
+            # For tag builds, add a 'latest' tag as well
+            TAGS="$TAGS\n${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest"
+            echo "Adding latest tag for release tag: ${GITHUB_REF#refs/tags/}"
+          elif [[ "${{ env.BRANCH_NAME }}" != "unknown" && $GITHUB_REF != refs/tags/* ]]; then
+            # For other branches (not tags), add branch suffix
+            TAGS="$TAGS\n${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.VERSION }}-${{ env.BRANCH_NAME }}"
+            echo "Adding branch-specific tag for ${{ env.BRANCH_NAME }}"
+          fi
+
+          # Save tags to output
+          echo "TAGS<<EOF" >> $GITHUB_ENV
+          echo -e "$TAGS" >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      # Login against a Docker registry except on PR
-      # https://github.com/docker/login-action
-      - name: Log into registry ${{ env.REGISTRY }}
-        if: github.event_name != 'pull_request'
+      - name: Login to GitHub Container Registry ${{ env.REGISTRY }}
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # Extract metadata (tags, labels) for Docker
-      # https://github.com/docker/metadata-action
-      - name: Extract Docker metadata
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-
-      # Build and push Docker image with Buildx (don't push on PR)
-      # https://github.com/docker/build-push-action
       - name: Build and push Docker image
-        id: build-and-push
         uses: docker/build-push-action@v6
         with:
           context: .
           push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          tags: ${{ env.TAGS }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      # Sign the resulting Docker image digest except on PRs.
-      # This will only write to the public Rekor transparency log when the Docker
-      # repository is public to avoid leaking data.  If you would like to publish
-      # transparency data even for private images, pass --force to cosign below.
-      # https://github.com/sigstore/cosign
-      - name: Sign the published Docker image
-        if: ${{ github.event_name != 'pull_request' }}
-        env:
-          # https://docs.github.com/en/actions/security-guides/security-hardening-for-github-actions#using-an-intermediate-environment-variable
-          TAGS: ${{ steps.meta.outputs.tags }}
-          DIGEST: ${{ steps.build-and-push.outputs.digest }}
-        # This step uses the identity token to provision an ephemeral certificate
-        # against the sigstore community Fulcio instance.
-        run: echo "${TAGS}" | xargs -I {} cosign sign --yes {}@${DIGEST}
+      # Uncomment the following lines if you want to enable multi-platform builds
+      # - name: Set up QEMU
+      #   uses: docker/setup-qemu-action@v3
+      #   with:
+      #     platforms: "arm64,amd64"
+
+      # - name: Login to GitHub Container Registry ${{ env.REGISTRY }}
+      #   uses: docker/login-action@v3
+      #   with:
+      #     registry: ${{ env.REGISTRY }}
+      #     username: ${{ github.actor }}
+      #     password: ${{ secrets.GITHUB_TOKEN }}
+
+      # - name: Build and push Docker image
+      #   uses: docker/build-push-action@v6
+      #   with:
+      #     context: .
+      #     push: ${{ github.event_name != 'pull_request' }}
+      #     platforms: linux/amd64,linux/arm64
+      #     tags: ${{ env.TAGS }}
+      #     cache-from: type=gha
+      #     cache-to: type=gha,mode=max

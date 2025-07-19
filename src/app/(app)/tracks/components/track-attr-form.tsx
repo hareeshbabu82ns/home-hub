@@ -1,11 +1,14 @@
 "use client";
 
-import { TrackAttributes } from "@prisma/client";
+import { TrackAttributes } from "@/app/generated/prisma";
 import React from "react";
-import { LucideSave as SaveIcon } from "lucide-react";
+import { LucideSave as SaveIcon, Loader2 } from "lucide-react";
 import { useFormState, useFormStatus } from "react-dom";
 import { createTrackItemAttribute, updateTrackItemAttribute } from "../actions";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 interface TrackAttrFormProps {
   attr: TrackAttributes;
@@ -20,16 +23,11 @@ function SubmitButton() {
   const { pending } = useFormStatus();
 
   return (
-    <button
-      className="btn btn-secondary btn-sm"
-      type="submit"
-      aria-disabled={pending}
-      disabled={pending}
-    >
-      {pending && <span className="loading loading-spinner" />}
-      <SaveIcon size={"20px"} />
+    <Button size="sm" type="submit" disabled={pending} className="w-fit">
+      {pending && <Loader2 className="h-4 w-4 animate-spin" />}
+      <SaveIcon size={16} />
       Save
-    </button>
+    </Button>
   );
 }
 
@@ -54,13 +52,9 @@ const TrackAttributeForm = ({ attr, className }: TrackAttrFormProps) => {
             required
             defaultValue={attr?.id}
           />
-          <label
-            className="input input-bordered flex items-center gap-2"
-            htmlFor="title"
-          >
-            Title
-            <input
-              className="grow"
+          <div className="space-y-2">
+            <Label htmlFor="title">Title</Label>
+            <Input
               type="text"
               id="title"
               name="title"
@@ -68,23 +62,20 @@ const TrackAttributeForm = ({ attr, className }: TrackAttrFormProps) => {
               defaultValue={attr?.title}
               placeholder="Title"
             />
-          </label>
+          </div>
         </div>
         <div className="grid gap-2">
-          <label
-            className="input input-bordered flex items-center gap-2"
-            htmlFor="description"
-          >
-            Value
-            <input
-              className="grow"
+          <div className="space-y-2">
+            <Label htmlFor="value">Value</Label>
+            <Input
               type="text"
               id="value"
               name="value"
+              required
               defaultValue={attr?.value || ""}
               placeholder="Value"
             />
-          </label>
+          </div>
         </div>
         <div className="flex flex-1 flex-row-reverse">
           <SubmitButton />

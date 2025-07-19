@@ -1,9 +1,10 @@
 "use client";
 
 import React from "react";
+import { Button } from "@/components/ui/button";
 
 const TrackAttrAddBtn = () => {
-  return <button className="btn btn-ghost">Add</button>;
+  return <Button variant="ghost">Add</Button>;
 };
 
 export default TrackAttrAddBtn;

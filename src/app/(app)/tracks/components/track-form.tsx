@@ -4,9 +4,13 @@ import { useFormState, useFormStatus } from "react-dom";
 import { createTrackItem, updateTrackItem } from "@/app/(app)/tracks/actions";
 import { useEffect } from "react";
 import { toast } from "sonner";
-import { LucideSave as SaveIcon } from "lucide-react";
+import { LucideSave as SaveIcon, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { TrackItem } from "@prisma/client";
+import { TrackItem } from "@/app/generated/prisma";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 
 const initialState = {
   message: "",
@@ -16,16 +20,11 @@ function SubmitButton() {
   const { pending } = useFormStatus();
 
   return (
-    <button
-      className="btn btn-secondary btn-sm"
-      type="submit"
-      aria-disabled={pending}
-      disabled={pending}
-    >
-      {pending && <span className="loading loading-spinner" />}
-      <SaveIcon size={"20px"} />
+    <Button size="sm" type="submit" disabled={pending} className="w-fit">
+      {pending && <Loader2 className="h-4 w-4 animate-spin" />}
+      <SaveIcon size={16} />
       Save
-    </button>
+    </Button>
   );
 }
 
@@ -61,13 +60,9 @@ export function TrackForm({
           required
           defaultValue={track?.id}
         />
-        <label
-          className="input input-bordered flex items-center gap-2"
-          htmlFor="title"
-        >
-          Title
-          <input
-            className="grow"
+        <div className="space-y-2">
+          <Label htmlFor="title">Title</Label>
+          <Input
             type="text"
             id="title"
             name="title"
@@ -75,23 +70,18 @@ export function TrackForm({
             defaultValue={track?.title}
             placeholder="Title"
           />
-        </label>
+        </div>
       </div>
       <div className="grid gap-2">
-        <label
-          className="input input-bordered flex items-center gap-2"
-          htmlFor="description"
-        >
-          Description
-          <input
-            className="grow"
-            type="text"
+        <div className="space-y-2">
+          <Label htmlFor="description">Description</Label>
+          <Textarea
             id="description"
             name="description"
             defaultValue={track?.description || ""}
             placeholder="Description"
           />
-        </label>
+        </div>
       </div>
       <div className="flex flex-1 flex-row-reverse">
         <SubmitButton />
