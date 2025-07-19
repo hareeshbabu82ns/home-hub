@@ -21,11 +21,11 @@ import { EMISplitStats } from "@/lib/loans/types";
 const chartConfig = {
   interest: {
     label: "Interest",
-    color: "hsl(var(--chart-1))",
+    color: "var(--chart-4)",
   },
   principal: {
     label: "Principal",
-    color: "hsl(var(--chart-2))",
+    color: "var(--chart-5)",
   },
 } satisfies ChartConfig;
 
@@ -44,12 +44,12 @@ export function EMISplitsStatsPieChart({
     data.push({
       statTitle: "interest",
       statData: stats.interest,
-      fill: "var(--color-interest)",
+      fill: "var(--chart-4)",
     });
     data.push({
       statTitle: "principal",
       statData: stats.total - stats.interest,
-      fill: "var(--color-principal)",
+      fill: "var(--chart-5)",
     });
     return data;
   }, [stats]);

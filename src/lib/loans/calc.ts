@@ -61,14 +61,17 @@ export const calculateEMISplits = (
   byYear: boolean = false,
 ): EMISplit[] => {
   const splits: EMISplit[] = [];
-  if (amount === 0) return [];
+  if (amount === 0 || roi === 0 || emiPaid === 0) return [];
+
   let currentROI = roi;
-
   let date = toDate(startDate);
-
   let balancePrinciple = amount;
+  let iterationCount = 0;
+  const maxIterations = 600; // Safety guard: max 50 years (600 months)
 
-  while (balancePrinciple > 0) {
+  while (balancePrinciple > 0 && iterationCount < maxIterations) {
+    iterationCount++;
+
     if (roiChanges) currentROI = getROIOfMonth(date, currentROI, roiChanges);
 
     const r = currentROI / 12 / 100;
@@ -94,6 +97,15 @@ export const calculateEMISplits = (
       split.emiPaid = balancePrinciple + split.interest;
 
     split.principle = split.emiPaid - split.interest;
+
+    // Safety check: if principle is 0 or negative, we might have an issue
+    if (split.principle <= 0) {
+      console.warn(
+        "Loan calculation issue: principle payment is zero or negative",
+      );
+      break;
+    }
+
     balancePrinciple -= split.principle;
     split.balancePrinciple = balancePrinciple;
     split.finishedPercent =
@@ -178,74 +190,3 @@ export const calculateEMISplitsWithStats = (
   // console.log("Stats: ", stats.total, stats.interest, stats.interestPercent);
   return { splits, stats };
 };
-// export { calculateEMI };
-
-const loanData: LoanData = {
-  amount: 4500000,
-  roi: 12.5,
-  term: 240,
-  emi: 0,
-  startDate: Date.parse("2015-07-10").valueOf(), //Date.now(),
-  emiPaid: 51200,
-};
-
-// console.log("EMI:", calculateEMI(loanData.amount, loanData.roi, loanData.term));
-// console.log("Splits:\n", JSON.stringify(calculateEMISplits(loanData), null, 2));
-// console.log("Splits:");
-calculateEMISplitsWithStats(loanData, [], [], true);
-
-const loanROIChanges: RateOfInterest[] = [];
-
-let loanROIChg = {
-  roi: 11.25,
-  startDate: Date.parse("2017-03-10").valueOf(), //Date.now(),
-  emiPaid: 51200,
-};
-loanROIChanges.push(loanROIChg);
-
-loanROIChg = {
-  roi: 10.5,
-  startDate: Date.parse("2015-10-10").valueOf(), //Date.now(),
-  emiPaid: 1100,
-};
-loanROIChanges.push(loanROIChg);
-
-const loanExtraPayments: ExtraPayment[] = [];
-
-let loanExtraPay = {
-  amount: 50000,
-  date: Date.parse("2018-01-25").valueOf(),
-};
-loanExtraPayments.push(loanExtraPay);
-
-loanExtraPay = {
-  amount: 50000,
-  date: Date.parse("2018-02-25").valueOf(),
-};
-loanExtraPayments.push(loanExtraPay);
-
-loanExtraPay = {
-  amount: 50000,
-  date: Date.parse("2018-02-25").valueOf(),
-};
-loanExtraPayments.push(loanExtraPay);
-
-loanExtraPay = {
-  amount: 50000,
-  date: Date.parse("2020-10-10").valueOf(),
-};
-loanExtraPayments.push(loanExtraPay);
-
-// console.log("Splits (with ROI Change):");
-// calculateEMISplitsWithStats(loanData, loanROIChanges);
-
-// console.log("Splits (with ROI Change + Extra Amounts):");
-// calculateEMISplitsWithStats(loanData, loanROIChanges, loanExtraPayments);
-
-// console.log("Yearly Splits (with ROI Change + Extra Amounts):");
-// calculateEMISplitsWithStats(loanData, loanROIChanges, loanExtraPayments, true);
-
-// console.log(
-//   "Splits (with ROI Change):\n",
-//   JSON.stringify(calculateEMISplits(loanData, loanROIChanges), null, 2)
-// );

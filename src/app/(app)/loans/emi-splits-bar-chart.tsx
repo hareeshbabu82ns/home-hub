@@ -27,17 +27,17 @@ import { format } from "date-fns";
 // ];
 
 const chartConfig = {
-  emi: {
-    label: "EMI",
-    color: "hsl(var(--chart-1))",
+  emiPaid: {
+    label: "Total EMI",
+    color: "var(--chart-3)",
   },
-  principle: {
-    label: "Principle",
-    color: "hsl(var(--chart-2))",
+  principal: {
+    label: "Principal",
+    color: "var(--chart-2)",
   },
   interest: {
     label: "Interest",
-    color: "hsl(var(--chart-3))",
+    color: "var(--chart-1)",
   },
 } satisfies ChartConfig;
 
@@ -74,9 +74,18 @@ export function EmiSPlitsBarChart({
               cursor={false}
               content={<ChartTooltipContent indicator="dashed" />}
             />
-            <Bar dataKey="emiPaid" fill="var(--color-emi)" radius={4} />
-            <Bar dataKey="principle" fill="var(--color-principle)" radius={4} />
-            <Bar dataKey="interest" fill="var(--color-interest)" radius={4} />
+            <Bar
+              dataKey="principal"
+              fill="var(--chart-4)"
+              radius={[0, 0, 4, 4]}
+              stackId="emi"
+            />
+            <Bar
+              dataKey="interest"
+              fill="var(--chart-5)"
+              radius={[4, 4, 0, 0]}
+              stackId="emi"
+            />
           </BarChart>
         </ChartContainer>
       </CardContent>
