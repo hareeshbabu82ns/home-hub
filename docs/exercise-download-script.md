@@ -11,6 +11,7 @@ pnpm download-exercises download
 ```
 
 This will:
+
 1. Download all exercise pages from WorkoutLabs API
 2. Save raw data to `data/exercises-raw-{date}.json`
 3. Transform the data to match our database schema
@@ -24,6 +25,7 @@ pnpm download-exercises upload data/exercises-raw-2025-01-19.json
 ```
 
 This will:
+
 1. Load exercise data from the specified JSON file
 2. Transform the data if needed
 3. Upload to the database (upsert mode)
@@ -40,6 +42,7 @@ This will:
 ## API Details
 
 The script calls the WorkoutLabs API with these parameters:
+
 - Equipment filter: "NO EQUIPMENT"
 - Action: "filter_sidebar_exercises"
 - Pagination: Automatically handles all pages
@@ -47,6 +50,7 @@ The script calls the WorkoutLabs API with these parameters:
 ## Database Schema
 
 Exercises are stored with the following fields:
+
 - `exerciseId`: Unique ID from WorkoutLabs
 - `title`: Exercise name
 - `titleRaw`: Raw title from API
@@ -64,12 +68,14 @@ Exercises are stored with the following fields:
 ## Output Files
 
 Files are saved to the `data/` directory:
+
 - `exercises-raw-{date}.json`: Raw API responses
 - `exercises-transformed-{date}.json`: Transformed exercise data
 
 ## Error Handling
 
 The script includes comprehensive error handling:
+
 - API request failures are logged and skipped
 - Database upload errors are counted and reported
 - Partial failures don't stop the entire process

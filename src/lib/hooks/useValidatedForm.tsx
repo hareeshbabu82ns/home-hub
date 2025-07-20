@@ -1,7 +1,7 @@
 "use client";
 
-import { FormEvent, useState } from "react";
-import { ZodSchema } from "zod";
+import { useState, type FormEvent } from "react";
+import type { ZodSchema } from "zod";
 
 type EntityZodErrors<T> = Partial<Record<keyof T, string[] | undefined>>;
 

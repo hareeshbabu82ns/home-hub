@@ -1,5 +1,4 @@
 import { getUserAuth } from "@/lib/auth/utils";
-import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -11,7 +10,7 @@ import { Switch } from "@/components/ui/switch";
 import { Bell, Mail, Smartphone } from "lucide-react";
 
 export default async function NotificationsPage() {
-  const { session } = await getUserAuth();
+  await getUserAuth();
 
   return (
     <div className="space-y-6">

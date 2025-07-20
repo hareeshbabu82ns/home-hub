@@ -1,4 +1,4 @@
-import { TrackAttributes } from "@/app/generated/prisma";
+import type { TrackAttributes } from "@/app/generated/prisma";
 import { fetchTrackItemAttributes } from "../actions";
 // import TrackAttrAddBtn from "./components/track-attr-add-btn";
 import Link from "next/link";
@@ -25,9 +25,9 @@ export default async function TrackAttributesDataGrid({
         </div>
       </div>
       <div className="p-4">
-        {(!attrs || attrs.length === 0) && <h2>No Attributes, Create some!</h2>}
+        {attrs.length === 0 && <h2>No Attributes, Create some!</h2>}
         {attrs.map((attr) => (
-          <TrackAttrLine attr={attr} />
+          <TrackAttrLine attr={attr} key={attr.id} />
         ))}
       </div>
     </div>

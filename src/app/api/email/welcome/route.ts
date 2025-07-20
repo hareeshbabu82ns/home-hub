@@ -1,6 +1,6 @@
 import { resend } from "@/lib/email";
 import { WelcomeEmail } from "@/components/emails/WelcomeEmail";
-import { NextRequest, NextResponse } from "next/server";
+import { type NextRequest, NextResponse } from "next/server";
 import React from "react";
 
 export async function POST(request: NextRequest) {

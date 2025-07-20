@@ -40,7 +40,7 @@ export default async function Home() {
           Dashboard
         </h1>
         <p className="text-muted-foreground">
-          Welcome back, {session.user?.name || "User"}! Here&apos;s what&apos;s
+          Welcome back, {session.user.name || "User"}! Here&apos;s what&apos;s
           happening with your account.
         </p>
       </div>
@@ -110,21 +110,21 @@ export default async function Home() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex items-center space-x-4">
-              <div className="h-2 w-2 rounded-full bg-blue-500"></div>
+              <div className="h-2 w-2 rounded-full bg-blue-500" />
               <div className="flex-1 space-y-1">
                 <p className="text-sm font-medium">New login detected</p>
                 <p className="text-muted-foreground text-xs">2 minutes ago</p>
               </div>
             </div>
             <div className="flex items-center space-x-4">
-              <div className="h-2 w-2 rounded-full bg-green-500"></div>
+              <div className="h-2 w-2 rounded-full bg-green-500" />
               <div className="flex-1 space-y-1">
                 <p className="text-sm font-medium">Profile updated</p>
                 <p className="text-muted-foreground text-xs">1 hour ago</p>
               </div>
             </div>
             <div className="flex items-center space-x-4">
-              <div className="h-2 w-2 rounded-full bg-yellow-500"></div>
+              <div className="h-2 w-2 rounded-full bg-yellow-500" />
               <div className="flex-1 space-y-1">
                 <p className="text-sm font-medium">Settings changed</p>
                 <p className="text-muted-foreground text-xs">3 hours ago</p>

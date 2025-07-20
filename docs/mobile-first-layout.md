@@ -58,19 +58,19 @@ Using Tailwind CSS mobile-first approach:
 
 ```tsx
 // Container with mobile-first responsive grid
-className="min-h-screen bg-background"
+className = "min-h-screen bg-background";
 
 // Responsive layout
-className="flex h-screen flex-col lg:flex-row"
+className = "flex h-screen flex-col lg:flex-row";
 
 // Desktop sidebar (hidden on mobile)
-className="hidden lg:flex lg:w-64 lg:flex-col"
+className = "hidden lg:flex lg:w-64 lg:flex-col";
 
 // Mobile sheet sidebar
-className="w-[280px] p-0 sm:w-[300px]"
+className = "w-[280px] p-0 sm:w-[300px]";
 
 // Content padding (mobile-first)
-className="container mx-auto p-4 sm:p-6 lg:p-8"
+className = "container mx-auto p-4 sm:p-6 lg:p-8";
 ```
 
 ### Responsive Utilities

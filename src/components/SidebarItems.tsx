@@ -4,12 +4,12 @@ import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-import { LucideIcon } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { defaultLinks, additionalLinks } from "@/config/nav";
 
-export interface SidebarLink {
+export interface ISidebarLink {
   title: string;
   href: string;
   icon: LucideIcon;
@@ -39,12 +39,12 @@ const SidebarLinkGroup = ({
   title,
   border,
 }: {
-  links: SidebarLink[];
+  links: ISidebarLink[];
   title?: string;
   border?: boolean;
 }) => {
   const fullPathname = usePathname();
-  const pathname = "/" + fullPathname.split("/")[1];
+  const pathname = `/${fullPathname.split("/")[1]}`;
 
   return (
     <div className={border ? "border-border my-6 border-t pt-6" : ""}>
@@ -69,7 +69,7 @@ const SidebarLink = ({
   link,
   active,
 }: {
-  link: SidebarLink;
+  link: ISidebarLink;
   active: boolean;
 }) => {
   return (

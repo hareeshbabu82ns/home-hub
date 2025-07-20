@@ -7,12 +7,11 @@ import {
   isSameYear,
   toDate,
 } from "date-fns";
-import {
+import type {
   EMIRecord,
   EMISplit,
   EMISplitStats,
   ExtraPayment,
-  LoanData,
   RateOfInterest,
   SplitsWithStats,
 } from "./types";

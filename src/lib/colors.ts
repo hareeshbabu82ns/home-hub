@@ -71,29 +71,33 @@ export const genColorPalette = (
   const palette: Record<string, Color> = {};
 
   const col = chroma(base.hex());
-  useBezier
-    ? chroma
-        // .bezier([col.luminance(0.95).hex(), col.hex(), col.luminance(0.01).hex()])
-        .bezier([
-          col.set("hsl.l", "0.95").desaturate(0.2).hex(),
-          col.hex(),
-          col.set("hsl.l", "0.05").saturate(0.2).hex(),
-        ])
-        .scale()
-        .colors(11, "hex")
-        .forEach((c, i) => {
-          palette[paletteColorKeys[i]] = chroma(c);
-        })
-    : chroma
-        .scale([
-          col.set("hsl.l", "0.95").desaturate(0.1).hex(),
-          col.hex(),
-          col.set("hsl.l", "0.05").saturate(0.1).hex(),
-        ])
-        .colors(11, "hex")
-        .forEach((c, i) => {
-          palette[paletteColorKeys[i]] = chroma(c);
-        });
+
+  if (useBezier) {
+    chroma
+      // .bezier([col.luminance(0.95).hex(), col.hex(), col.luminance(0.01).hex()])
+      .bezier([
+        col.set("hsl.l", "0.95").desaturate(0.2).hex(),
+        col.hex(),
+        col.set("hsl.l", "0.05").saturate(0.2).hex(),
+      ])
+      .scale()
+      .colors(11, "hex")
+      .forEach((c, i) => {
+        palette[paletteColorKeys[i]] = chroma(c);
+      });
+  } else {
+    chroma
+      .scale([
+        col.set("hsl.l", "0.95").desaturate(0.1).hex(),
+        col.hex(),
+        col.set("hsl.l", "0.05").saturate(0.1).hex(),
+      ])
+      .colors(11, "hex")
+      .forEach((c, i) => {
+        palette[paletteColorKeys[i]] = chroma(c);
+      });
+  }
+
   return { name: "", colors: palette };
 };
 

@@ -18,8 +18,8 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { ExerciseCard } from "@/components/exercise/ExerciseCard";
 import { getExercises } from "@/lib/actions/exercise";
-import { Exercise } from "@/app/generated/prisma";
-import { ExerciseFilterParams } from "@/types/exercise";
+import type { Exercise } from "@/app/generated/prisma";
+import type { ExerciseFilterParams } from "@/types/exercise";
 import { useDebounce } from "@/hooks/use-debounce";
 
 interface ExercisesGridProps {

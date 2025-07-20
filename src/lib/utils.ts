@@ -3,9 +3,9 @@ import colors from "tailwindcss/colors";
 import chroma, { type Color } from "chroma-js";
 import { twMerge } from "tailwind-merge";
 import {
+  type ColorPalette,
   colorHslCss,
   colorHslPercent,
-  ColorPalette,
   genColorPalette,
   genForegroundColorPalette,
   paletteColorKeys,

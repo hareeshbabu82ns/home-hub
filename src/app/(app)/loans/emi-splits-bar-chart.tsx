@@ -10,12 +10,12 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import {
-  ChartConfig,
+  type ChartConfig,
   ChartContainer,
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart";
-import { EMISplit } from "@/lib/loans/types";
+import type { EMISplit } from "@/lib/loans/types";
 import { format } from "date-fns";
 // const chartData = [
 //   { month: "January", desktop: 186, mobile: 80 },

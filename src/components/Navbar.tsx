@@ -1,7 +1,5 @@
 "use client";
 
-import { usePathname } from "next/navigation";
-
 import { Button } from "@/components/ui/button";
 
 import ThemeToggle from "./theme-toggle";
@@ -19,8 +17,6 @@ export default function Navbar({
   sidebarTrigger?: boolean;
   themeToggle?: boolean;
 }) {
-  const pathname = usePathname();
-
   return (
     <nav className="flex w-full items-center justify-between px-4 py-2 sm:px-6">
       {/* Left side - Logo and hamburger menu */}

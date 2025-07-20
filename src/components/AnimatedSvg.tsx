@@ -10,6 +10,7 @@ interface AnimatedSvgProps {
   autoPlay?: boolean;
   loop?: boolean;
   playOnHover?: boolean; // New prop for hover-based animation
+  // eslint-disable-next-line no-unused-vars
   onFrameChange?: (frameIndex: number, frameId: string) => void;
 }
 
@@ -157,6 +158,7 @@ export function useAnimatedSvg() {
     play: () => void;
     pause: () => void;
     stop: () => void;
+    // eslint-disable-next-line no-unused-vars
     goToFrame: (frameIndex: number) => void;
     isPlaying: boolean;
     currentFrame: number;

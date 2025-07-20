@@ -6,10 +6,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { calculateEMISplitsWithStats, calculateEMI } from "@/lib/loans/calc";
-import { ExtraPayment, LoanData } from "@/lib/loans/types";
+import type { ExtraPayment, LoanData } from "@/lib/loans/types";
 import EmiSPlitsBarChart from "./emi-splits-bar-chart";
 import { EMISplitsStatsPieChart } from "./emi-splits-stats-pie-chart";
-import { format } from "date-fns";
 
 export default function LoansPage() {
   const [loanInputs, setLoanInputs] = useState({
@@ -19,7 +18,7 @@ export default function LoansPage() {
     startDate: "2020-03-01",
   });
 
-  const [extraPayments, setExtraPayments] = useState<ExtraPayment[]>([
+  const [extraPayments] = useState<ExtraPayment[]>([
     {
       amount: 20000,
       date: Date.parse("2022-07-04").valueOf(),
@@ -51,7 +50,7 @@ export default function LoansPage() {
       amount: loanInputs.amount,
       roi: loanInputs.roi,
       term: loanInputs.term,
-      emi: emi,
+      emi,
       startDate: Date.parse(loanInputs.startDate).valueOf(),
       emiPaid: emi, // Use calculated EMI as the paid amount
     };
@@ -81,9 +80,7 @@ export default function LoansPage() {
     return { baseSplits, splitsWithExtras };
   };
 
-  const { baseSplits, splitsWithExtras } = useMemo(() => {
-    return calculateLoans();
-  }, [
+  const { baseSplits, splitsWithExtras } = useMemo(calculateLoans, [
     loanInputs.amount,
     loanInputs.roi,
     loanInputs.term,

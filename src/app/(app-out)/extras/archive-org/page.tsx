@@ -4,7 +4,7 @@ import { useState } from "react";
 import { searchArchiveOrg } from "../scrap-web/actions";
 import { useQuery } from "@tanstack/react-query";
 import Loader from "@/components/loader";
-import { ArchiveOrgSearchResult } from "../scrap-web/types";
+import type { ArchiveOrgSearchResult } from "../scrap-web/types";
 import { Input } from "@/components/ui/input";
 import {
   Card,

@@ -4,7 +4,7 @@ import { AccountCard, AccountCardFooter, AccountCardBody } from "./AccountCard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { useTransition } from "react";
+import React, { useTransition } from "react";
 import { useRouter } from "next/navigation";
 import SendEmailBtn from "./SendEmailBtn";
 
@@ -49,7 +49,7 @@ export default function UpdateEmailCard({
     >
       <form onSubmit={handleSubmit}>
         <AccountCardBody>
-          <Input defaultValue={email ?? ""} name="email" disabled={true} />
+          <Input defaultValue={email} name="email" disabled={true} />
         </AccountCardBody>
         <AccountCardFooter description="We will email vou to verify the change.">
           <div className="space-x-3">

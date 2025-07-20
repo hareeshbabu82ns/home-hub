@@ -3,9 +3,13 @@ import plugin from "tailwindcss/plugin";
 
 // Type definitions for Tailwind CSS v4+ compatibility
 interface PluginAPI {
+  // eslint-disable-next-line no-unused-vars
   addBase: (styles: any) => void;
+  // eslint-disable-next-line no-unused-vars
   addUtilities: (utilities: any) => void;
+  // eslint-disable-next-line no-unused-vars
   theme: (path: string, defaultValue?: any) => any;
+  // eslint-disable-next-line no-unused-vars
   config: (path: string) => any;
 }
 
@@ -26,6 +30,7 @@ interface PluginOptions {
 const themeKey = "scrollbar"; // theme.scrollbar
 const darkClass = "dark";
 
+// eslint-disable-next-line no-unused-vars
 const omit = (key: string, { [key]: _, ...obj }) => obj;
 
 /**

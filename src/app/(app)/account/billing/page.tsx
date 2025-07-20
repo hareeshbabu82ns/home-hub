@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { CreditCard, Download, Receipt } from "lucide-react";
 
 export default async function BillingPage() {
-  const { session } = await getUserAuth();
+  await getUserAuth();
 
   return (
     <div className="space-y-6">

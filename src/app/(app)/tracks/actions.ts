@@ -23,7 +23,7 @@ export const fetchTrackAttribute = async (id: string) => {
   if (!session) return null;
   const track = await db.trackAttributes.findUniqueOrThrow({
     where: {
-      id: id,
+      id,
       userId: session.user.id,
     },
   });
@@ -60,7 +60,7 @@ export async function createTrackItemAttribute(
   const data = parse.data;
 
   try {
-    console.log("createTrackAttribute", data);
+    // console.log("createTrackAttribute", data);
     await db.trackAttributes.create({
       data: {
         trackId: data.trackId,
@@ -78,7 +78,7 @@ export async function createTrackItemAttribute(
 
     revalidatePath("/");
     return { message: `Added trackItem ${data.title}` };
-  } catch (e) {
+  } catch {
     return { message: "Failed to create trackItem" };
   }
 }
@@ -113,7 +113,7 @@ export async function updateTrackItemAttribute(
   const data = parse.data;
 
   try {
-    console.log("updateTrackItem", data);
+    // console.log("updateTrackItem", data);
     await db.trackAttributes.update({
       where: { id: data.id },
       data: {
@@ -129,7 +129,7 @@ export async function updateTrackItemAttribute(
 
     revalidatePath("/");
     return { message: `Updated trackItem ${data.title}` };
-  } catch (e) {
+  } catch {
     return { message: "Failed to update trackItem", error: true };
   }
 }
@@ -141,7 +141,7 @@ export const fetchTrackItem = async (id: string) => {
   if (!session) return null;
   const track = await db.trackItem.findUniqueOrThrow({
     where: {
-      id: id,
+      id,
       userId: session.user.id,
     },
   });
@@ -187,7 +187,7 @@ export async function createTrackItem(
   const data = parse.data;
 
   try {
-    console.log("createTrackItem", data);
+    // console.log("createTrackItem", data);
     await db.trackItem.create({
       data: {
         title: data.title,
@@ -198,7 +198,7 @@ export async function createTrackItem(
 
     revalidatePath("/");
     return { message: `Added trackItem ${data.title}` };
-  } catch (e) {
+  } catch {
     return { message: "Failed to create trackItem" };
   }
 }
@@ -233,7 +233,7 @@ export async function updateTrackItem(
   const data = parse.data;
 
   try {
-    console.log("updateTrackItem", data);
+    // console.log("updateTrackItem", data);
     await db.trackItem.update({
       where: { id: data.id },
       data: {
@@ -245,7 +245,7 @@ export async function updateTrackItem(
 
     revalidatePath("/");
     return { message: `Updated trackItem ${data.title}` };
-  } catch (e) {
+  } catch {
     return { message: "Failed to update trackItem", error: true };
   }
 }
@@ -272,7 +272,7 @@ export async function deleteTrackItem(
 
     revalidatePath("/");
     return { message: `Deleted trackItem ${data.title}` };
-  } catch (e) {
+  } catch {
     return { message: "Failed to delete TrackItem" };
   }
 }

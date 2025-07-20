@@ -8,7 +8,7 @@ interface CompProps {
   className?: string;
 }
 
-const Loader = ( { className }: CompProps ) => {
+const Loader = ({ className }: CompProps) => {
   return (
     <div
       className={cn(

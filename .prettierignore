@@ -1,13 +1,46 @@
-cache
-.cache
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Production builds
+dist/
+build/
+.next/
+out/
+
+# Cache directories
+cache/
+.cache/
+.parcel-cache/
+.eslintcache
+.stylelintcache
+
+# Package files
 package.json
 package-lock.json
-public
+pnpm-lock.yaml
+yarn.lock
+
+# Generated/auto-generated files
+src/components/ui/
+src/app/generated/
+.contentlayer/
+
+# Data files
+data/
+
+# Public assets and media
+public/
+
+# Documentation and changelogs
 CHANGELOG.md
-.yarn
-dist
-node_modules
-.next
-build
-.contentlayer
-data
+README.md
+
+# Configuration that should maintain original formatting
+.vscode/
+.github/
+
+# Logs and debug
+*.log
+.DS_Store

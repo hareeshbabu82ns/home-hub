@@ -7,7 +7,7 @@ import { createWriteStream } from "fs";
 import { createObjectCsvWriter } from "csv-writer";
 import path from "path";
 import { Readable } from "stream";
-import { ArchiveOrgFieldType, ArchiveOrgSearchResult } from "./types";
+import type { ArchiveOrgFieldType, ArchiveOrgSearchResult } from "./types";
 
 const csvWriter = createObjectCsvWriter({
   append: true,
@@ -60,7 +60,7 @@ export async function downloadValidLinks({
     const fileIndexStr = fileIndex.toString().padStart(5, "0");
     const title = `${fileIndexStr}-${link.title}`;
     if (downloadedLinks.includes(link.url)) {
-      console.log(`Already downloaded: ${link.title}`);
+      // console.log(`Already downloaded: ${link.title}`);
       continue;
     }
     const res = await fetch(link.url);
@@ -133,7 +133,7 @@ function adjustTitleToFileName(title: string): string {
   return (
     title
       // .replace(/[^a-zA-Z0-9\s-_\.]/g, '-') // Replace invalid characters with hyphen
-      .replace(/[\s-_\.]/g, "-") // Replace invalid characters with hyphen
+      .replace(/[\s-_.]/g, "-") // Replace invalid characters with hyphen
       .replace(/\s+/g, "-") // Replace spaces with hyphen
       .replace(/-+/g, "-") // Replace multiple hyphens with a single hyphen
       .toLowerCase()
@@ -155,9 +155,10 @@ async function fileStreamDownload(
   url: string,
   title: string,
   ext: string,
+  // eslint-disable-next-line no-unused-vars
   onProgress: (progress: number) => void,
 ): Promise<void> {
-  const filename = adjustTitleToFileName(title) + `.${ext}`;
+  const filename = `${adjustTitleToFileName(title)}.${ext}`;
   const response = await fetch(url);
 
   if (!response.ok || response?.body === null) {
@@ -232,7 +233,7 @@ export async function searchArchiveOrg({
   const url = new URL("https://archive.org/services/search/v1/scrape");
   url.searchParams.set("q", q);
   url.searchParams.set("fields", fields.join(","));
-  sorts && url.searchParams.set("sorts", sorts);
+  if (sorts) url.searchParams.set("sorts", sorts);
   url.searchParams.set("count", count.toString());
   if (cursor) url.searchParams.set("cursor", cursor);
   if (total_only) url.searchParams.set("total_only", "true");

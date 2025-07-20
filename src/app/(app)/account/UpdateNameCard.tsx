@@ -7,7 +7,7 @@ import { useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 export default function UpdateNameCard({ name }: { name: string }) {
-  const [isPending, startTransition] = useTransition();
+  const [, startTransition] = useTransition();
   const router = useRouter();
   const handleSubmit = async (event: React.SyntheticEvent) => {
     event.preventDefault();
@@ -40,7 +40,7 @@ export default function UpdateNameCard({ name }: { name: string }) {
     >
       <form onSubmit={handleSubmit}>
         <AccountCardBody>
-          <Input defaultValue={name ?? ""} name="name" />
+          <Input defaultValue={name} name="name" />
         </AccountCardBody>
         <AccountCardFooter description="64 characters maximum">
           <Button>Update Name</Button>

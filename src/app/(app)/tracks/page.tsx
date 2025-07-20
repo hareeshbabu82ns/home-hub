@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { fetchTrackItems } from "./actions";
-import { TrackItem } from "@/app/generated/prisma";
+import type { TrackItem } from "@/app/generated/prisma";
 import { SquarePen as NewTrackIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 

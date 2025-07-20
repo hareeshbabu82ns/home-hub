@@ -10,7 +10,7 @@ import {
 import { Shield, Key, Smartphone } from "lucide-react";
 
 export default async function SecurityPage() {
-  const { session } = await getUserAuth();
+  await getUserAuth();
 
   return (
     <div className="space-y-6">

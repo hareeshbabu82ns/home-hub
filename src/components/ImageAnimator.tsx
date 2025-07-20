@@ -11,6 +11,7 @@ interface ImageAnimatorProps {
   autoPlay?: boolean;
   loop?: boolean;
   playOnHover?: boolean; // Play animation on hover
+  // eslint-disable-next-line no-unused-vars
   onImageChange?: (imageIndex: number, imageUrl: string) => void;
 }
 

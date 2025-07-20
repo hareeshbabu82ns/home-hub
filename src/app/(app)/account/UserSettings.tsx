@@ -8,14 +8,10 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { AuthSession } from "@/lib/auth/utils";
+import type { Session } from "next-auth";
 import { User, Mail, Calendar } from "lucide-react";
 
-export default function UserSettings({
-  session,
-}: {
-  session: AuthSession["session"] | any;
-}) {
+export default function UserSettings({ session }: { session: Session | null }) {
   return (
     <div className="space-y-6">
       {/* Profile Overview */}

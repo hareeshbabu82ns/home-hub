@@ -1,6 +1,6 @@
 "use client";
 
-import { TrackAttributes } from "@/app/generated/prisma";
+import type { TrackAttributes } from "@/app/generated/prisma";
 import React from "react";
 import { LucideSave as SaveIcon, Loader2 } from "lucide-react";
 import { useFormState, useFormStatus } from "react-dom";

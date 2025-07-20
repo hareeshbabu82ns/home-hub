@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "@/lib/db";
-import { ExerciseFilterParams } from "@/types/exercise";
+import type { ExerciseFilterParams } from "@/types/exercise";
 
 export async function getExercises(params?: ExerciseFilterParams) {
   const {

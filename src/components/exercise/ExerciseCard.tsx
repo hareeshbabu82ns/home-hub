@@ -2,19 +2,13 @@
 
 import { useState } from "react";
 import Image from "next/image";
-import {
-  Card,
-  CardContent,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Heart, Play, ExternalLink } from "lucide-react";
+import { Heart } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Exercise } from "@/app/generated/prisma";
-import {
+import type { Exercise } from "@/app/generated/prisma";
+import type {
   ExerciseImage,
   ExerciseAnimation,
   ExerciseLocalImages,
@@ -25,6 +19,7 @@ import ImageAnimator from "@/components/ImageAnimator";
 interface ExerciseCardProps {
   exercise: Exercise;
   globalGender?: "male" | "female";
+  // eslint-disable-next-line no-unused-vars
   onFavoriteToggle?: (exerciseId: string, isFav: boolean) => void;
 }
 
@@ -81,17 +76,17 @@ export function ExerciseCard({
     ? exercise.tags.split(",").map((tag) => tag.trim())
     : [];
 
-  const equipment = exercise.equipment
-    ? exercise.equipment.split(",").map((eq) => eq.trim())
-    : [];
+  // const equipment = exercise.equipment
+  //   ? exercise.equipment.split(",").map((eq) => eq.trim())
+  //   : [];
 
-  const primaryMuscles = exercise.primaryMuscles
-    ? exercise.primaryMuscles.split(",").map((muscle) => muscle.trim())
-    : [];
+  // const primaryMuscles = exercise.primaryMuscles
+  //   ? exercise.primaryMuscles.split(",").map((muscle) => muscle.trim())
+  //   : [];
 
-  const secondaryMuscles = exercise.secondaryMuscles
-    ? exercise.secondaryMuscles.split(",").map((muscle) => muscle.trim())
-    : [];
+  // const secondaryMuscles = exercise.secondaryMuscles
+  //   ? exercise.secondaryMuscles.split(",").map((muscle) => muscle.trim())
+  //   : [];
 
   return (
     <Card className="group flex h-full flex-col transition-shadow duration-300 hover:shadow-lg">

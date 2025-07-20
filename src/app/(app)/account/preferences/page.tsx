@@ -1,5 +1,4 @@
 import { getUserAuth } from "@/lib/auth/utils";
-import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -18,7 +17,7 @@ import {
 import { Settings, Globe, Palette, Clock } from "lucide-react";
 
 export default async function PreferencesPage() {
-  const { session } = await getUserAuth();
+  await getUserAuth();
 
   return (
     <div className="space-y-6">

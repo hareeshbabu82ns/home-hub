@@ -1,6 +1,6 @@
-import { TrackAttributes } from "@/app/generated/prisma";
+import type { TrackAttributes } from "@/app/generated/prisma";
 import { fetchTrackAttribute } from "../../../actions";
-import TrackAttributeForm from "../../../components/track-attr-form";
+// import TrackAttributeForm from "../../../components/track-attr-form";
 // import { fetchTrackAttribute } from "@app/(app)/tracks/actions";
 // import TrackAttributeForm from "@app/(app)/tracks/components/track-attr-form";
 

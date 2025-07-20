@@ -1,11 +1,15 @@
 import { db } from "@/lib/db/index";
 import { PrismaAdapter } from "@auth/prisma-adapter";
-import { DefaultSession, getServerSession, NextAuthOptions } from "next-auth";
+import {
+  type DefaultSession,
+  type NextAuthOptions,
+  getServerSession,
+} from "next-auth";
 import { redirect } from "next/navigation";
 import { env } from "@/lib/env.mjs";
 import GoogleProvider from "next-auth/providers/google";
 import GithubProvider from "next-auth/providers/github";
-import { Adapter } from "next-auth/adapters";
+import type { Adapter } from "next-auth/adapters";
 
 declare module "next-auth" {
   interface Session {

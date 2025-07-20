@@ -62,18 +62,20 @@ The component is automatically used in `ExerciseCard` when:
 // This logic is already implemented in ExerciseCard.tsx
 const localImageUrls = getLocalImages(); // Gets sorted array from localImages field
 
-{localImageUrls.length > 0 ? (
-  <ImageAnimator
-    images={localImageUrls}
-    className="h-full w-full"
-    animationDuration={2000}
-    autoPlay={false}
-    playOnHover={true}
-    loop={true}
-  />
-) : (
-  <div>No image</div>
-)}
+{
+  localImageUrls.length > 0 ? (
+    <ImageAnimator
+      images={localImageUrls}
+      className="h-full w-full"
+      animationDuration={2000}
+      autoPlay={false}
+      playOnHover={true}
+      loop={true}
+    />
+  ) : (
+    <div>No image</div>
+  );
+}
 ```
 
 ## Props

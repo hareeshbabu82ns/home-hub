@@ -6,7 +6,7 @@ import { useEffect } from "react";
 import { toast } from "sonner";
 import { LucideSave as SaveIcon, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { TrackItem } from "@/app/generated/prisma";
+import type { TrackItem } from "@/app/generated/prisma";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";

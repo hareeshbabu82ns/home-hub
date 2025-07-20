@@ -19,14 +19,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import {
-  Users,
-  Eye,
-  Volume2,
-  MousePointer,
-  Keyboard,
-  Type,
-} from "lucide-react";
+import { Eye, Volume2, MousePointer, Keyboard, Type } from "lucide-react";
 
 export default function AccessibilityPage() {
   return (

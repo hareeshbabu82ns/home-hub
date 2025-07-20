@@ -1,4 +1,4 @@
-import { TrackItem } from "@/app/generated/prisma";
+import type { TrackItem } from "@/app/generated/prisma";
 import { fetchTrackItem } from "../actions";
 import { TrackForm } from "./track-form";
 

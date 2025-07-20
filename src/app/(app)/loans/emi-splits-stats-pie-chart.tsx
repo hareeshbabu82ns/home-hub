@@ -11,12 +11,12 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import {
-  ChartConfig,
+  type ChartConfig,
   ChartContainer,
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart";
-import { EMISplitStats } from "@/lib/loans/types";
+import type { EMISplitStats } from "@/lib/loans/types";
 
 const chartConfig = {
   interest: {

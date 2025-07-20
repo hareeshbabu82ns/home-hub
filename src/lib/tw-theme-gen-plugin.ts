@@ -1,7 +1,7 @@
 import plugin from "tailwindcss/plugin";
 import defaultTheme from "tailwindcss/defaultTheme";
 
-import { Config } from "tailwindcss";
+import type { Config } from "tailwindcss";
 import {
   genTailwindThemeBase,
   genTWColorPaletteVariables,
@@ -206,13 +206,13 @@ const twThemeGenPluginCreator = ({
           },
           safelist: [
             {
-              pattern: /\-primary\-/,
+              pattern: /-primary-/,
             },
             {
-              pattern: /\-secondary\-/,
+              pattern: /-secondary-/,
             },
             {
-              pattern: /\-tertiary\-/,
+              pattern: /-tertiary-/,
             },
           ],
         } as Partial<Config>),
