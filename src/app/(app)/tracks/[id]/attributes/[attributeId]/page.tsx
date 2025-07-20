@@ -18,10 +18,11 @@ const initialTrackAttr: Omit<TrackAttributes, "userId"> = {
 };
 
 export default async function TrackDetailsForm({
-  params: { id, attributeId },
+  params,
 }: {
-  params: { id: string; attributeId: string };
+  params: Promise<{ id: string; attributeId: string }>;
 }) {
+  const { id, attributeId } = await params;
   const attr = (
     id === "new" || attributeId === "new"
       ? initialTrackAttr

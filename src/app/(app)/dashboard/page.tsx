@@ -40,8 +40,8 @@ export default async function Home() {
           Dashboard
         </h1>
         <p className="text-muted-foreground">
-          Welcome back, {session.user?.name || "User"}! Here's what's happening
-          with your account.
+          Welcome back, {session.user?.name || "User"}! Here&apos;s what&apos;s
+          happening with your account.
         </p>
       </div>
 

@@ -29,7 +29,7 @@ export default function NotificationsPage() {
         <CardHeader>
           <CardTitle>Email Notifications</CardTitle>
           <CardDescription>
-            Choose which email notifications you'd like to receive
+            Choose which email notifications you&apos;d like to receive
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
