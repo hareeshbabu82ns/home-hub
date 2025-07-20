@@ -19,8 +19,11 @@ export async function getExercises(params?: ExerciseFilterParams) {
   } = params || {};
 
   try {
-    const where = {
-      ...(search && {
+    const whereConditions: any[] = [];
+
+    // Search condition
+    if (search) {
+      whereConditions.push({
         OR: [
           { title: { contains: search, mode: "insensitive" as const } },
           { commonName: { contains: search, mode: "insensitive" as const } },
@@ -37,28 +40,70 @@ export async function getExercises(params?: ExerciseFilterParams) {
           },
           { instructions: { contains: search, mode: "insensitive" as const } },
         ],
-      }),
-      ...(type && { type: { contains: type, mode: "insensitive" as const } }),
-      ...(tags && { tags: { contains: tags, mode: "insensitive" as const } }),
-      ...(equipment && {
-        equipment: { contains: equipment, mode: "insensitive" as const },
-      }),
-      ...(primaryMuscles && {
-        primaryMuscles: {
-          contains: primaryMuscles,
-          mode: "insensitive" as const,
-        },
-      }),
-      ...(secondaryMuscles && {
-        secondaryMuscles: {
-          contains: secondaryMuscles,
-          mode: "insensitive" as const,
-        },
-      }),
-      ...(isCardio === true && { isCardio: true }),
-      ...(isYoga === true && { isYoga: true }),
-      ...(isFav === true && { isFav: true }),
-    };
+      });
+    }
+
+    // Type filter
+    if (type) {
+      whereConditions.push({
+        type: { contains: type, mode: "insensitive" as const },
+      });
+    }
+
+    // Tags filter
+    if (tags) {
+      whereConditions.push({
+        tags: { contains: tags, mode: "insensitive" as const },
+      });
+    }
+
+    // Equipment filter - any of the selected equipment
+    if (equipment) {
+      whereConditions.push({
+        OR: equipment.split(",").map((eq) => ({
+          equipment: { contains: eq.trim(), mode: "insensitive" as const },
+        })),
+      });
+    }
+
+    // Primary muscles filter - any of the selected muscles
+    if (primaryMuscles) {
+      whereConditions.push({
+        OR: primaryMuscles.split(",").map((muscle) => ({
+          primaryMuscles: {
+            contains: muscle.trim(),
+            mode: "insensitive" as const,
+          },
+        })),
+      });
+    }
+
+    // Secondary muscles filter - any of the selected muscles
+    if (secondaryMuscles) {
+      whereConditions.push({
+        OR: secondaryMuscles.split(",").map((muscle) => ({
+          secondaryMuscles: {
+            contains: muscle.trim(),
+            mode: "insensitive" as const,
+          },
+        })),
+      });
+    }
+
+    // Boolean filters
+    if (isCardio === true) {
+      whereConditions.push({ isCardio: true });
+    }
+
+    if (isYoga === true) {
+      whereConditions.push({ isYoga: true });
+    }
+
+    if (isFav === true) {
+      whereConditions.push({ isFav: true });
+    }
+
+    const where = whereConditions.length > 0 ? { AND: whereConditions } : {};
 
     const [exercises, total] = await Promise.all([
       db.exercise.findMany({
