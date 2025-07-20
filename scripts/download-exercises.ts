@@ -78,6 +78,33 @@ const WORKOUT_LABS_CONFIG = {
       "cgc_trigger=1; PHPSESSID=7ki1vhclajl257lr8r3ldanaa3; goi-tooltip-shown-wl1=1; animateShareButtons=0; timeOnWebsite=50; _fbp=fb.1.1752866213526.571079195216412065; intercom-id-swzakf94=5ead7f30-739b-446c-bded-19b450502680; intercom-session-swzakf94=; intercom-device-id-swzakf94=974be761-4022-4884-b163-9235a0d014dd; shared_wokrout_limit=1; user_gender=m; ecb-popup-v2=1; utm_source=internal; intercom-id-qhtjvn4d=6cee9681-211d-4ac0-90b3-5486095735ef; intercom-session-qhtjvn4d=; intercom-device-id-qhtjvn4d=08681666-1a33-4234-9a1a-5bdb1d2dc671",
   },
 };
+/**
+ * data[eq][] : Equipment filter
+ */
+const EQUIPMENT_QUERY_OPTIONS = [
+  "Full gym",
+  "NO EQUIPMENT",
+  "Agility Ladder",
+  "Barbell / EZ-Bar",
+  "Battle Rope",
+  "Bosu Ball",
+  "Cable Station",
+  "Climbing Rope",
+  "Dumbbells",
+  "Foam roller",
+  "Gymnastic Rings",
+  "Kettlebells",
+  "Medicine Ball",
+  "Plyo Box",
+  "Powerbag / Sandbag",
+  "Resistance Bands",
+  "Sled",
+  "Stationary Bike",
+  "Suspension Straps / TRX",
+  "Swiss / Exercise Ball",
+  "Treadmill",
+  "Water Bottles",
+];
 
 /**
  * Downloads exercise data from WorkoutLabs API for a specific page
@@ -86,10 +113,11 @@ async function downloadExercisePage(
   page: number,
 ): Promise<WorkoutLabsResponse | null> {
   const formData = new URLSearchParams({
-    "data[eq][]": "NO EQUIPMENT",
+    "data[eq][]": EQUIPMENT_QUERY_OPTIONS[2],
     "data[page]": page.toString(),
     action: "filter_sidebar_exercises",
     bypsec: "1",
+    c: "1", // color images
   });
 
   try {
@@ -164,11 +192,12 @@ async function saveExercisesToFile(
  */
 async function transformExerciseData(
   exercise: WorkoutLabsResponse["pages"][0][0],
+  forceDownload: boolean = false,
 ): Promise<ExerciseCreateInput> {
   console.log(`🔄 Processing exercise: ${exercise.title}`);
 
   // Download all assets for this exercise
-  const assets = await downloadExerciseAssets(exercise);
+  const assets = await downloadExerciseAssets(exercise, forceDownload);
 
   return {
     exerciseId: exercise.id, // Use 'id' instead of 'eid'
@@ -275,8 +304,14 @@ async function uploadExercisesToDatabase(
 /**
  * Main function to download all exercises
  */
-async function downloadAllExercises(): Promise<void> {
+async function downloadAllExercises(
+  forceDownload: boolean = false,
+): Promise<void> {
   console.log("🚀 Starting exercise download process...");
+
+  if (forceDownload) {
+    console.log("💪 Force download enabled - will re-download existing files");
+  }
 
   const allExercises: WorkoutLabsResponse[] = [];
   let page = 0; // Start from page 0 as per curl command
@@ -310,7 +345,10 @@ async function downloadAllExercises(): Promise<void> {
   }
 
   // Save raw data to file
-  const timestamp = new Date().toISOString().split("T")[0];
+  const timestamp = new Date()
+    .toISOString()
+    .replace(/T/, "-")
+    .replace(/(\d{2}):(\d{2}):(\d{2}).*/, "$1-$2-$3");
   await saveExercisesToFile(allExercises, `exercises-raw-${timestamp}.json`);
 
   // Transform and flatten exercise data
@@ -318,7 +356,10 @@ async function downloadAllExercises(): Promise<void> {
   for (const pageData of allExercises) {
     for (const exerciseArray of pageData.pages) {
       for (const exercise of exerciseArray) {
-        const transformedExercise = await transformExerciseData(exercise);
+        const transformedExercise = await transformExerciseData(
+          exercise,
+          forceDownload,
+        );
         transformedExercises.push(transformedExercise);
       }
     }
@@ -341,7 +382,10 @@ async function downloadAllExercises(): Promise<void> {
 /**
  * Function to upload exercises from a previously saved JSON file
  */
-async function uploadFromFile(filePath: string): Promise<void> {
+async function uploadFromFile(
+  filePath: string,
+  forceDownload: boolean = false,
+): Promise<void> {
   try {
     const fileContent = await fs.readFile(filePath, "utf-8");
     const data = JSON.parse(fileContent);
@@ -355,7 +399,10 @@ async function uploadFromFile(filePath: string): Promise<void> {
         if (pageData.pages && Array.isArray(pageData.pages)) {
           for (const exerciseArray of pageData.pages) {
             for (const exercise of exerciseArray) {
-              const transformedExercise = await transformExerciseData(exercise);
+              const transformedExercise = await transformExerciseData(
+                exercise,
+                forceDownload,
+              );
               exercises.push(transformedExercise);
             }
           }
@@ -384,6 +431,7 @@ async function uploadFromFile(filePath: string): Promise<void> {
 async function downloadFile(
   url: string,
   localPath: string,
+  forceDownload: boolean = false,
 ): Promise<string | null> {
   if (!url || url.trim() === "") {
     return null;
@@ -394,16 +442,22 @@ async function downloadFile(
     const dir = path.dirname(localPath);
     await fs.mkdir(dir, { recursive: true });
 
-    // Skip if file already exists
-    try {
-      await fs.access(localPath);
-      console.log(`⏭️  File already exists: ${path.basename(localPath)}`);
-      return localPath;
-    } catch {
-      // File doesn't exist, continue with download
+    // Skip if file already exists (unless force download is enabled)
+    if (!forceDownload) {
+      try {
+        await fs.access(localPath);
+        console.log(`⏭️  File already exists: ${path.basename(localPath)}`);
+        return localPath;
+      } catch {
+        // File doesn't exist, continue with download
+      }
     }
 
-    console.log(`📥 Downloading: ${path.basename(localPath)}`);
+    if (forceDownload) {
+      console.log(`🔄 Force downloading: ${path.basename(localPath)}`);
+    } else {
+      console.log(`📥 Downloading: ${path.basename(localPath)}`);
+    }
 
     const response = await fetch(url);
     if (!response.ok) {
@@ -434,6 +488,7 @@ async function downloadFile(
  */
 async function downloadExerciseAssets(
   exercise: WorkoutLabsResponse["pages"][0][0],
+  forceDownload: boolean = false,
 ): Promise<{
   img: {
     male: string | null;
@@ -472,6 +527,7 @@ async function downloadExerciseAssets(
     ? await downloadFile(
         exercise.img.male,
         path.join(exerciseDir, "img", "male.svg"),
+        forceDownload,
       )
     : null;
 
@@ -479,6 +535,7 @@ async function downloadExerciseAssets(
     ? await downloadFile(
         exercise.img.female,
         path.join(exerciseDir, "img", "female.svg"),
+        forceDownload,
       )
     : null;
 
@@ -487,6 +544,7 @@ async function downloadExerciseAssets(
     ? await downloadFile(
         exercise.img_png.male,
         path.join(exerciseDir, "img_png", "male.png"),
+        forceDownload,
       )
     : null;
 
@@ -494,6 +552,7 @@ async function downloadExerciseAssets(
     ? await downloadFile(
         exercise.img_png.female,
         path.join(exerciseDir, "img_png", "female.png"),
+        forceDownload,
       )
     : null;
 
@@ -502,6 +561,7 @@ async function downloadExerciseAssets(
     ? await downloadFile(
         exercise.anim.male,
         path.join(exerciseDir, "anim", "male.svg"),
+        forceDownload,
       )
     : null;
 
@@ -509,6 +569,7 @@ async function downloadExerciseAssets(
     ? await downloadFile(
         exercise.anim.female,
         path.join(exerciseDir, "anim", "female.svg"),
+        forceDownload,
       )
     : null;
 
@@ -517,6 +578,7 @@ async function downloadExerciseAssets(
     ? await downloadFile(
         exercise.single_anim.male,
         path.join(exerciseDir, "single_anim", "male.gif"),
+        forceDownload,
       )
     : null;
 
@@ -524,6 +586,7 @@ async function downloadExerciseAssets(
     ? await downloadFile(
         exercise.single_anim.female,
         path.join(exerciseDir, "single_anim", "female.gif"),
+        forceDownload,
       )
     : null;
 
@@ -561,8 +624,14 @@ async function downloadExerciseAssets(
 /**
  * Refreshes existing exercise data by re-downloading assets and updating database
  */
-async function refreshExerciseData(): Promise<void> {
+async function refreshExerciseData(
+  forceDownload: boolean = false,
+): Promise<void> {
   console.log("🔄 Refreshing exercise data...");
+
+  if (forceDownload) {
+    console.log("💪 Force download enabled - will re-download existing files");
+  }
 
   // Get all exercises from database
   const exercises = await db.exercise.findMany({
@@ -604,7 +673,10 @@ async function refreshExerciseData(): Promise<void> {
       for (const exercise of exerciseArray) {
         try {
           console.log(`🔄 Refreshing: ${exercise.title}`);
-          const transformedExercise = await transformExerciseData(exercise);
+          const transformedExercise = await transformExerciseData(
+            exercise,
+            forceDownload,
+          );
 
           await db.exercise.update({
             where: { exerciseId: exercise.id },
@@ -644,26 +716,33 @@ async function refreshExerciseData(): Promise<void> {
 const args = process.argv.slice(2);
 const command = args[0];
 const filePath = args[1];
+const forceFlag = args.includes("--force") || args.includes("-f");
 
 async function main() {
   try {
     if (command === "download") {
-      await downloadAllExercises();
+      await downloadAllExercises(forceFlag);
     } else if (command === "upload" && filePath) {
-      await uploadFromFile(filePath);
+      await uploadFromFile(filePath, forceFlag);
     } else if (command === "refresh") {
-      await refreshExerciseData();
+      await refreshExerciseData(forceFlag);
     } else {
       console.log(`
 Usage:
-  npm run download-exercises download    # Download all exercises from API
-  npm run download-exercises upload <filepath>  # Upload from JSON file
-  npm run download-exercises refresh     # Refresh existing data with downloaded assets
+  npm run download-exercises download [--force]    # Download all exercises from API
+  npm run download-exercises upload <filepath> [--force]  # Upload from JSON file
+  npm run download-exercises refresh [--force]     # Refresh existing data with downloaded assets
+
+Options:
+  --force, -f    Force re-download of existing image files
 
 Examples:
   npm run download-exercises download
+  npm run download-exercises download --force
   npm run download-exercises upload data/exercises-raw-2025-01-19.json
+  npm run download-exercises upload data/exercises-raw-2025-01-19.json --force
   npm run download-exercises refresh
+  npm run download-exercises refresh --force
       `);
     }
   } catch (error) {
