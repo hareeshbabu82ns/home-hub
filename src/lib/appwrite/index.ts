@@ -3,13 +3,13 @@ import { env } from "@/lib/env.mjs";
 import { Client, Databases, Account, Storage, ID } from "node-appwrite";
 
 export const adminClient = new Client()
-  .setEndpoint(`https://${env.APPWRITE_HOST}/v1`)
-  .setProject(env.APPWRITE_PROJECT_ID)
-  .setKey(env.APPWRITE_API_KEY);
+  .setEndpoint(`https://${env.APPWRITE_HOST!}/v1`)
+  .setProject(env.APPWRITE_PROJECT_ID!)
+  .setKey(env.APPWRITE_API_KEY!);
 
 export const client = new Client()
-  .setEndpoint(`https://${env.APPWRITE_HOST}/v1`)
-  .setProject(env.APPWRITE_PROJECT_ID);
+  .setEndpoint(`https://${env.APPWRITE_HOST!}/v1`)
+  .setProject(env.APPWRITE_PROJECT_ID!);
 
 export const account = new Account(client);
 export const databases = new Databases(client);
@@ -165,11 +165,11 @@ export const deleteCurrentSession = () => {
 
 // Files API
 export const createFile = (file: File) => {
-  return storage.createFile(env.APPWRITE_BUCKET_ID, "unique()", file);
+  return storage.createFile(env.APPWRITE_BUCKET_ID!, "unique()", file);
 };
 
 export const listFiles = () => {
-  return storage.listFiles(env.APPWRITE_BUCKET_ID);
+  return storage.listFiles(env.APPWRITE_BUCKET_ID!);
 };
 
 export const getFilePreview = ({
@@ -179,11 +179,11 @@ export const getFilePreview = ({
   fileId: string;
   width: number;
 }) => {
-  return storage.getFilePreview(env.APPWRITE_BUCKET_ID, fileId, width);
+  return storage.getFilePreview(env.APPWRITE_BUCKET_ID!, fileId, width);
 };
 
 export const getFileView = (fileId: string) => {
-  return storage.getFileView(env.APPWRITE_BUCKET_ID, fileId);
+  return storage.getFileView(env.APPWRITE_BUCKET_ID!, fileId);
 };
 
 // export const makeFilePublic = async ({fileId, ownerId}:{fileId:string, ownerId:string}) => {
@@ -204,7 +204,7 @@ export const getFileView = (fileId: string) => {
 // };
 
 export const deleteFile = (fileId: string) => {
-  return storage.deleteFile(env.APPWRITE_BUCKET_ID, fileId);
+  return storage.deleteFile(env.APPWRITE_BUCKET_ID!, fileId);
 };
 
 // Documents API
@@ -220,7 +220,7 @@ export const createDocument = ({
   permissions?: string[];
 }) => {
   return databases.createDocument(
-    env.APPWRITE_DATABASE_ID,
+    env.APPWRITE_DATABASE_ID!,
     collectionId,
     documentId || ID.unique(),
     data,
@@ -236,7 +236,7 @@ export const getDocument = ({
   documentId: string;
 }) => {
   return databases.getDocument(
-    env.APPWRITE_DATABASE_ID,
+    env.APPWRITE_DATABASE_ID!,
     collectionId,
     documentId,
   );
@@ -249,7 +249,7 @@ export const listDocuments = ({
   collectionId: string;
   queries?: string[];
 }) => {
-  return databases.listDocuments(env.APPWRITE_DATABASE_ID, collectionId, [
+  return databases.listDocuments(env.APPWRITE_DATABASE_ID!, collectionId, [
     ...queries,
   ]);
 };
@@ -264,7 +264,7 @@ export const updateDocument = ({
   data: Record<string, unknown>;
 }) => {
   return databases.updateDocument(
-    env.APPWRITE_DATABASE_ID,
+    env.APPWRITE_DATABASE_ID!,
     collectionId,
     documentId,
     data,
@@ -279,7 +279,7 @@ export const deleteDocument = ({
   documentId: string;
 }) => {
   return databases.deleteDocument(
-    env.APPWRITE_DATABASE_ID,
+    env.APPWRITE_DATABASE_ID!,
     collectionId,
     documentId,
   );
