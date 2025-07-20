@@ -14,8 +14,13 @@ import { Button } from "@/components/ui/button";
 import { Heart, Play, ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Exercise } from "@/app/generated/prisma";
-import { ExerciseImage, ExerciseAnimation } from "@/types/exercise";
+import {
+  ExerciseImage,
+  ExerciseAnimation,
+  ExerciseLocalImages,
+} from "@/types/exercise";
 import AnimatedSvg from "@/components/AnimatedSvg";
+import ImageAnimator from "@/components/ImageAnimator";
 
 interface ExerciseCardProps {
   exercise: Exercise;
@@ -32,6 +37,7 @@ export function ExerciseCard({
 
   const img = exercise.img as ExerciseImage | null;
   const anim = exercise.anim as ExerciseAnimation | null;
+  const localImages = exercise.localImages as ExerciseLocalImages | null;
 
   const getImageUrl = () => {
     if (!img) return null;
@@ -49,8 +55,20 @@ export function ExerciseCard({
     return preferred || fallback;
   };
 
+  const getLocalImages = (): string[] => {
+    if (!localImages) return [];
+    // Sort by image number (image_1, image_2, etc.)
+    const sortedKeys = Object.keys(localImages).sort((a, b) => {
+      const numA = parseInt(a.split("_")[1] || "0");
+      const numB = parseInt(b.split("_")[1] || "0");
+      return numA - numB;
+    });
+    return sortedKeys.map((key) => localImages[key]);
+  };
+
   // Always prefer animation if available, fallback to static image
   const currentImageUrl = getAnimationUrl() || getImageUrl();
+  const localImageUrls = getLocalImages();
 
   // Check if the current URL is an SVG file
   const isSvgAnimation = currentImageUrl?.endsWith(".svg");
@@ -61,6 +79,18 @@ export function ExerciseCard({
 
   const tags = exercise.tags
     ? exercise.tags.split(",").map((tag) => tag.trim())
+    : [];
+
+  const equipment = exercise.equipment
+    ? exercise.equipment.split(",").map((eq) => eq.trim())
+    : [];
+
+  const primaryMuscles = exercise.primaryMuscles
+    ? exercise.primaryMuscles.split(",").map((muscle) => muscle.trim())
+    : [];
+
+  const secondaryMuscles = exercise.secondaryMuscles
+    ? exercise.secondaryMuscles.split(",").map((muscle) => muscle.trim())
     : [];
 
   return (
@@ -133,6 +163,17 @@ export function ExerciseCard({
                 />
               </div>
             )
+          ) : localImageUrls.length > 0 ? (
+            <div className="flex h-full w-full items-center justify-center p-2">
+              <ImageAnimator
+                images={localImageUrls}
+                className="h-full w-full"
+                animationDuration={2000}
+                autoPlay={false}
+                playOnHover={true}
+                loop={true}
+              />
+            </div>
           ) : (
             <div className="text-muted-foreground flex h-full w-full items-center justify-center">
               <span className="text-sm">No image</span>
@@ -152,6 +193,69 @@ export function ExerciseCard({
           </p>
         )}
 
+        {/* {exercise.instructions && (
+          <div className="mb-2">
+            <h4 className="mb-1 text-xs font-medium">Instructions:</h4>
+            <p className="text-muted-foreground line-clamp-3 text-xs">
+              {exercise.instructions}
+            </p>
+          </div>
+        )} */}
+
+        {/* {equipment.length > 0 && (
+          <div className="mb-2">
+            <h4 className="mb-1 text-xs font-medium">Equipment:</h4>
+            <div className="flex flex-wrap gap-1">
+              {equipment.slice(0, 3).map((eq) => (
+                <Badge key={eq} variant="secondary" className="text-xs">
+                  {eq}
+                </Badge>
+              ))}
+              {equipment.length > 3 && (
+                <Badge variant="secondary" className="text-xs">
+                  +{equipment.length - 3}
+                </Badge>
+              )}
+            </div>
+          </div>
+        )} */}
+
+        {/* {primaryMuscles.length > 0 && (
+          <div className="mb-2">
+            <h4 className="mb-1 text-xs font-medium">Primary Muscles:</h4>
+            <div className="flex flex-wrap gap-1">
+              {primaryMuscles.slice(0, 3).map((muscle) => (
+                <Badge key={muscle} variant="default" className="text-xs">
+                  {muscle}
+                </Badge>
+              ))}
+              {primaryMuscles.length > 3 && (
+                <Badge variant="default" className="text-xs">
+                  +{primaryMuscles.length - 3}
+                </Badge>
+              )}
+            </div>
+          </div>
+        )} */}
+
+        {/* {secondaryMuscles.length > 0 && (
+          <div className="mb-2">
+            <h4 className="mb-1 text-xs font-medium">Secondary Muscles:</h4>
+            <div className="flex flex-wrap gap-1">
+              {secondaryMuscles.slice(0, 2).map((muscle) => (
+                <Badge key={muscle} variant="outline" className="text-xs">
+                  {muscle}
+                </Badge>
+              ))}
+              {secondaryMuscles.length > 2 && (
+                <Badge variant="outline" className="text-xs">
+                  +{secondaryMuscles.length - 2}
+                </Badge>
+              )}
+            </div>
+          </div>
+        )} */}
+
         {tags.length > 0 && (
           <div className="flex flex-wrap gap-1">
             {tags.slice(0, 3).map((tag) => (
@@ -168,7 +272,7 @@ export function ExerciseCard({
         )}
       </CardContent>
 
-      <CardFooter className="pt-0">
+      {/* <CardFooter className="pt-0">
         {exercise.permalink && (
           <Button
             variant="outline"
@@ -186,7 +290,7 @@ export function ExerciseCard({
             </a>
           </Button>
         )}
-      </CardFooter>
+      </CardFooter> */}
     </Card>
   );
 }

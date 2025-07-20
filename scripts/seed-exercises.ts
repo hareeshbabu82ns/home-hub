@@ -48,6 +48,11 @@ const sampleExercises = [
     isYogaPremium: false,
     audio: "",
     isFav: false,
+    equipment: "None",
+    primaryMuscles: "Quadriceps, Glutes",
+    secondaryMuscles: "Calves, Core",
+    instructions:
+      "Stand with feet shoulder-width apart. Jump up while rotating 180 degrees. Land softly in a squat position facing the opposite direction. Immediately jump again to return to starting position.",
   },
   {
     exerciseId: 10232,
@@ -67,6 +72,11 @@ const sampleExercises = [
     isYoga: false,
     commonName: "Standard Push-up",
     isFav: true,
+    equipment: "None",
+    primaryMuscles: "Chest, Triceps",
+    secondaryMuscles: "Shoulders, Core",
+    instructions:
+      "Start in plank position with hands slightly wider than shoulders. Lower your body until chest nearly touches ground, then push back up to starting position.",
   },
   {
     exerciseId: 10233,
@@ -88,6 +98,11 @@ const sampleExercises = [
     sanskritRaw: "Adho Mukha Svanasana",
     commonName: "Downward Facing Dog",
     isFav: false,
+    equipment: "Yoga Mat",
+    primaryMuscles: "Shoulders, Hamstrings",
+    secondaryMuscles: "Calves, Core, Back",
+    instructions:
+      "Start on hands and knees. Tuck toes under and lift hips up and back. Straighten legs and arms to form an inverted V shape. Press hands firmly into ground and lengthen spine.",
   },
   {
     exerciseId: 10234,
@@ -107,6 +122,11 @@ const sampleExercises = [
     isYoga: false,
     commonName: "Squat Thrust",
     isFav: false,
+    equipment: "None",
+    primaryMuscles: "Full Body, Quadriceps",
+    secondaryMuscles: "Chest, Shoulders, Core",
+    instructions:
+      "Start standing. Squat down and place hands on floor. Jump feet back to plank position. Do a push-up (optional). Jump feet back to squat. Jump up with arms overhead.",
   },
   {
     exerciseId: 10235,
@@ -126,6 +146,11 @@ const sampleExercises = [
     isYoga: false,
     commonName: "Running Plank",
     isFav: true,
+    equipment: "None",
+    primaryMuscles: "Core, Hip Flexors",
+    secondaryMuscles: "Shoulders, Legs",
+    instructions:
+      "Start in plank position with hands under shoulders. Alternate bringing each knee toward chest in a running motion. Keep core tight and maintain plank position throughout.",
   },
 ];
 

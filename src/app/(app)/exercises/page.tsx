@@ -4,6 +4,9 @@ import {
   getExercises,
   getExerciseTypes,
   getExerciseTags,
+  getExerciseEquipment,
+  getExercisePrimaryMuscles,
+  getExerciseSecondaryMuscles,
 } from "@/lib/actions/exercise";
 import { ExercisesGrid } from "@/components/exercise/ExercisesGrid";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -15,10 +18,20 @@ export const metadata: Metadata = {
 };
 
 async function ExercisesContent() {
-  const [exercisesResult, exerciseTypes, exerciseTags] = await Promise.all([
+  const [
+    exercisesResult,
+    exerciseTypes,
+    exerciseTags,
+    exerciseEquipment,
+    primaryMuscles,
+    secondaryMuscles,
+  ] = await Promise.all([
     getExercises({ limit: 20, offset: 0 }),
     getExerciseTypes(),
     getExerciseTags(),
+    getExerciseEquipment(),
+    getExercisePrimaryMuscles(),
+    getExerciseSecondaryMuscles(),
   ]);
 
   return (
@@ -28,6 +41,9 @@ async function ExercisesContent() {
       initialHasMore={exercisesResult.hasMore}
       exerciseTypes={exerciseTypes}
       exerciseTags={exerciseTags}
+      exerciseEquipment={exerciseEquipment}
+      primaryMuscles={primaryMuscles}
+      secondaryMuscles={secondaryMuscles}
     />
   );
 }

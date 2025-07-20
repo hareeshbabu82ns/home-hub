@@ -109,10 +109,11 @@ model Exercise {
   titleRaw   String @map("title_raw")
 
   // Image data as JSON for flexibility
-  img        Json? // Contains male, female, mid, fid URLs
-  imgPng     Json? @map("img_png") // PNG versions
-  anim       Json? // Animation URLs and IDs
-  singleAnim Json? @map("single_anim") // Single animation URLs
+  img         Json? // Contains male, female, mid, fid URLs
+  imgPng      Json? @map("img_png") // PNG versions
+  anim        Json? // Animation URLs and IDs
+  singleAnim  Json? @map("single_anim") // Single animation URLs
+  localImages Json? @map("local_images") // Local downloaded images with numbered indexes for animation
 
   permalink            String?
   type                 String  @default("Work Out")
@@ -130,12 +131,12 @@ model Exercise {
   isYogaPremium        Boolean @default(false) @map("is_yoga_premium")
   audio                String?
   isFav                Boolean @default(false) @map("is_fav")
-  
+
   // Equipment and muscle groups as comma-separated strings
-  equipment          String? // Comma-separated list of equipment
-  primaryMuscles     String? @map("primary_muscles") // Comma-separated list of primary muscles
-  secondaryMuscles   String? @map("secondary_muscles") // Comma-separated list of secondary muscles
-  instructions       String? // Exercise instructions
+  equipment        String? // Comma-separated list of equipment
+  primaryMuscles   String? @map("primary_muscles") // Comma-separated list of primary muscles
+  secondaryMuscles String? @map("secondary_muscles") // Comma-separated list of secondary muscles
+  instructions     String? // Exercise instructions
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

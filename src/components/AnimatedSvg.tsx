@@ -50,7 +50,7 @@ export default function AnimatedSvg({
               svgElement.querySelectorAll("g[id]"),
             ).filter((g) => {
               const id = g.getAttribute("id");
-              return id && /^[a-z]_.*$/.test(id);
+              return id && /^[a-z](_.*)?$/.test(id);
             }) as SVGGElement[];
 
             // Sort groups by ID alphabetically

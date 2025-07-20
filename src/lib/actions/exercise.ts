@@ -8,6 +8,9 @@ export async function getExercises(params?: ExerciseFilterParams) {
     search,
     type,
     tags,
+    equipment,
+    primaryMuscles,
+    secondaryMuscles,
     isCardio,
     isYoga,
     isFav,
@@ -22,10 +25,36 @@ export async function getExercises(params?: ExerciseFilterParams) {
           { title: { contains: search, mode: "insensitive" as const } },
           { commonName: { contains: search, mode: "insensitive" as const } },
           { tags: { contains: search, mode: "insensitive" as const } },
+          { equipment: { contains: search, mode: "insensitive" as const } },
+          {
+            primaryMuscles: { contains: search, mode: "insensitive" as const },
+          },
+          {
+            secondaryMuscles: {
+              contains: search,
+              mode: "insensitive" as const,
+            },
+          },
+          { instructions: { contains: search, mode: "insensitive" as const } },
         ],
       }),
       ...(type && { type: { contains: type, mode: "insensitive" as const } }),
       ...(tags && { tags: { contains: tags, mode: "insensitive" as const } }),
+      ...(equipment && {
+        equipment: { contains: equipment, mode: "insensitive" as const },
+      }),
+      ...(primaryMuscles && {
+        primaryMuscles: {
+          contains: primaryMuscles,
+          mode: "insensitive" as const,
+        },
+      }),
+      ...(secondaryMuscles && {
+        secondaryMuscles: {
+          contains: secondaryMuscles,
+          mode: "insensitive" as const,
+        },
+      }),
       ...(isCardio === true && { isCardio: true }),
       ...(isYoga === true && { isYoga: true }),
       ...(isFav === true && { isFav: true }),
@@ -107,6 +136,72 @@ export async function getExerciseTags() {
     return Array.from(new Set(allTags));
   } catch (error) {
     console.error("Error fetching exercise tags:", error);
+    return [];
+  }
+}
+
+export async function getExerciseEquipment() {
+  try {
+    const exercises = await db.exercise.findMany({
+      select: { equipment: true },
+      where: { equipment: { not: null } },
+    });
+
+    const allEquipment = exercises
+      .map((e: { equipment: string | null }) => e.equipment)
+      .filter((equipment): equipment is string => equipment !== null)
+      .flatMap((equipment: string) =>
+        equipment.split(",").map((eq: string) => eq.trim()),
+      )
+      .filter(Boolean);
+
+    return Array.from(new Set(allEquipment));
+  } catch (error) {
+    console.error("Error fetching exercise equipment:", error);
+    return [];
+  }
+}
+
+export async function getExercisePrimaryMuscles() {
+  try {
+    const exercises = await db.exercise.findMany({
+      select: { primaryMuscles: true },
+      where: { primaryMuscles: { not: null } },
+    });
+
+    const allMuscles = exercises
+      .map((e: { primaryMuscles: string | null }) => e.primaryMuscles)
+      .filter((muscles): muscles is string => muscles !== null)
+      .flatMap((muscles: string) =>
+        muscles.split(",").map((muscle: string) => muscle.trim()),
+      )
+      .filter(Boolean);
+
+    return Array.from(new Set(allMuscles));
+  } catch (error) {
+    console.error("Error fetching exercise primary muscles:", error);
+    return [];
+  }
+}
+
+export async function getExerciseSecondaryMuscles() {
+  try {
+    const exercises = await db.exercise.findMany({
+      select: { secondaryMuscles: true },
+      where: { secondaryMuscles: { not: null } },
+    });
+
+    const allMuscles = exercises
+      .map((e: { secondaryMuscles: string | null }) => e.secondaryMuscles)
+      .filter((muscles): muscles is string => muscles !== null)
+      .flatMap((muscles: string) =>
+        muscles.split(",").map((muscle: string) => muscle.trim()),
+      )
+      .filter(Boolean);
+
+    return Array.from(new Set(allMuscles));
+  } catch (error) {
+    console.error("Error fetching exercise secondary muscles:", error);
     return [];
   }
 }

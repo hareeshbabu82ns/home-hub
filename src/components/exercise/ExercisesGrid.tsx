@@ -28,6 +28,9 @@ interface ExercisesGridProps {
   initialHasMore: boolean;
   exerciseTypes: string[];
   exerciseTags: string[];
+  exerciseEquipment: string[];
+  primaryMuscles: string[];
+  secondaryMuscles: string[];
 }
 
 export function ExercisesGrid({
@@ -36,6 +39,9 @@ export function ExercisesGrid({
   initialHasMore,
   exerciseTypes,
   exerciseTags,
+  exerciseEquipment,
+  primaryMuscles,
+  secondaryMuscles,
 }: ExercisesGridProps) {
   const [exercises, setExercises] = useState<Exercise[]>(initialExercises);
   const [loading, setLoading] = useState(false);
@@ -47,6 +53,13 @@ export function ExercisesGrid({
   const [search, setSearch] = useState("");
   const [selectedType, setSelectedType] = useState<string>("all");
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [selectedEquipment, setSelectedEquipment] = useState<string[]>([]);
+  const [selectedPrimaryMuscles, setSelectedPrimaryMuscles] = useState<
+    string[]
+  >([]);
+  const [selectedSecondaryMuscles, setSelectedSecondaryMuscles] = useState<
+    string[]
+  >([]);
   const [showCardioOnly, setShowCardioOnly] = useState(false);
   const [showYogaOnly, setShowYogaOnly] = useState(false);
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
@@ -71,6 +84,16 @@ export function ExercisesGrid({
       search: debouncedSearch || undefined,
       type: selectedType && selectedType !== "all" ? selectedType : undefined,
       tags: selectedTags.length > 0 ? selectedTags.join(",") : undefined,
+      equipment:
+        selectedEquipment.length > 0 ? selectedEquipment.join(",") : undefined,
+      primaryMuscles:
+        selectedPrimaryMuscles.length > 0
+          ? selectedPrimaryMuscles.join(",")
+          : undefined,
+      secondaryMuscles:
+        selectedSecondaryMuscles.length > 0
+          ? selectedSecondaryMuscles.join(",")
+          : undefined,
       isCardio: showCardioOnly ? true : undefined,
       isYoga: showYogaOnly ? true : undefined,
       isFav: showFavoritesOnly ? true : undefined,
@@ -79,6 +102,9 @@ export function ExercisesGrid({
     debouncedSearch,
     selectedType,
     selectedTags,
+    selectedEquipment,
+    selectedPrimaryMuscles,
+    selectedSecondaryMuscles,
     showCardioOnly,
     showYogaOnly,
     showFavoritesOnly,
@@ -150,10 +176,37 @@ export function ExercisesGrid({
     );
   };
 
+  const handleEquipmentToggle = (equipment: string) => {
+    setSelectedEquipment((prev) =>
+      prev.includes(equipment)
+        ? prev.filter((e) => e !== equipment)
+        : [...prev, equipment],
+    );
+  };
+
+  const handlePrimaryMuscleToggle = (muscle: string) => {
+    setSelectedPrimaryMuscles((prev) =>
+      prev.includes(muscle)
+        ? prev.filter((m) => m !== muscle)
+        : [...prev, muscle],
+    );
+  };
+
+  const handleSecondaryMuscleToggle = (muscle: string) => {
+    setSelectedSecondaryMuscles((prev) =>
+      prev.includes(muscle)
+        ? prev.filter((m) => m !== muscle)
+        : [...prev, muscle],
+    );
+  };
+
   const clearFilters = () => {
     setSearch("");
     setSelectedType("all");
     setSelectedTags([]);
+    setSelectedEquipment([]);
+    setSelectedPrimaryMuscles([]);
+    setSelectedSecondaryMuscles([]);
     setShowCardioOnly(false);
     setShowYogaOnly(false);
     setShowFavoritesOnly(false);
@@ -163,6 +216,9 @@ export function ExercisesGrid({
     search ||
     (selectedType && selectedType !== "all") ||
     selectedTags.length > 0 ||
+    selectedEquipment.length > 0 ||
+    selectedPrimaryMuscles.length > 0 ||
+    selectedSecondaryMuscles.length > 0 ||
     showCardioOnly ||
     showYogaOnly ||
     showFavoritesOnly;
@@ -316,6 +372,69 @@ export function ExercisesGrid({
                     onClick={() => handleTagToggle(tag)}
                   >
                     {tag}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+
+            {/* Equipment */}
+            <div className="space-y-2">
+              <Label>Equipment</Label>
+              <div className="flex max-h-32 flex-wrap gap-1 overflow-y-auto">
+                {exerciseEquipment.slice(0, 20).map((equipment) => (
+                  <Badge
+                    key={equipment}
+                    variant={
+                      selectedEquipment.includes(equipment)
+                        ? "default"
+                        : "outline"
+                    }
+                    className="cursor-pointer text-xs"
+                    onClick={() => handleEquipmentToggle(equipment)}
+                  >
+                    {equipment}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+
+            {/* Primary Muscles */}
+            <div className="space-y-2">
+              <Label>Primary Muscles</Label>
+              <div className="flex max-h-32 flex-wrap gap-1 overflow-y-auto">
+                {primaryMuscles.slice(0, 20).map((muscle) => (
+                  <Badge
+                    key={muscle}
+                    variant={
+                      selectedPrimaryMuscles.includes(muscle)
+                        ? "default"
+                        : "outline"
+                    }
+                    className="cursor-pointer text-xs"
+                    onClick={() => handlePrimaryMuscleToggle(muscle)}
+                  >
+                    {muscle}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+
+            {/* Secondary Muscles */}
+            <div className="space-y-2">
+              <Label>Secondary Muscles</Label>
+              <div className="flex max-h-32 flex-wrap gap-1 overflow-y-auto">
+                {secondaryMuscles.slice(0, 15).map((muscle) => (
+                  <Badge
+                    key={muscle}
+                    variant={
+                      selectedSecondaryMuscles.includes(muscle)
+                        ? "default"
+                        : "outline"
+                    }
+                    className="cursor-pointer text-xs"
+                    onClick={() => handleSecondaryMuscleToggle(muscle)}
+                  >
+                    {muscle}
                   </Badge>
                 ))}
               </div>

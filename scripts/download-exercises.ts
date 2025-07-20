@@ -223,6 +223,10 @@ async function transformExerciseData(
     isYogaPremium: exercise.is_yoga_premium || false,
     audio: exercise.audio || undefined,
     isFav: exercise.is_fav || false,
+    equipment: undefined, // To be filled manually or from another data source
+    primaryMuscles: undefined, // To be filled manually or from another data source
+    secondaryMuscles: undefined, // To be filled manually or from another data source
+    instructions: exercise.preset_notes || undefined, // Use preset_notes as initial instructions,
   };
 }
 

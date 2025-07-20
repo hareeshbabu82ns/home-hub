@@ -19,6 +19,10 @@ export interface ExerciseSingleAnimation {
   male_id?: string;
 }
 
+export interface ExerciseLocalImages {
+  [key: string]: string; // Format: "image_1": "/path/to/image_1.jpg", "image_2": "/path/to/image_2.jpg", etc.
+}
+
 export interface ExerciseCreateInput {
   exerciseId: number;
   title: string;
@@ -43,12 +47,19 @@ export interface ExerciseCreateInput {
   isYogaPremium?: boolean;
   audio?: string;
   isFav?: boolean;
+  equipment?: string;
+  primaryMuscles?: string;
+  secondaryMuscles?: string;
+  instructions?: string;
 }
 
 export interface ExerciseFilterParams {
   search?: string;
   type?: string;
   tags?: string;
+  equipment?: string;
+  primaryMuscles?: string;
+  secondaryMuscles?: string;
   isCardio?: boolean;
   isYoga?: boolean;
   isFav?: boolean;
