@@ -30,6 +30,7 @@ export function useInstallPWA(): UseInstallPWAReturn {
       }
 
       // Check for navigator.standalone (iOS Safari)
+      // eslint-disable-next-line
       if ((navigator as any).standalone === true) {
         setIsInstalled(true);
         return;
@@ -58,6 +59,7 @@ export function useInstallPWA(): UseInstallPWAReturn {
 
     window.addEventListener(
       "beforeinstallprompt",
+      // eslint-disable-next-line
       handleBeforeInstallPrompt as EventListener,
     );
     window.addEventListener("appinstalled", handleAppInstalled);
@@ -65,6 +67,7 @@ export function useInstallPWA(): UseInstallPWAReturn {
     return () => {
       window.removeEventListener(
         "beforeinstallprompt",
+        // eslint-disable-next-line
         handleBeforeInstallPrompt as EventListener,
       );
       window.removeEventListener("appinstalled", handleAppInstalled);

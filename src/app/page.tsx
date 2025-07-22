@@ -181,7 +181,7 @@ export default function Home() {
                   <Wifi className="text-primary mb-2 size-8" />
                   <CardTitle>Offline Capable</CardTitle>
                   <CardDescription>
-                    Works even when you're not connected to the internet
+                    Works even when you&apos;re not connected to the internet
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -319,7 +319,7 @@ export default function Home() {
                 <CardContent>
                   <p className="text-muted-foreground text-sm">
                     End-to-end encryption and local data storage ensure your
-                    family's information stays protected.
+                    family&apos;s information stays protected.
                   </p>
                 </CardContent>
               </Card>
