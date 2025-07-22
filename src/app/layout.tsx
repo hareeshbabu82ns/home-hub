@@ -62,10 +62,15 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: [
+      { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icon-512.png", sizes: "512x512", type: "image/png" },
       { url: "/icon-192.svg", sizes: "192x192", type: "image/svg+xml" },
       { url: "/icon-512.svg", sizes: "512x512", type: "image/svg+xml" },
     ],
-    apple: [{ url: "/icon-192.svg", sizes: "192x192", type: "image/svg+xml" }],
+    apple: [
+      { url: "/icon-180.png", sizes: "180x180", type: "image/png" },
+      { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
+    ],
   },
   appleWebApp: {
     capable: true,
@@ -93,8 +98,12 @@ export default function RootLayout({
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="msapplication-TileColor" content="#0ea5e9" />
         <meta name="msapplication-config" content="/browserconfig.xml" />
+        <link rel="icon" href="/favicon.ico" sizes="16x16 32x32 48x48" />
+        <link rel="icon" type="image/png" href="/icon-192.png" />
         <link rel="icon" type="image/svg+xml" href="/logo.svg" />
-        <link rel="apple-touch-icon" href="/icon-192.svg" />
+        <link rel="apple-touch-icon" href="/icon-180.png" />
+        <link rel="apple-touch-icon" sizes="180x180" href="/icon-180.png" />
+        <link rel="apple-touch-icon" sizes="192x192" href="/icon-192.png" />
         <link rel="mask-icon" href="/logo.svg" color="#0ea5e9" />
       </head>
       <body
