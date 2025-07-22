@@ -25,6 +25,7 @@ export type AuthSession = {
       id: string;
       name?: string;
       email?: string;
+      image?: string;
     };
   } | null;
 };
@@ -57,9 +58,34 @@ export const authOptions: NextAuthOptions = {
   ],
 };
 
-export const getUserAuth = async () => {
+export const getUserAuth = async (): Promise<AuthSession> => {
+  // Check if BYPASS_AUTH is enabled for development
+  if (env.BYPASS_AUTH === "true") {
+    return {
+      session: {
+        user: {
+          name: "Hareesh",
+          email: "hareeshbabu82ns@gmail.com",
+          image: "https://avatars.githubusercontent.com/u/1978258?v=4",
+          id: "687aafec250a439b85417a3d",
+        },
+      },
+    };
+  }
+
   const session = await getServerSession(authOptions);
-  return { session };
+  return {
+    session: session
+      ? {
+          user: {
+            id: session.user.id,
+            name: session.user.name || undefined,
+            email: session.user.email || undefined,
+            image: session.user.image || undefined,
+          },
+        }
+      : null,
+  };
 };
 
 export const checkAuth = async () => {

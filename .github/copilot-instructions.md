@@ -19,6 +19,8 @@ Instructions for high-quality Next.js applications with Tailwind CSS styling and
 - TypeScript for type safety
 - Tailwind CSS for styling
 - Shandcn/ui and Radix UI for UI components
+- tanstack/react-query for data fetching
+- pnpm for package management
 
 ## Development Standards
 
@@ -28,6 +30,7 @@ Instructions for high-quality Next.js applications with Tailwind CSS styling and
 - Group routes by feature/domain
 - Implement proper error boundaries
 - Use React Server Components by default
+- Use server actions for backend logic with @tanstack/react-query
 - Leverage static optimization where possible
 
 ### TypeScript
@@ -55,6 +58,10 @@ Instructions for high-quality Next.js applications with Tailwind CSS styling and
 ### Data Fetching
 
 - Server Components for direct database queries
+- Use `@tanstack/react-query` for client-side data fetching
+- Use `useQuery` and `useMutation` hooks for data operations
+- Implement caching strategies
+- Use `revalidate` for server-side data updates
 - React Suspense for loading states
 - Proper error handling and retry logic
 - Cache invalidation strategies

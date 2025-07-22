@@ -168,6 +168,29 @@ src/
 - Service worker and offline capabilities are only active in production builds
 - Use `pnpm run build && pnpm run start` to test PWA features locally
 
+### Authentication Bypass for Development
+
+For development convenience, you can bypass the authentication flow by setting the `BYPASS_AUTH` environment variable to `"true"` in your `.env.local` file:
+
+```bash
+# .env.local
+BYPASS_AUTH="true"
+```
+
+When enabled, the app will automatically inject a test user session with the following details:
+- **Name**: Hareesh
+- **Email**: hareeshbabu82ns@gmail.com
+- **Avatar**: GitHub profile image
+- **ID**: 687aafec250a439b85417a3d
+
+This allows you to:
+- Skip the OAuth login flow during development
+- Test authenticated features immediately
+- Avoid rate limits from OAuth providers
+- Work offline without internet connection
+
+**Note**: This bypass only works when `NODE_ENV` is set to "development" and should never be enabled in production.
+
 ## Deployment
 
 ## Deployment
