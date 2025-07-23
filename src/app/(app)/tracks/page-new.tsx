@@ -6,9 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatDistanceToNow } from "date-fns";
-import { TrackFilter } from "./components/track-filter";
 import { TrackingCharts } from "./components/tracking-charts";
-import { useState } from "react";
 
 export default async function TracksPage() {
   const [tracks, metrics] = await Promise.all([

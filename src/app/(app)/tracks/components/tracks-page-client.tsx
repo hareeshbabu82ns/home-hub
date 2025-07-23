@@ -1,20 +1,58 @@
+"use client";
+
+import React, { useState, useEffect } from "react";
+import { fetchTrackItems, getTrackingMetrics } from "../actions";
+import type {
+  TrackItemWithAttributes,
+  TrackItemFilter,
+  TrackingMetrics,
+} from "@/types/track";
+import { TrackFilter } from "./track-filter";
+import { TrackingCharts } from "./tracking-charts";
 import Link from "next/link";
-import { fetchTrackItems, getTrackingMetrics } from "./actions";
-import type { TrackItemWithAttributes } from "@/types/track";
 import { SquarePen as NewTrackIcon, Plus, BarChart3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatDistanceToNow } from "date-fns";
-import { TrackFilter } from "./components/track-filter";
-import { TrackingCharts } from "./components/tracking-charts";
-import { useState } from "react";
 
-export default async function TracksPage() {
-  const [tracks, metrics] = await Promise.all([
-    fetchTrackItems(),
-    getTrackingMetrics(),
-  ]);
+export function TracksPageClient() {
+  const [tracks, setTracks] = useState<TrackItemWithAttributes[]>([]);
+  const [metrics, setMetrics] = useState<TrackingMetrics | null>(null);
+  const [filters, setFilters] = useState<TrackItemFilter>({});
+  const [loading, setLoading] = useState(true);
+
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      const [tracksData, metricsData] = await Promise.all([
+        fetchTrackItems(filters),
+        getTrackingMetrics(),
+      ]);
+      setTracks(tracksData);
+      setMetrics(metricsData);
+    } catch (error) {
+      console.error("Error loading tracks:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadData();
+  }, [filters]);
+
+  const handleFilterChange = (newFilters: TrackItemFilter) => {
+    setFilters(newFilters);
+  };
+
+  if (loading) {
+    return (
+      <div className="flex h-64 items-center justify-center">
+        <div className="text-lg">Loading tracks...</div>
+      </div>
+    );
+  }
 
   return (
     <main className="space-y-6 p-4">
@@ -37,13 +75,19 @@ export default async function TracksPage() {
       </div>
 
       {/* Metrics Overview */}
-      <TrackingCharts metrics={metrics} />
+      {metrics && <TrackingCharts metrics={metrics} />}
+
+      {/* Filters */}
+      <TrackFilter
+        onFilterChange={handleFilterChange}
+        initialFilters={filters}
+      />
 
       {/* Track Items */}
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
-            <CardTitle>Track Items</CardTitle>
+            <CardTitle>Track Items ({tracks.length})</CardTitle>
             <Button asChild size="sm">
               <Link href="/tracks/new">
                 <NewTrackIcon className="mr-2 size-4" />

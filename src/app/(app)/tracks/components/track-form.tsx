@@ -1,8 +1,9 @@
 "use client";
 
-import { useFormState, useFormStatus } from "react-dom";
+import { useActionState, useEffect } from "react";
+import { useFormStatus } from "react-dom";
+import { useRouter } from "next/navigation";
 import { createTrackItem, updateTrackItem } from "@/app/(app)/tracks/actions";
-import { useEffect } from "react";
 import { toast } from "sonner";
 import { LucideSave as SaveIcon, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -14,6 +15,12 @@ import { Textarea } from "@/components/ui/textarea";
 
 const initialState = {
   message: "",
+  success: false,
+};
+
+type FormState = {
+  message: string;
+  success?: boolean;
 };
 
 function SubmitButton() {
@@ -35,16 +42,27 @@ export function TrackForm({
   className?: string;
   track?: TrackItem;
 }) {
-  const [state, formAction] = useFormState(
+  const router = useRouter();
+  const [state, formAction] = useActionState<FormState, FormData>(
     track?.id === "new" ? createTrackItem : updateTrackItem,
     initialState,
   );
 
   useEffect(() => {
     if (state?.message) {
-      toast.error(state.message);
+      if (state.success) {
+        toast.success(state.message);
+        // Redirect to tracks list after successful creation
+        if (track?.id === "new") {
+          setTimeout(() => {
+            router.push("/tracks");
+          }, 1000);
+        }
+      } else {
+        toast.error(state.message);
+      }
     }
-  }, [state]);
+  }, [state, track?.id, router]);
 
   return (
     <form
