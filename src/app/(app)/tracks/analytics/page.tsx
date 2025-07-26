@@ -13,7 +13,6 @@ export default async function AnalyticsPage() {
         <Button asChild variant="ghost" size="sm">
           <Link href="/tracks">
             <ArrowLeft className="mr-2 size-4" />
-            Back to Tracks
           </Link>
         </Button>
         <h1 className="text-2xl font-bold">Tracking Analytics</h1>

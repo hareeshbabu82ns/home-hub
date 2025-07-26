@@ -1,22 +1,27 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
+import { useSidebar } from "@/hooks/use-sidebar";
 
 import ThemeToggle from "./theme-toggle";
 import { SheetTrigger } from "./ui/sheet";
-import { MenuIcon } from "lucide-react";
+import { MenuIcon, PanelLeftOpenIcon, PanelLeftCloseIcon } from "lucide-react";
 
 export default function Navbar({
   children,
   actions,
   sidebarTrigger = false,
   themeToggle = false,
+  desktopSidebarToggle = false,
 }: {
   children: React.ReactNode;
   actions?: React.ReactNode;
   sidebarTrigger?: boolean;
   themeToggle?: boolean;
+  desktopSidebarToggle?: boolean;
 }) {
+  const { toggleDesktopCollapsed, isDesktopCollapsed } = useSidebar();
+
   return (
     <nav className="flex w-full items-center justify-between px-4 py-2 sm:px-6">
       {/* Left side - Logo and hamburger menu */}
@@ -32,6 +37,24 @@ export default function Navbar({
               <MenuIcon className="h-5 w-5" />
             </Button>
           </SheetTrigger>
+        )}
+        {desktopSidebarToggle && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="hidden lg:flex"
+            onClick={toggleDesktopCollapsed}
+            aria-label={
+              isDesktopCollapsed ? "Expand sidebar" : "Collapse sidebar"
+            }
+            title={`${isDesktopCollapsed ? "Expand" : "Collapse"} sidebar (Ctrl+B)`}
+          >
+            {isDesktopCollapsed ? (
+              <PanelLeftOpenIcon className="h-5 w-5" />
+            ) : (
+              <PanelLeftCloseIcon className="h-5 w-5" />
+            )}
+          </Button>
         )}
         <div className="flex items-center">{children}</div>
       </div>

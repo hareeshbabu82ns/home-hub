@@ -6,12 +6,11 @@ import { Button } from "@/components/ui/button";
 
 export default function NewTrackPage() {
   return (
-    <main className="mx-auto max-w-2xl space-y-6 p-4">
+    <main className="space-y-6 p-4">
       <div className="flex items-center gap-4">
         <Button asChild variant="ghost" size="sm">
           <Link href="/tracks">
             <ArrowLeft className="mr-2 size-4" />
-            Back to Tracks
           </Link>
         </Button>
         <h1 className="text-2xl font-bold">Create New Track</h1>

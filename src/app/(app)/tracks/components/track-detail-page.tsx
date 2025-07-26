@@ -254,14 +254,13 @@ export function TrackDetailPage({ trackId }: TrackDetailPageProps) {
           <Button asChild variant="ghost" size="sm">
             <Link href="/tracks">
               <ArrowLeft className="mr-2 size-4" />
-              Back to Tracks
             </Link>
           </Button>
           <div>
             <h1 className="text-2xl font-bold">{track.title}</h1>
-            {track.description && (
+            {/* {track.description && (
               <p className="text-muted-foreground">{track.description}</p>
-            )}
+            )} */}
           </div>
         </div>
         <div className="flex gap-2">

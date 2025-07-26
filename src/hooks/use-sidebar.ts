@@ -2,41 +2,88 @@
 
 import { atom, useAtom } from "jotai";
 import { useIsMobile } from "./use-mobile";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 
-// Jotai atom for sidebar state
-const sidebarOpenAtom = atom(false);
+const SIDEBAR_STORAGE_KEY = "sidebar-collapsed";
+
+// Jotai atoms for sidebar state
+const sidebarMobileOpenAtom = atom(false);
+const sidebarDesktopCollapsedAtom = atom(false);
 
 export function useSidebar() {
-  const [isOpen, setIsOpen] = useAtom(sidebarOpenAtom);
+  const [isMobileOpen, setIsMobileOpen] = useAtom(sidebarMobileOpenAtom);
+  const [isDesktopCollapsed, setIsDesktopCollapsed] = useAtom(
+    sidebarDesktopCollapsedAtom,
+  );
+  const [isHydrated, setIsHydrated] = useState(false);
   const isMobile = useIsMobile();
   const pathname = usePathname();
 
-  const toggle = () => setIsOpen(!isOpen);
-  const close = () => setIsOpen(false);
-  const open = () => setIsOpen(true);
-
-  // Auto-close sidebar on mobile when route changes
+  // Load desktop collapsed state from localStorage on mount
   useEffect(() => {
-    if (isMobile && isOpen) {
-      close();
+    const stored = localStorage.getItem(SIDEBAR_STORAGE_KEY);
+    if (stored !== null) {
+      setIsDesktopCollapsed(JSON.parse(stored));
     }
-  }, [pathname, isMobile, isOpen]);
+    setIsHydrated(true);
+  }, [setIsDesktopCollapsed]);
 
-  // Close sidebar when screen size changes from mobile to desktop
+  // Save desktop collapsed state to localStorage
   useEffect(() => {
-    if (!isMobile && isOpen) {
-      close();
+    if (isHydrated) {
+      localStorage.setItem(
+        SIDEBAR_STORAGE_KEY,
+        JSON.stringify(isDesktopCollapsed),
+      );
     }
-  }, [isMobile, isOpen]);
+  }, [isDesktopCollapsed, isHydrated]);
+
+  const toggleMobile = () => setIsMobileOpen(!isMobileOpen);
+  const closeMobile = () => setIsMobileOpen(false);
+  const openMobile = () => setIsMobileOpen(true);
+
+  const toggleDesktopCollapsed = () =>
+    setIsDesktopCollapsed(!isDesktopCollapsed);
+  const setDesktopCollapsed = (collapsed: boolean) =>
+    setIsDesktopCollapsed(collapsed);
+
+  // Auto-close mobile sidebar when route changes
+  useEffect(() => {
+    if (isMobile && isMobileOpen) {
+      closeMobile();
+    }
+  }, [pathname, isMobile, isMobileOpen]);
+
+  // Close mobile sidebar when screen size changes from mobile to desktop
+  useEffect(() => {
+    if (!isMobile && isMobileOpen) {
+      closeMobile();
+    }
+  }, [isMobile, isMobileOpen]);
 
   return {
-    isOpen: isMobile ? isOpen : false, // Only show mobile state on mobile
-    setIsOpen,
-    toggle,
-    close,
-    open,
+    // Mobile sidebar state
+    isMobileOpen,
+    setIsMobileOpen,
+    toggleMobile,
+    closeMobile,
+    openMobile,
+
+    // Desktop sidebar state
+    isDesktopCollapsed,
+    setDesktopCollapsed,
+    toggleDesktopCollapsed,
+
+    // Utilities
     isMobile,
+    isHydrated,
+
+    // Legacy support
+    isOpen: isMobile ? isMobileOpen : false,
+    setIsOpen: setIsMobileOpen,
+    toggle: toggleMobile,
+    close: closeMobile,
+    open: openMobile,
   };
 }

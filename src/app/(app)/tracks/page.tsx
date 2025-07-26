@@ -17,12 +17,12 @@ export default async function TracksPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold">Track</h1>
         <div className="flex gap-2">
-          <Button asChild variant="outline">
+          {/* <Button asChild variant="outline">
             <Link href="/tracks/analytics">
               <BarChart3 className="mr-2 size-4" />
               Analytics
             </Link>
-          </Button>
+          </Button> */}
           <Button asChild>
             <Link href="/tracks/new">
               <Plus className="mr-2 size-4" />

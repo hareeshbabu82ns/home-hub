@@ -8,6 +8,11 @@ import type { LucideIcon } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { defaultLinks, additionalLinks } from "@/config/nav";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 export interface ISidebarLink {
   title: string;
@@ -15,16 +20,21 @@ export interface ISidebarLink {
   icon: LucideIcon;
 }
 
-const SidebarItems = () => {
+interface SidebarItemsProps {
+  isCollapsed?: boolean;
+}
+
+const SidebarItems = ({ isCollapsed = false }: SidebarItemsProps) => {
   return (
     <React.Fragment>
-      <SidebarLinkGroup links={defaultLinks} />
+      <SidebarLinkGroup links={defaultLinks} isCollapsed={isCollapsed} />
       {additionalLinks.length > 0
         ? additionalLinks.map((l) => (
             <SidebarLinkGroup
               links={l.links}
               title={l.title}
               border
+              isCollapsed={isCollapsed}
               key={l.title}
             />
           ))
@@ -38,17 +48,19 @@ const SidebarLinkGroup = ({
   links,
   title,
   border,
+  isCollapsed = false,
 }: {
   links: ISidebarLink[];
   title?: string;
   border?: boolean;
+  isCollapsed?: boolean;
 }) => {
   const fullPathname = usePathname();
   const pathname = `/${fullPathname.split("/")[1]}`;
 
   return (
     <div className={border ? "border-border my-6 border-t pt-6" : ""}>
-      {title ? (
+      {title && !isCollapsed ? (
         <h4 className="text-muted-foreground mb-3 px-3 text-xs font-semibold tracking-wider uppercase">
           {title}
         </h4>
@@ -59,6 +71,7 @@ const SidebarLinkGroup = ({
             key={link.title}
             link={link}
             active={pathname === link.href}
+            isCollapsed={isCollapsed}
           />
         ))}
       </nav>
@@ -68,21 +81,24 @@ const SidebarLinkGroup = ({
 const SidebarLink = ({
   link,
   active,
+  isCollapsed = false,
 }: {
   link: ISidebarLink;
   active: boolean;
+  isCollapsed?: boolean;
 }) => {
-  return (
+  const linkContent = (
     <Link
       href={link.href}
       className={cn(
-        "group hover:bg-accent hover:text-accent-foreground flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-all duration-200",
+        "group hover:bg-accent hover:text-accent-foreground flex w-full items-center rounded-lg text-sm transition-all duration-200",
+        isCollapsed ? "justify-center p-2" : "gap-3 px-3 py-2.5",
         active
           ? "bg-accent text-accent-foreground font-medium shadow-sm"
           : "text-muted-foreground hover:text-foreground",
       )}
     >
-      <div className="flex items-center gap-3">
+      <div className={cn("flex items-center", isCollapsed ? "" : "gap-3")}>
         <div
           className={cn(
             "bg-primary absolute left-0 h-8 w-1 rounded-r-lg transition-opacity duration-200",
@@ -97,8 +113,21 @@ const SidebarLink = ({
               : "text-muted-foreground group-hover:text-foreground",
           )}
         />
-        <span className="truncate">{link.title}</span>
+        {!isCollapsed && <span className="truncate">{link.title}</span>}
       </div>
     </Link>
   );
+
+  if (isCollapsed) {
+    return (
+      <Tooltip>
+        <TooltipTrigger asChild>{linkContent}</TooltipTrigger>
+        <TooltipContent side="right" className="ml-2">
+          {link.title}
+        </TooltipContent>
+      </Tooltip>
+    );
+  }
+
+  return linkContent;
 };
