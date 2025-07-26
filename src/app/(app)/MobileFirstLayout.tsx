@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/tooltip";
 import { useSidebar } from "@/hooks/use-sidebar";
 import { type AuthSession } from "@/lib/auth/utils";
+import Image from "next/image";
 
 export function MobileFirstLayout({
   children,
@@ -57,9 +58,9 @@ export function MobileFirstLayout({
               <div className="flex-1 overflow-y-auto">
                 <div className="animate-pulse p-4">
                   <div className="space-y-3">
-                    <div className="bg-muted h-4 rounded"></div>
-                    <div className="bg-muted h-4 w-3/4 rounded"></div>
-                    <div className="bg-muted h-4 w-1/2 rounded"></div>
+                    <div className="bg-muted h-4 rounded">&nbsp;</div>
+                    <div className="bg-muted h-4 w-3/4 rounded">&nbsp;</div>
+                    <div className="bg-muted h-4 w-1/2 rounded">&nbsp;</div>
                   </div>
                 </div>
               </div>
@@ -74,9 +75,9 @@ export function MobileFirstLayout({
             <main className="flex-1 overflow-y-auto">
               <div className="animate-pulse p-4">
                 <div className="space-y-3">
-                  <div className="bg-muted h-8 rounded"></div>
-                  <div className="bg-muted h-4 rounded"></div>
-                  <div className="bg-muted h-4 w-2/3 rounded"></div>
+                  <div className="bg-muted h-8 rounded">&nbsp;</div>
+                  <div className="bg-muted h-4 rounded">&nbsp;</div>
+                  <div className="bg-muted h-4 w-2/3 rounded">&nbsp;</div>
                 </div>
               </div>
             </main>
@@ -104,8 +105,14 @@ export function MobileFirstLayout({
               {isDesktopCollapsed && (
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <div className="flex h-8 w-8 items-center justify-center">
-                      <div className="bg-primary h-6 w-6 rounded"></div>
+                    <div className="flex size-8 items-center justify-center">
+                      <Image
+                        src="/icon-192.svg"
+                        alt="App logo"
+                        width={24}
+                        height={24}
+                        className="size-6 shrink-0 sm:size-7 lg:size-8"
+                      />
                     </div>
                   </TooltipTrigger>
                   <TooltipContent side="right" className="ml-2">

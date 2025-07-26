@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { fetchTrackItems, getTrackingMetrics } from "./actions";
-import { SquarePen as NewTrackIcon, Plus, BarChart3 } from "lucide-react";
+import { SquarePen as NewTrackIcon, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TrackingCharts } from "./components/tracking-charts";
