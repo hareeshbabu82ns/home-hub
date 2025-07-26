@@ -9,6 +9,7 @@ const initialTrackAttr: Omit<TrackAttributes, "userId"> = {
   title: "",
   value: "",
   valueType: "STRING",
+  valueDuration: 0,
   trackId: "",
   valueInt: 0,
   valueFloat: 0.0,

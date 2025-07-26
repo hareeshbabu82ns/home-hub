@@ -110,6 +110,7 @@ export const fetchTrackAttribute = async (id: string) => {
 export async function createTrackItemAttribute(
   prevState: {
     message: string;
+    success?: boolean;
   },
   formData: FormData,
 ) {
@@ -125,13 +126,14 @@ export async function createTrackItemAttribute(
     valueInt: z.number().optional(),
     valueFloat: z.number().optional(),
     valueDate: z.date().optional(),
-    valueType: z.enum(["STRING", "INT", "FLOAT", "DATETIME"]),
+    valueDuration: z.number().optional(),
+    valueType: z.enum(["STRING", "INT", "FLOAT", "DATETIME", "DURATION"]),
   });
 
   // Parse and transform the form data based on valueType
   const valueType = formData.get("valueType") as string;
   const rawValue = formData.get("value") as string;
-  let parsedData: any = {
+  const parsedData: any = {
     trackId: formData.get("trackId"),
     title: formData.get("title"),
     valueType: valueType as TrackAttributeValueType,
@@ -163,6 +165,15 @@ export async function createTrackItemAttribute(
         const dateValue = new Date(rawValue);
         if (!isNaN(dateValue.getTime())) {
           parsedData.valueDate = dateValue;
+        }
+      }
+      break;
+    case "DURATION":
+      if (rawValue) {
+        // Parse HH:MM format and convert to minutes
+        const [hours, minutes] = rawValue.split(":").map(Number);
+        if (!isNaN(hours) && !isNaN(minutes)) {
+          parsedData.valueDuration = hours * 60 + minutes;
         }
       }
       break;
@@ -185,22 +196,24 @@ export async function createTrackItemAttribute(
         valueInt: data.valueInt,
         valueFloat: data.valueFloat,
         valueDate: data.valueDate,
+        valueDuration: data.valueDuration,
         valueType: data.valueType,
         userId: session.user.id,
       },
     });
 
     revalidatePath("/tracks");
-    return { message: `Added track attribute ${data.title}` };
+    return { message: `Added track attribute ${data.title}`, success: true };
   } catch (error) {
     console.error("Error creating track attribute:", error);
-    return { message: "Failed to create track attribute" };
+    return { message: "Failed to create track attribute", success: false };
   }
 }
 
 export async function updateTrackItemAttribute(
   prevState: {
     message: string;
+    success?: boolean;
   },
   formData: FormData,
 ) {
@@ -217,13 +230,14 @@ export async function updateTrackItemAttribute(
     valueInt: z.number().optional(),
     valueFloat: z.number().optional(),
     valueDate: z.date().optional(),
-    valueType: z.enum(["STRING", "INT", "FLOAT", "DATETIME"]),
+    valueDuration: z.number().optional(),
+    valueType: z.enum(["STRING", "INT", "FLOAT", "DATETIME", "DURATION"]),
   });
 
   // Parse and transform the form data based on valueType
   const valueType = formData.get("valueType") as string;
   const rawValue = formData.get("value") as string;
-  let parsedData: any = {
+  const parsedData: any = {
     id: formData.get("id"),
     trackId: formData.get("trackId"),
     title: formData.get("title"),
@@ -259,6 +273,15 @@ export async function updateTrackItemAttribute(
         }
       }
       break;
+    case "DURATION":
+      if (rawValue) {
+        // Parse HH:MM format and convert to minutes
+        const [hours, minutes] = rawValue.split(":").map(Number);
+        if (!isNaN(hours) && !isNaN(minutes)) {
+          parsedData.valueDuration = hours * 60 + minutes;
+        }
+      }
+      break;
   }
 
   const parse = schema.safeParse(parsedData);
@@ -278,28 +301,30 @@ export async function updateTrackItemAttribute(
         valueInt: data.valueInt,
         valueFloat: data.valueFloat,
         valueDate: data.valueDate,
+        valueDuration: data.valueDuration,
         valueType: data.valueType,
         userId: session.user.id,
       },
     });
 
     revalidatePath("/tracks");
-    return { message: `Updated track attribute ${data.title}` };
+    return { message: `Updated track attribute ${data.title}`, success: true };
   } catch (error) {
     console.error("Error updating track attribute:", error);
-    return { message: "Failed to update track attribute" };
+    return { message: "Failed to update track attribute", success: false };
   }
 }
 
 export async function deleteTrackItemAttribute(
   prevState: {
     message: string;
+    success?: boolean;
   },
   formData: FormData,
 ) {
   const { session } = await getUserAuth();
   if (!session) {
-    return { message: "Failed to delete TrackAttribute" };
+    return { message: "Failed to delete TrackAttribute", success: false };
   }
 
   const schema = z.object({
@@ -320,10 +345,10 @@ export async function deleteTrackItemAttribute(
     });
 
     revalidatePath("/tracks");
-    return { message: `Deleted track attribute ${data.title}` };
+    return { message: `Deleted track attribute ${data.title}`, success: true };
   } catch (error) {
     console.error("Error deleting track attribute:", error);
-    return { message: "Failed to delete track attribute" };
+    return { message: "Failed to delete track attribute", success: false };
   }
 }
 
@@ -521,12 +546,13 @@ export async function updateTrackItem(
 export async function deleteTrackItem(
   prevState: {
     message: string;
+    success?: boolean;
   },
   formData: FormData,
 ) {
   const { session } = await getUserAuth();
   if (!session) {
-    return { message: "Failed to delete TrackItem" };
+    return { message: "Failed to delete TrackItem", success: false };
   }
 
   const schema = z.object({
@@ -547,10 +573,10 @@ export async function deleteTrackItem(
     });
 
     revalidatePath("/tracks");
-    return { message: `Deleted trackItem ${data.title}` };
+    return { message: `Deleted trackItem ${data.title}`, success: true };
   } catch (error) {
     console.error("Error deleting track item:", error);
-    return { message: "Failed to delete TrackItem" };
+    return { message: "Failed to delete TrackItem", success: false };
   }
 }
 
@@ -568,6 +594,7 @@ export const getTrackingMetrics = async (): Promise<TrackingMetrics> => {
         INT: 0,
         FLOAT: 0,
         DATETIME: 0,
+        DURATION: 0,
       },
     };
   }
@@ -603,6 +630,7 @@ export const getTrackingMetrics = async (): Promise<TrackingMetrics> => {
       INT: 0,
       FLOAT: 0,
       DATETIME: 0,
+      DURATION: 0,
     } as Record<TrackAttributeValueType, number>,
   );
 
@@ -653,6 +681,9 @@ export const getAttributeChartData = async (
         break;
       case "FLOAT":
         value = attr.valueFloat || 0;
+        break;
+      case "DURATION":
+        value = attr.valueDuration || 0; // Duration in minutes
         break;
       case "STRING":
         value = attr.value ? attr.value.length : 0;
@@ -720,4 +751,22 @@ export const getTrackItemActivityData = async (
     date,
     label: `${count} entries`,
   }));
+};
+
+export const fetchUniqueAttributeTitles = async (
+  userId?: string,
+): Promise<string[]> => {
+  const { session } = await getUserAuth();
+  if (!session && !userId) return [];
+
+  const userIdToUse = userId || session!.user.id;
+
+  const attributes = await db.trackAttributes.findMany({
+    where: { userId: userIdToUse },
+    select: { title: true },
+    distinct: ["title"],
+    orderBy: { title: "asc" },
+  });
+
+  return attributes.map((attr) => attr.title);
 };

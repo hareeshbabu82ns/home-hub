@@ -22,8 +22,8 @@ import type { TrackAttributeFilter } from "@/types/track";
 
 interface TrackAttributesDataGridProps {
   attributes: TrackAttributes[];
-  onEdit?: (attribute: TrackAttributes) => void;
-  onDelete?: (attribute: TrackAttributes) => void;
+  onEdit?: (_attribute: TrackAttributes) => void;
+  onDelete?: (_attribute: TrackAttributes) => void;
   onAdd?: () => void;
   trackId?: string;
 }
@@ -36,6 +36,7 @@ const VALUE_TYPE_COLORS: Record<TrackAttributeValueType, string> = {
   INT: "bg-green-100 text-green-800",
   FLOAT: "bg-yellow-100 text-yellow-800",
   DATETIME: "bg-purple-100 text-purple-800",
+  DURATION: "bg-indigo-100 text-indigo-800",
 };
 
 export function TrackAttributesDataGrid({
@@ -43,7 +44,6 @@ export function TrackAttributesDataGrid({
   onEdit,
   onDelete,
   onAdd,
-  trackId,
 }: TrackAttributesDataGridProps) {
   const [sortField, setSortField] = useState<SortField>("createdAt");
   const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
@@ -60,6 +60,13 @@ export function TrackAttributesDataGrid({
         return attr.valueDate
           ? new Date(attr.valueDate).toLocaleString()
           : "N/A";
+      case "DURATION":
+        if (attr.valueDuration) {
+          const hours = Math.floor(attr.valueDuration / 60);
+          const minutes = attr.valueDuration % 60;
+          return `${hours}h ${minutes}m`;
+        }
+        return "N/A";
       case "STRING":
       default:
         return attr.value || "N/A";
@@ -72,6 +79,8 @@ export function TrackAttributesDataGrid({
         return attr.valueInt || 0;
       case "FLOAT":
         return attr.valueFloat || 0;
+      case "DURATION":
+        return attr.valueDuration || 0;
       case "DATETIME":
         return attr.valueDate ? new Date(attr.valueDate).getTime() : 0;
       case "STRING":
@@ -81,7 +90,7 @@ export function TrackAttributesDataGrid({
   };
 
   const filteredAndSortedAttributes = React.useMemo(() => {
-    let filtered = attributes.filter((attr) => {
+    const filtered = attributes.filter((attr) => {
       if (
         filters.attributeTitle &&
         !attr.title.toLowerCase().includes(filters.attributeTitle.toLowerCase())
@@ -237,6 +246,7 @@ export function TrackAttributesDataGrid({
                     <SelectItem value="INT">Integer</SelectItem>
                     <SelectItem value="FLOAT">Decimal</SelectItem>
                     <SelectItem value="DATETIME">Date & Time</SelectItem>
+                    <SelectItem value="DURATION">Duration</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

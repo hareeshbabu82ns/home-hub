@@ -17,7 +17,7 @@ import type { TrackItemFilter, TrackAttributeFilter } from "@/types/track";
 import type { TrackAttributeValueType } from "@/app/generated/prisma";
 
 interface TrackFilterProps {
-  onFilterChange: (filters: TrackItemFilter) => void;
+  onFilterChange: (_filters: TrackItemFilter) => void;
   initialFilters?: TrackItemFilter;
 }
 

@@ -27,13 +27,14 @@ interface TrackingChartsProps {
   title?: string;
 }
 
-const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#8884D8"];
+// const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#8884D8"];
 
 const VALUE_TYPE_COLORS: Record<TrackAttributeValueType, string> = {
   STRING: "#8884D8",
   INT: "#82CA9D",
   FLOAT: "#FFC658",
   DATETIME: "#FF7300",
+  DURATION: "#8DD1E1",
 };
 
 export function TrackingCharts({
@@ -179,7 +180,7 @@ export function TrackingCharts({
                   />
                   <YAxis tick={{ fontSize: 12 }} />
                   <Tooltip
-                    formatter={(value, name) => [value, "Entries"]}
+                    formatter={(value) => [value, "Entries"]}
                     labelFormatter={(value) =>
                       `Date: ${new Date(value).toLocaleDateString()}`
                     }

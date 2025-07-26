@@ -1,14 +1,10 @@
 import Link from "next/link";
 import { fetchTrackItems, getTrackingMetrics } from "./actions";
-import type { TrackItemWithAttributes } from "@/types/track";
 import { SquarePen as NewTrackIcon, Plus, BarChart3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { formatDistanceToNow } from "date-fns";
-import { TrackFilter } from "./components/track-filter";
 import { TrackingCharts } from "./components/tracking-charts";
-import { useState } from "react";
+import { TrackItemTable } from "./components/track-item-table";
 
 export default async function TracksPage() {
   const [tracks, metrics] = await Promise.all([
@@ -57,84 +53,5 @@ export default async function TracksPage() {
         </CardContent>
       </Card>
     </main>
-  );
-}
-
-function TrackItemTable({ tracks }: { tracks: TrackItemWithAttributes[] }) {
-  if (tracks.length === 0) {
-    return (
-      <div className="py-12 text-center">
-        <p className="text-muted-foreground mb-4">No tracks found.</p>
-        <Button asChild>
-          <Link href="/tracks/new">Create your first track</Link>
-        </Button>
-      </div>
-    );
-  }
-
-  return (
-    <div className="overflow-x-auto">
-      <table className="w-full">
-        <thead className="bg-muted/50">
-          <tr>
-            <th className="p-4 text-left font-medium">Title</th>
-            <th className="p-4 text-left font-medium">Description</th>
-            <th className="p-4 text-left font-medium">Attributes</th>
-            <th className="p-4 text-left font-medium">Last Updated</th>
-            <th className="p-4 text-right font-medium">Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {tracks.map((track) => (
-            <tr key={track.id} className="hover:bg-muted/25 border-b">
-              <td className="p-4">
-                <Link
-                  href={`/tracks/${track.id}`}
-                  className="font-medium hover:underline"
-                >
-                  {track.title}
-                </Link>
-              </td>
-              <td className="text-muted-foreground p-4">
-                {track.description || "No description"}
-              </td>
-              <td className="p-4">
-                <div className="flex flex-wrap gap-1">
-                  {track.TrackAttributes.slice(0, 3).map((attr) => (
-                    <Badge
-                      key={attr.id}
-                      variant="secondary"
-                      className="text-xs"
-                    >
-                      {attr.title}
-                    </Badge>
-                  ))}
-                  {track.TrackAttributes.length > 3 && (
-                    <Badge variant="outline" className="text-xs">
-                      +{track.TrackAttributes.length - 3} more
-                    </Badge>
-                  )}
-                  {track.TrackAttributes.length === 0 && (
-                    <span className="text-muted-foreground text-sm">
-                      No attributes
-                    </span>
-                  )}
-                </div>
-              </td>
-              <td className="text-muted-foreground p-4 text-sm">
-                {formatDistanceToNow(new Date(track.updatedAt), {
-                  addSuffix: true,
-                })}
-              </td>
-              <td className="p-4 text-right">
-                <Button asChild variant="ghost" size="sm">
-                  <Link href={`/tracks/${track.id}`}>View</Link>
-                </Button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
   );
 }

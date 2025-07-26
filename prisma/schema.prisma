@@ -30,6 +30,7 @@ enum TrackAttributeValueType {
   INT
   FLOAT
   DATETIME
+  DURATION
 }
 
 model TrackAttributes {
@@ -37,12 +38,13 @@ model TrackAttributes {
   userId  String @db.ObjectId
   trackId String @db.ObjectId
 
-  title      String
-  value      String?
-  valueInt   Int?
-  valueFloat Float?
-  valueDate  DateTime?
-  valueType  TrackAttributeValueType @default(STRING)
+  title         String
+  value         String?
+  valueInt      Int?
+  valueFloat    Float?
+  valueDate     DateTime?
+  valueDuration Int? // Duration in minutes
+  valueType     TrackAttributeValueType @default(STRING)
 
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   trackItem TrackItem @relation(fields: [trackId], references: [id], onDelete: Cascade)

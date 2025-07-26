@@ -16,6 +16,7 @@ export interface TrackAttributeFormData {
   valueInt?: number;
   valueFloat?: number;
   valueDate?: Date;
+  valueDuration?: number; // Duration in minutes
   valueType: TrackAttributeValueType;
 }
 
