@@ -297,9 +297,6 @@ export function QuickEntrySection({ className }: QuickEntrySectionProps) {
   }
 
   const recentAttributes = quickEntryAttributes.filter((attr) => attr.isRecent);
-  const frequentAttributes = quickEntryAttributes.filter(
-    (attr) => !attr.isRecent,
-  );
   const hasAnyAttributes = quickEntryAttributes.length > 0;
 
   return (
@@ -481,7 +478,9 @@ export function QuickEntrySection({ className }: QuickEntrySectionProps) {
                     >
                       {isSubmitting ? (
                         <>
-                          <div className="mr-2 h-3 w-3 animate-spin rounded-full border-b-2 border-white"></div>
+                          <div className="mr-2 h-3 w-3 animate-spin rounded-full border-b-2 border-white">
+                            &nbsp;
+                          </div>
                           Adding...
                         </>
                       ) : (

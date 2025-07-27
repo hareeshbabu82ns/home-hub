@@ -4,16 +4,12 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getUserAuth } from "@/lib/auth/utils";
 import { db } from "@/lib/db";
-import type {
-  TrackAttributeValueType,
-  TrackAttributes,
-} from "@/app/generated/prisma";
+import type { TrackAttributeValueType } from "@/app/generated/prisma";
 import type {
   TrackItemFilter,
   TrackAttributeFilter,
   TrackingMetrics,
   ChartDataPoint,
-  RunningTimer,
 } from "@/types/track";
 import {
   startOfDay,
@@ -1203,38 +1199,6 @@ export async function stopTimer(
   } catch (error) {
     console.error("Error stopping timer:", error);
     return { message: "Failed to stop timer", success: false };
-  }
-}
-
-export async function getRunningTimers(
-  userId?: string,
-): Promise<RunningTimer[]> {
-  const { session } = await getUserAuth();
-  if (!session && !userId) return [];
-
-  const userIdToUse = userId || session!.user.id;
-
-  try {
-    const runningTimers = await db.trackAttributes.findMany({
-      where: {
-        userId: userIdToUse,
-        isTimerRunning: true,
-        valueType: "DURATION",
-      },
-      include: {
-        trackItem: {
-          select: {
-            title: true,
-          },
-        },
-      },
-      orderBy: { timerStartTime: "desc" },
-    });
-
-    return runningTimers;
-  } catch (error) {
-    console.error("Error fetching running timers:", error);
-    return [];
   }
 }
 

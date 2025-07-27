@@ -14,19 +14,12 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { DurationTimer } from "./duration-timer";
-import {
-  fetchQuickEntryAttributesWithTracks,
-  getRunningTimers,
-} from "../actions";
-import type {
-  TrackAttributeValueType,
-  TrackAttributes,
-} from "@/app/generated/prisma";
-import type { QuickEntryAttribute, RunningTimer } from "@/types/track";
+import { fetchQuickEntryAttributesWithTracks } from "../actions";
+import type { TrackAttributeValueType } from "@/app/generated/prisma";
+import type { QuickEntryAttribute } from "@/types/track";
 
 interface QuickEntryPanelProps {
-  onQuickEntry: (attribute: QuickEntryAttribute) => void;
+  onQuickEntry: (_attribute: QuickEntryAttribute) => void;
   onCustomEntry?: () => void;
   refreshTrigger?: number;
 }
@@ -37,7 +30,6 @@ export function QuickEntryPanel({
   refreshTrigger,
 }: QuickEntryPanelProps) {
   const [attributes, setAttributes] = useState<QuickEntryAttribute[]>([]);
-  const [runningTimers, setRunningTimers] = useState<RunningTimer[]>([]);
   const [filteredAttributes, setFilteredAttributes] = useState<
     QuickEntryAttribute[]
   >([]);
@@ -47,12 +39,10 @@ export function QuickEntryPanel({
   useEffect(() => {
     const loadQuickEntryData = async () => {
       try {
-        const [attributesData, timersData] = await Promise.all([
+        const [attributesData] = await Promise.all([
           fetchQuickEntryAttributesWithTracks(20),
-          getRunningTimers(),
         ]);
         setAttributes(attributesData);
-        setRunningTimers(timersData);
         setFilteredAttributes(attributesData);
       } catch (error) {
         console.error("Error loading quick entry data:", error);
@@ -161,7 +151,7 @@ export function QuickEntryPanel({
             </p>
             {onCustomEntry && (
               <p className="text-muted-foreground mt-2 text-xs">
-                Use the "Custom" button to add your first attribute.
+                Use the &quot;Custom&quot; button to add your first attribute.
               </p>
             )}
           </div>
@@ -202,52 +192,6 @@ export function QuickEntryPanel({
             className="pl-9"
           />
         </div>
-
-        {/* Running Timers Section */}
-        {runningTimers.length > 0 && (
-          <div className="space-y-2">
-            <p className="text-muted-foreground text-sm font-medium">
-              Running Timers ({runningTimers.length})
-            </p>
-            <div className="space-y-2">
-              {runningTimers.map((timer) => (
-                <div
-                  key={timer.id}
-                  className="flex items-center justify-between rounded-lg border bg-green-50 p-3 dark:bg-green-900/10"
-                >
-                  <div className="flex-1">
-                    <p className="text-sm font-medium">{timer.title}</p>
-                                        <p className="text-xs text-muted-foreground">
-                      {timer.trackItem?.title || "Track Timer"}
-                    </p>
-                  </div>
-                  <DurationTimer
-                    attribute={timer}
-                    onTimerUpdate={() => {
-                      // Reload data after timer update
-                      const reload = async () => {
-                        try {
-                          const [attributesData, timersData] =
-                            await Promise.all([
-                              fetchQuickEntryAttributesWithTracks(20),
-                              getRunningTimers(),
-                            ]);
-                          setAttributes(attributesData);
-                          setRunningTimers(timersData);
-                          setFilteredAttributes(attributesData);
-                        } catch (error) {
-                          console.error("Error reloading data:", error);
-                        }
-                      };
-                      reload();
-                    }}
-                    className="ml-2"
-                  />
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
 
         {/* Attribute Badges */}
         <div className="space-y-3">

@@ -45,7 +45,6 @@ import type {
   TrackItemWithAttributes,
   QuickEntryAttribute,
 } from "@/types/track";
-import { DurationTimer } from "./duration-timer";
 
 interface QuickEntryPanelWrapperProps {
   className?: string;
