@@ -770,3 +770,201 @@ export const fetchUniqueAttributeTitles = async (
 
   return attributes.map((attr) => attr.title);
 };
+
+// Get attribute details by title (most common type for the title)
+export const fetchAttributeDetailsByTitle = async (
+  title: string,
+  userId?: string,
+): Promise<{ title: string; valueType: TrackAttributeValueType } | null> => {
+  const { session } = await getUserAuth();
+  if (!session && !userId) return null;
+
+  const userIdToUse = userId || session!.user.id;
+
+  // Find the most commonly used value type for this title
+  const attributes = await db.trackAttributes.groupBy({
+    by: ["valueType"],
+    where: {
+      userId: userIdToUse,
+      title: { equals: title, mode: "insensitive" },
+    },
+    _count: {
+      valueType: true,
+    },
+    orderBy: {
+      _count: {
+        valueType: "desc",
+      },
+    },
+  });
+
+  if (attributes.length === 0) return null;
+
+  return {
+    title,
+    valueType: attributes[0].valueType,
+  };
+};
+
+// Get recently used attribute titles (last 30 days)
+export const fetchRecentAttributeTitles = async (
+  limit: number = 10,
+): Promise<string[]> => {
+  const { session } = await getUserAuth();
+  if (!session) return [];
+
+  const thirtyDaysAgo = subDays(new Date(), 30);
+
+  const attributes = await db.trackAttributes.findMany({
+    where: {
+      userId: session.user.id,
+      createdAt: { gte: thirtyDaysAgo },
+    },
+    select: { title: true },
+    distinct: ["title"],
+    orderBy: { createdAt: "desc" },
+    take: limit,
+  });
+
+  return attributes.map((attr) => attr.title);
+};
+
+// Get frequently used attribute titles (by count)
+export const fetchFrequentAttributeTitles = async (
+  limit: number = 10,
+): Promise<Array<{ title: string; count: number }>> => {
+  const { session } = await getUserAuth();
+  if (!session) return [];
+
+  const attributes = await db.trackAttributes.groupBy({
+    by: ["title"],
+    where: { userId: session.user.id },
+    _count: { title: true },
+    orderBy: { _count: { title: "desc" } },
+    take: limit,
+  });
+
+  return attributes.map((attr) => ({
+    title: attr.title,
+    count: attr._count.title,
+  }));
+};
+
+// Get detailed attribute information for quick entry
+export const fetchQuickEntryAttributes = async (
+  limit: number = 10,
+): Promise<
+  Array<{
+    title: string;
+    valueType: TrackAttributeValueType;
+    count: number;
+    lastValue?: string;
+    isRecent: boolean;
+  }>
+> => {
+  const { session } = await getUserAuth();
+  if (!session) return [];
+
+  const thirtyDaysAgo = subDays(new Date(), 30);
+
+  // Get attribute usage with most common type and recent usage
+  const attributeStats = await db.trackAttributes.groupBy({
+    by: ["title", "valueType"],
+    where: { userId: session.user.id },
+    _count: { title: true },
+    orderBy: { _count: { title: "desc" } },
+  });
+
+  // Get recent attributes for flagging
+  const recentTitles = await db.trackAttributes.findMany({
+    where: {
+      userId: session.user.id,
+      createdAt: { gte: thirtyDaysAgo },
+    },
+    select: { title: true },
+    distinct: ["title"],
+  });
+
+  const recentTitleSet = new Set(recentTitles.map((attr) => attr.title));
+
+  // Group by title and pick the most common valueType for each
+  const attributeMap = new Map<
+    string,
+    {
+      title: string;
+      valueType: TrackAttributeValueType;
+      count: number;
+      isRecent: boolean;
+    }
+  >();
+
+  attributeStats.forEach((stat) => {
+    const existing = attributeMap.get(stat.title);
+    if (!existing || stat._count.title > existing.count) {
+      attributeMap.set(stat.title, {
+        title: stat.title,
+        valueType: stat.valueType,
+        count: stat._count.title,
+        isRecent: recentTitleSet.has(stat.title),
+      });
+    }
+  });
+
+  // Get last values for each attribute
+  const result = await Promise.all(
+    Array.from(attributeMap.values())
+      .sort((a, b) => b.count - a.count)
+      .slice(0, limit)
+      .map(async (attr) => {
+        // Get the most recent value for this attribute
+        const lastEntry = await db.trackAttributes.findFirst({
+          where: {
+            userId: session.user.id,
+            title: attr.title,
+            valueType: attr.valueType,
+          },
+          orderBy: { createdAt: "desc" },
+          select: {
+            value: true,
+            valueInt: true,
+            valueFloat: true,
+            valueDate: true,
+            valueDuration: true,
+          },
+        });
+
+        let lastValue: string | undefined;
+        if (lastEntry) {
+          switch (attr.valueType) {
+            case "STRING":
+              lastValue = lastEntry.value || undefined;
+              break;
+            case "INT":
+              lastValue = lastEntry.valueInt?.toString();
+              break;
+            case "FLOAT":
+              lastValue = lastEntry.valueFloat?.toString();
+              break;
+            case "DATETIME":
+              lastValue = lastEntry.valueDate?.toISOString().slice(0, 16);
+              break;
+            case "DURATION":
+              if (lastEntry.valueDuration) {
+                const minutes = lastEntry.valueDuration;
+                const hours = Math.floor(minutes / 60);
+                const mins = minutes % 60;
+                lastValue = `${hours.toString().padStart(2, "0")}:${mins.toString().padStart(2, "0")}`;
+              }
+              break;
+          }
+        }
+
+        return {
+          ...attr,
+          lastValue,
+        };
+      }),
+  );
+
+  return result;
+};
