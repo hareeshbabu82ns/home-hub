@@ -28,6 +28,18 @@ export interface TrackAttributeFormData {
   valueDate?: Date;
   valueDuration?: number; // Duration in minutes
   valueType: TrackAttributeValueType;
+  // Timer state
+  timerStartTime?: Date;
+  timerEndTime?: Date;
+  isTimerRunning?: boolean;
+}
+
+export interface TimerState {
+  id: string;
+  isRunning: boolean;
+  startTime?: Date;
+  endTime?: Date;
+  elapsedMs?: number; // Current elapsed time in milliseconds
 }
 
 export interface TrackAttributeFilter {

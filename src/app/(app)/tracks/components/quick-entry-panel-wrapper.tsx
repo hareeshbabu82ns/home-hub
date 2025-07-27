@@ -45,6 +45,7 @@ import type {
   TrackItemWithAttributes,
   QuickEntryAttribute,
 } from "@/types/track";
+import { DurationTimer } from "./duration-timer";
 
 interface QuickEntryPanelWrapperProps {
   className?: string;
@@ -391,14 +392,34 @@ export function QuickEntryPanelWrapper({
 
             <div className="space-y-2">
               <Label htmlFor="value">Value</Label>
-              <Input
-                id="value"
-                type={getInputType()}
-                value={value}
-                onChange={(e) => setValue(e.target.value)}
-                placeholder={getValuePlaceholder()}
-                {...getInputProps()}
-              />
+              {valueType === "DURATION" ? (
+                <div className="rounded-md border p-3">
+                  <p className="text-muted-foreground mb-2 text-sm">
+                    Use timer controls or enter duration manually:
+                  </p>
+                  <Input
+                    id="value"
+                    type={getInputType()}
+                    value={value}
+                    onChange={(e) => setValue(e.target.value)}
+                    placeholder={getValuePlaceholder()}
+                    {...getInputProps()}
+                    className="mb-2"
+                  />
+                  <p className="text-muted-foreground text-xs">
+                    Or start a new timer for this attribute
+                  </p>
+                </div>
+              ) : (
+                <Input
+                  id="value"
+                  type={getInputType()}
+                  value={value}
+                  onChange={(e) => setValue(e.target.value)}
+                  placeholder={getValuePlaceholder()}
+                  {...getInputProps()}
+                />
+              )}
             </div>
 
             <div className="flex gap-2">
@@ -525,14 +546,34 @@ export function QuickEntryPanelWrapper({
 
             <div className="space-y-2">
               <Label htmlFor="custom-value">Value</Label>
-              <Input
-                id="custom-value"
-                type={getCustomInputType()}
-                value={customValue}
-                onChange={(e) => setCustomValue(e.target.value)}
-                placeholder={getCustomValuePlaceholder()}
-                {...getCustomInputProps()}
-              />
+              {customValueType === "DURATION" ? (
+                <div className="rounded-md border p-3">
+                  <p className="text-muted-foreground mb-2 text-sm">
+                    Use timer controls or enter duration manually:
+                  </p>
+                  <Input
+                    id="custom-value"
+                    type={getCustomInputType()}
+                    value={customValue}
+                    onChange={(e) => setCustomValue(e.target.value)}
+                    placeholder={getCustomValuePlaceholder()}
+                    {...getCustomInputProps()}
+                    className="mb-2"
+                  />
+                  <p className="text-muted-foreground text-xs">
+                    Or start a new timer for this attribute
+                  </p>
+                </div>
+              ) : (
+                <Input
+                  id="custom-value"
+                  type={getCustomInputType()}
+                  value={customValue}
+                  onChange={(e) => setCustomValue(e.target.value)}
+                  placeholder={getCustomValuePlaceholder()}
+                  {...getCustomInputProps()}
+                />
+              )}
             </div>
 
             <div className="flex gap-2">

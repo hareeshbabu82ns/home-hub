@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { DurationTimer } from "./duration-timer";
 
 interface AttributeTileProps {
   attribute: TrackAttributes;
@@ -248,6 +249,13 @@ function AttributeTile({
             {isSubmitting ? "Adding..." : "Add Entry"}
           </Button>
         </form>
+
+        {/* Duration Timer for DURATION type attributes */}
+        {attribute.valueType === "DURATION" && (
+          <div className="border-t pt-3">
+            <DurationTimer attribute={attribute} onTimerUpdate={onEntryAdded} />
+          </div>
+        )}
 
         {lastValue && (
           <div className="text-muted-foreground border-t pt-2 text-xs">

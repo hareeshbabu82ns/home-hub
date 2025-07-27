@@ -4,12 +4,16 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getUserAuth } from "@/lib/auth/utils";
 import { db } from "@/lib/db";
-import type { TrackAttributeValueType } from "@/app/generated/prisma";
+import type {
+  TrackAttributeValueType,
+  TrackAttributes,
+} from "@/app/generated/prisma";
 import type {
   TrackItemFilter,
   TrackAttributeFilter,
   TrackingMetrics,
   ChartDataPoint,
+  RunningTimer,
 } from "@/types/track";
 import {
   startOfDay,
@@ -1069,3 +1073,292 @@ export const fetchQuickEntryAttributesWithTracks = async (
     .sort((a, b) => b.lastUsed.getTime() - a.lastUsed.getTime())
     .slice(0, limit);
 };
+
+// Timer-related actions for DURATION type attributes
+
+export async function startTimer(
+  prevState: {
+    message: string;
+    success?: boolean;
+  },
+  formData: FormData,
+) {
+  const { session } = await getUserAuth();
+  if (!session) {
+    return {
+      message: "Failed to start timer: Not authenticated",
+      success: false,
+    };
+  }
+
+  const schema = z.object({
+    trackId: z.string().min(1),
+    title: z.string().min(1),
+    valueType: z.enum(["DURATION"]),
+  });
+
+  const data = schema.parse({
+    trackId: formData.get("trackId"),
+    title: formData.get("title"),
+    valueType: formData.get("valueType"),
+  });
+
+  try {
+    // Check if there's already a running timer for this attribute
+    const existingTimer = await db.trackAttributes.findFirst({
+      where: {
+        userId: session.user.id,
+        trackId: data.trackId,
+        title: data.title,
+        valueType: "DURATION",
+        isTimerRunning: true,
+      },
+    });
+
+    if (existingTimer) {
+      return {
+        message: "Timer is already running for this attribute",
+        success: false,
+      };
+    }
+
+    // Create a new timer entry
+    const startTime = new Date();
+    await db.trackAttributes.create({
+      data: {
+        trackId: data.trackId,
+        title: data.title,
+        valueType: "DURATION",
+        timerStartTime: startTime,
+        isTimerRunning: true,
+        userId: session.user.id,
+      },
+    });
+
+    revalidatePath("/tracks");
+    return { message: `Timer started for ${data.title}`, success: true };
+  } catch (error) {
+    console.error("Error starting timer:", error);
+    return { message: "Failed to start timer", success: false };
+  }
+}
+
+export async function stopTimer(
+  prevState: {
+    message: string;
+    success?: boolean;
+  },
+  formData: FormData,
+) {
+  const { session } = await getUserAuth();
+  if (!session) {
+    return {
+      message: "Failed to stop timer: Not authenticated",
+      success: false,
+    };
+  }
+
+  const schema = z.object({
+    id: z.string().min(1),
+  });
+
+  const data = schema.parse({
+    id: formData.get("id"),
+  });
+
+  try {
+    // Find the running timer
+    const timer = await db.trackAttributes.findFirst({
+      where: {
+        id: data.id,
+        userId: session.user.id,
+        isTimerRunning: true,
+      },
+    });
+
+    if (!timer || !timer.timerStartTime) {
+      return { message: "No running timer found", success: false };
+    }
+
+    // Calculate duration
+    const endTime = new Date();
+    const durationMs = endTime.getTime() - timer.timerStartTime.getTime();
+    const durationMinutes = Math.round(durationMs / (1000 * 60)); // Convert to minutes
+
+    // Update the timer entry
+    await db.trackAttributes.update({
+      where: { id: data.id },
+      data: {
+        timerEndTime: endTime,
+        isTimerRunning: false,
+        valueDuration: durationMinutes,
+      },
+    });
+
+    revalidatePath("/tracks");
+    return {
+      message: `Timer stopped. Duration: ${Math.floor(durationMinutes / 60)}h ${durationMinutes % 60}m`,
+      success: true,
+    };
+  } catch (error) {
+    console.error("Error stopping timer:", error);
+    return { message: "Failed to stop timer", success: false };
+  }
+}
+
+export async function getRunningTimers(
+  userId?: string,
+): Promise<RunningTimer[]> {
+  const { session } = await getUserAuth();
+  if (!session && !userId) return [];
+
+  const userIdToUse = userId || session!.user.id;
+
+  try {
+    const runningTimers = await db.trackAttributes.findMany({
+      where: {
+        userId: userIdToUse,
+        isTimerRunning: true,
+        valueType: "DURATION",
+      },
+      include: {
+        trackItem: {
+          select: {
+            title: true,
+          },
+        },
+      },
+      orderBy: { timerStartTime: "desc" },
+    });
+
+    return runningTimers;
+  } catch (error) {
+    console.error("Error fetching running timers:", error);
+    return [];
+  }
+}
+
+export async function pauseTimer(
+  prevState: {
+    message: string;
+    success?: boolean;
+  },
+  formData: FormData,
+) {
+  const { session } = await getUserAuth();
+  if (!session) {
+    return {
+      message: "Failed to pause timer: Not authenticated",
+      success: false,
+    };
+  }
+
+  const schema = z.object({
+    id: z.string().min(1),
+  });
+
+  const data = schema.parse({
+    id: formData.get("id"),
+  });
+
+  try {
+    // Find the running timer
+    const timer = await db.trackAttributes.findFirst({
+      where: {
+        id: data.id,
+        userId: session.user.id,
+        isTimerRunning: true,
+      },
+    });
+
+    if (!timer || !timer.timerStartTime) {
+      return { message: "No running timer found", success: false };
+    }
+
+    // Calculate current duration
+    const now = new Date();
+    const durationMs = now.getTime() - timer.timerStartTime.getTime();
+    const durationMinutes = Math.round(durationMs / (1000 * 60));
+
+    // Update the timer to paused state
+    await db.trackAttributes.update({
+      where: { id: data.id },
+      data: {
+        isTimerRunning: false,
+        valueDuration: durationMinutes,
+        // Keep timerStartTime and don't set timerEndTime for paused state
+      },
+    });
+
+    revalidatePath("/tracks");
+    return {
+      message: `Timer paused at ${Math.floor(durationMinutes / 60)}h ${durationMinutes % 60}m`,
+      success: true,
+    };
+  } catch (error) {
+    console.error("Error pausing timer:", error);
+    return { message: "Failed to pause timer", success: false };
+  }
+}
+
+export async function resumeTimer(
+  prevState: {
+    message: string;
+    success?: boolean;
+  },
+  formData: FormData,
+) {
+  const { session } = await getUserAuth();
+  if (!session) {
+    return {
+      message: "Failed to resume timer: Not authenticated",
+      success: false,
+    };
+  }
+
+  const schema = z.object({
+    id: z.string().min(1),
+  });
+
+  const data = schema.parse({
+    id: formData.get("id"),
+  });
+
+  try {
+    // Find the paused timer
+    const timer = await db.trackAttributes.findFirst({
+      where: {
+        id: data.id,
+        userId: session.user.id,
+        isTimerRunning: false,
+        valueType: "DURATION",
+        timerEndTime: null, // Paused timers don't have end time
+      },
+    });
+
+    if (!timer) {
+      return { message: "No paused timer found", success: false };
+    }
+
+    // Resume timer by adjusting start time to account for existing duration
+    const existingMinutes = timer.valueDuration || 0;
+    const adjustedStartTime = new Date(
+      Date.now() - existingMinutes * 60 * 1000,
+    );
+
+    await db.trackAttributes.update({
+      where: { id: data.id },
+      data: {
+        isTimerRunning: true,
+        timerStartTime: adjustedStartTime,
+        timerEndTime: null,
+      },
+    });
+
+    revalidatePath("/tracks");
+    return { message: "Timer resumed", success: true };
+  } catch (error) {
+    console.error("Error resuming timer:", error);
+    return { message: "Failed to resume timer", success: false };
+  }
+}
