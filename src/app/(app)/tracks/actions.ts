@@ -755,6 +755,7 @@ export const getTrackItemActivityData = async (
 
 export const fetchUniqueAttributeTitles = async (
   userId?: string,
+  searchTerm?: string,
 ): Promise<string[]> => {
   const { session } = await getUserAuth();
   if (!session && !userId) return [];
@@ -762,10 +763,16 @@ export const fetchUniqueAttributeTitles = async (
   const userIdToUse = userId || session!.user.id;
 
   const attributes = await db.trackAttributes.findMany({
-    where: { userId: userIdToUse },
+    where: {
+      userId: userIdToUse,
+      ...(searchTerm && {
+        title: { contains: searchTerm, mode: "insensitive" },
+      }),
+    },
     select: { title: true },
     distinct: ["title"],
-    orderBy: { title: "asc" },
+    orderBy: { updatedAt: "desc" },
+    take: 10, // Limit for autocomplete
   });
 
   return attributes.map((attr) => attr.title);
@@ -967,4 +974,98 @@ export const fetchQuickEntryAttributes = async (
   );
 
   return result;
+};
+
+// Get quick entry attributes with track information for redesigned panel
+export const fetchQuickEntryAttributesWithTracks = async (
+  limit: number = 20,
+): Promise<
+  Array<{
+    title: string;
+    valueType: TrackAttributeValueType;
+    count: number;
+    trackId: string;
+    trackTitle: string;
+    lastValue?: string;
+    lastUsed: Date;
+  }>
+> => {
+  const { session } = await getUserAuth();
+  if (!session) return [];
+
+  // Get all attributes with track info, ordered by most recent usage
+  const attributeStats = await db.trackAttributes.findMany({
+    where: { userId: session.user.id },
+    include: {
+      trackItem: {
+        select: {
+          id: true,
+          title: true,
+        },
+      },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  // Group by title + valueType + trackId combination and get most common usage
+  const attributeMap = new Map<
+    string,
+    {
+      title: string;
+      valueType: TrackAttributeValueType;
+      count: number;
+      trackId: string;
+      trackTitle: string;
+      lastValue?: string;
+      lastUsed: Date;
+    }
+  >();
+
+  attributeStats.forEach((attr) => {
+    const key = `${attr.title}-${attr.valueType}-${attr.trackId}`;
+    const existing = attributeMap.get(key);
+
+    if (!existing || attr.createdAt > existing.lastUsed) {
+      let lastValue: string | undefined;
+      switch (attr.valueType) {
+        case "STRING":
+          lastValue = attr.value || undefined;
+          break;
+        case "INT":
+          lastValue = attr.valueInt?.toString();
+          break;
+        case "FLOAT":
+          lastValue = attr.valueFloat?.toString();
+          break;
+        case "DATETIME":
+          lastValue = attr.valueDate?.toISOString().slice(0, 16);
+          break;
+        case "DURATION":
+          if (attr.valueDuration) {
+            const minutes = attr.valueDuration;
+            const hours = Math.floor(minutes / 60);
+            const mins = minutes % 60;
+            lastValue = `${hours.toString().padStart(2, "0")}:${mins.toString().padStart(2, "0")}`;
+          }
+          break;
+      }
+
+      attributeMap.set(key, {
+        title: attr.title,
+        valueType: attr.valueType,
+        count: existing ? existing.count + 1 : 1,
+        trackId: attr.trackId,
+        trackTitle: attr.trackItem.title,
+        lastValue,
+        lastUsed: attr.createdAt,
+      });
+    } else {
+      existing.count += 1;
+    }
+  });
+
+  // Sort by last used (most recent first) and limit results
+  return Array.from(attributeMap.values())
+    .sort((a, b) => b.lastUsed.getTime() - a.lastUsed.getTime())
+    .slice(0, limit);
 };

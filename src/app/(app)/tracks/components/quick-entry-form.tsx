@@ -20,9 +20,14 @@ import type { TrackAttributeValueType } from "@/app/generated/prisma";
 interface QuickEntryFormProps {
   trackId?: string;
   defaultTitle?: string;
+  onSuccess?: () => void;
 }
 
-export function QuickEntryForm({ trackId, defaultTitle }: QuickEntryFormProps) {
+export function QuickEntryForm({
+  trackId,
+  defaultTitle,
+  onSuccess,
+}: QuickEntryFormProps) {
   const [title, setTitle] = useState(defaultTitle || "");
   const [value, setValue] = useState("");
   const [valueType, setValueType] = useState<TrackAttributeValueType>("STRING");
@@ -48,6 +53,7 @@ export function QuickEntryForm({ trackId, defaultTitle }: QuickEntryFormProps) {
         setValue("");
         setValueType("STRING");
         router.refresh();
+        onSuccess?.(); // Call the success callback if provided
       }
     } catch (error) {
       console.error("Error creating track attribute:", error);

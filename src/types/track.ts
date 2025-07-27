@@ -8,6 +8,16 @@ export interface TrackItemWithAttributes extends TrackItem {
   TrackAttributes: TrackAttributes[];
 }
 
+export interface QuickEntryAttribute {
+  title: string;
+  valueType: TrackAttributeValueType;
+  count: number;
+  trackId: string;
+  trackTitle: string;
+  lastValue?: string;
+  lastUsed: Date;
+}
+
 export interface TrackAttributeFormData {
   id?: string;
   trackId: string;
