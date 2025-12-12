@@ -12,31 +12,6 @@ export const env = createEnv({
         ? z.string().optional()
         : z.string().min(1),
 
-    APPWRITE_HOST:
-      process.env.SKIP_ENV_VALIDATION === "true"
-        ? z.string().optional()
-        : z.string().min(1),
-    APPWRITE_API_KEY:
-      process.env.SKIP_ENV_VALIDATION === "true"
-        ? z.string().optional()
-        : z.string().min(1),
-    APPWRITE_PROJECT_ID:
-      process.env.SKIP_ENV_VALIDATION === "true"
-        ? z.string().optional()
-        : z.string().min(1),
-    APPWRITE_DATABASE_ID:
-      process.env.SKIP_ENV_VALIDATION === "true"
-        ? z.string().optional()
-        : z.string().min(1),
-    APPWRITE_BUCKET_ID:
-      process.env.SKIP_ENV_VALIDATION === "true"
-        ? z.string().optional()
-        : z.string().min(1),
-    APPWRITE_SESSION_COOKIE_KEY:
-      process.env.SKIP_ENV_VALIDATION === "true"
-        ? z.string().optional()
-        : z.string().min(1),
-
     NEXTAUTH_SECRET:
       process.env.SKIP_ENV_VALIDATION === "true"
         ? z.string().optional()
