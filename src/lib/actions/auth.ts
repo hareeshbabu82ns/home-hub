@@ -8,6 +8,7 @@ import { z } from "zod";
 import { randomBytes } from "node:crypto";
 import { resend } from "@/lib/email";
 import { getUserAuth, checkAuth } from "@/lib/auth/utils";
+import { env } from "@/lib/env.mjs";
 import {
   signUpSchema,
   signInSchema,
@@ -30,12 +31,20 @@ export async function signUp(values: z.infer<typeof signUpSchema>) {
     // Hash password
     const hashedPassword = await hash(parsed.password, 10);
 
+    // Check if email is in admin emails list
+    const adminEmails =
+      env.ADMIN_EMAILS?.split(",")
+        .map((email) => email.trim())
+        .filter((email) => email.length > 0) || [];
+    const isAdmin = adminEmails.includes(parsed.email);
+
     // Create user
     const user = await db.user.create({
       data: {
         email: parsed.email,
         name: parsed.name,
         password: hashedPassword,
+        role: isAdmin ? "ADMIN" : "USER",
       },
     });
 
