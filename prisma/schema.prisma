@@ -87,16 +87,28 @@ model Session {
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
+enum UserRole {
+  USER
+  ADMIN
+}
+
 model User {
   id              String            @id @default(auto()) @map("_id") @db.ObjectId
   name            String?
   email           String?           @unique
   emailVerified   DateTime?
   image           String?
+  password        String?           // For credentials-based auth
+  role            UserRole          @default(USER)
+  isActive        Boolean           @default(true)
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  
   accounts        Account[]
   sessions        Session[]
   TrackItem       TrackItem[]
   TrackAttributes TrackAttributes[]
+  passwordResets  PasswordReset[]
 }
 
 model VerificationToken {
@@ -106,6 +118,32 @@ model VerificationToken {
   expires    DateTime
 
   @@unique([identifier, token])
+}
+
+model PasswordReset {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String   @db.ObjectId
+  token     String   @unique
+  expires   DateTime
+  createdAt DateTime @default(now())
+  
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+enum RegistrationPolicyType {
+  DOMAIN
+  EMAIL
+}
+
+model RegistrationPolicy {
+  id        String                    @id @default(auto()) @map("_id") @db.ObjectId
+  type      RegistrationPolicyType
+  value     String                    // Either domain (e.g., "example.com") or specific email
+  isAllowed Boolean                   @default(true)
+  createdAt DateTime                  @default(now())
+  updatedAt DateTime                  @updatedAt
+  
+  @@unique([type, value])
 }
 
 // Exercise Schema

@@ -3,20 +3,22 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { signIn } from "@/lib/actions/auth";
+import { signUp } from "@/lib/actions/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Loader2 } from "lucide-react";
 
-export default function SignInPage() {
+export default function SignUpPage() {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
+    name: "",
     email: "",
     password: "",
+    confirmPassword: "",
   });
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -25,7 +27,7 @@ export default function SignInPage() {
     setLoading(true);
 
     try {
-      const result = await signIn(formData);
+      const result = await signUp(formData);
       if (result.error) {
         setError(result.error);
       } else {
@@ -49,9 +51,7 @@ export default function SignInPage() {
 
   return (
     <main className="bg-popover mx-auto my-4 max-w-lg rounded-lg p-10">
-      <h1 className="text-center text-2xl font-bold">
-        Sign in to your account
-      </h1>
+      <h1 className="text-center text-2xl font-bold">Create your account</h1>
 
       <form onSubmit={handleSubmit} className="mt-6 space-y-4">
         {error && (
@@ -59,6 +59,20 @@ export default function SignInPage() {
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         )}
+
+        <div className="space-y-2">
+          <Label htmlFor="name">Full Name</Label>
+          <Input
+            id="name"
+            name="name"
+            type="text"
+            placeholder="John Doe"
+            value={formData.name}
+            onChange={handleChange}
+            required
+            disabled={loading}
+          />
+        </div>
 
         <div className="space-y-2">
           <Label htmlFor="email">Email</Label>
@@ -85,32 +99,44 @@ export default function SignInPage() {
             onChange={handleChange}
             required
             disabled={loading}
+            minLength={8}
           />
+          <p className="text-muted-foreground text-xs">
+            Must be at least 8 characters
+          </p>
         </div>
 
-        <Link
-          href="/forgot-password"
-          className="text-primary text-sm hover:underline"
-        >
-          Forgot your password?
-        </Link>
+        <div className="space-y-2">
+          <Label htmlFor="confirmPassword">Confirm Password</Label>
+          <Input
+            id="confirmPassword"
+            name="confirmPassword"
+            type="password"
+            placeholder="••••••••"
+            value={formData.confirmPassword}
+            onChange={handleChange}
+            required
+            disabled={loading}
+            minLength={8}
+          />
+        </div>
 
         <Button type="submit" className="w-full" disabled={loading}>
           {loading ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Signing in...
+              Creating account...
             </>
           ) : (
-            "Sign In"
+            "Sign Up"
           )}
         </Button>
       </form>
 
       <p className="mt-4 text-center text-sm">
-        Do not have an account?{" "}
-        <Link href="/sign-up" className="text-primary hover:underline">
-          Sign up
+        Already have an account?{" "}
+        <Link href="/sign-in" className="text-primary hover:underline">
+          Sign in
         </Link>
       </p>
     </main>

@@ -1,1 +1,9 @@
-{}
+{
+  "prisma.pinToPrisma6": true,
+  "mdb.presetConnections": [
+    {
+      "name": "Preset Connection",
+      "connectionString": "mongodb://home-hub:xxx@host.docker.internal:27018/home-hub?replicaSet=rs0&directConnection=true&retryWrites=true&w=majority&appName=home-hub"
+    }
+  ]
+}

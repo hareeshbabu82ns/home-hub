@@ -27,9 +27,9 @@
   },
 
   // Environment variables to connect to MongoDB on host
-  "remoteEnv": {
-    "DATABASE_URL": "mongodb://host.docker.internal:27018/home-hub"
-  },
+  // "remoteEnv": {
+  //   "DATABASE_URL": "mongodb://home-hub:homehubisawesome@host.docker.internal:27017/home-hub?authSource=admin&directConnection=true"
+  // },
 
   // Run commands after container is created
   "postCreateCommand": "bash .devcontainer/post-create.sh",
