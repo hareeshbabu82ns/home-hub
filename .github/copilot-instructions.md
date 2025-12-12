@@ -1,135 +1,593 @@
 ---
-description: "Next.js + Tailwind development standards and instructions"
+description: "Clean Architecture + Next.js + Tailwind development standards"
 applyTo: "**/*.tsx, **/*.ts, **/*.jsx, **/*.js, **/*.css"
 ---
 
 # GitHub Copilot Instructions for React and Next.js Projects
 
-This file provides guidelines for GitHub Copilot to ensure consistent, clean, and performant code generation for React and Next.js applications.
+This file provides guidelines for GitHub Copilot to ensure consistent, clean, and performant code generation following **Clean Architecture** principles for React and Next.js applications.
 
-Note: for **Validating Changes by GitHub Copilot** do not build the app, instead check the errors from the terminal and fix them. If app is not running, suggest to run `pnpm dev` to start the development server. or compile using `tsc --noEmit` to check for TypeScript errors.
+Note: for **Validating Changes by GitHub Copilot** do not build the app, instead check the errors from the terminal and fix them. If app is not running, suggest to run `pnpm dev` to start the development server or compile using `tsc --noEmit` to check for TypeScript errors.
 
-# Next.js + Tailwind Development Instructions
+# Clean Architecture + Next.js + Tailwind Development Instructions
 
-Instructions for high-quality Next.js applications with Tailwind CSS styling and TypeScript.
+Instructions for high-quality Next.js applications following Clean Architecture with Tailwind CSS styling and TypeScript.
 
 ## Project Context
 
 - Latest Next.js (App Router)
 - TypeScript for type safety
 - Tailwind CSS for styling
-- Shandcn/ui and Radix UI for UI components
+- shadcn/ui and Radix UI for UI components
 - tanstack/react-query for data fetching
 - pnpm for package management
+- **Clean Architecture with clear layer separation**
 
 ## Development Standards
 
-### Architecture
+### Architecture Overview
 
-- App Router with server and client components
-- Group routes by feature/domain
-- Implement proper error boundaries
-- Use React Server Components by default
-- Use server actions for backend logic with @tanstack/react-query
-- Leverage static optimization where possible
+The project follows **Clean Architecture** with strict layer separation:
 
-### TypeScript
+```
+Presentation Layer (Components & Hooks)
+    ↓
+Server Actions Layer (Controllers)
+    ↓
+Business Logic Layer (Services)
+    ↓
+Data Access Layer (Repositories)
+    ↓
+Database Layer (Prisma)
+```
 
-- Strict mode enabled
-- Clear type definitions
-- Proper error handling with type guards
-- Zod for runtime type validation
+**Key Principle**: Each layer only depends on layers below it. Never import upward (e.g., never import components from services).
 
-### Styling
+### 1. **Presentation Layer** (UI)
 
-- Tailwind CSS with consistent color palette
-- Responsive design patterns
-- Dark mode support
-- Follow container queries best practices
-- Maintain semantic HTML structure
+**Location**: `src/components/`
 
-### State Management
+**Responsibility**: React components for rendering UI
 
-- React Server Components for server state
-- React hooks for client state
-- Proper loading and error states
-- Optimistic updates where appropriate
+**Structure**:
+- `src/components/ui/` - shadcn/ui components
+- `src/components/ui/primitives/` - Small, reusable custom components (UserTable, PolicyTable, etc.)
+- `src/components/shared/` - Shared UI components across features
+- `src/components/[feature]/` - Feature-specific components
 
-### Data Fetching
+**Principles**:
+- Components should be **small and focused** (< 200 lines)
+- Delegate business logic to custom hooks
+- Accept handlers and data via props
+- Use composition over inheritance
+- Avoid state management (use hooks)
+- Never import directly from services or repositories
 
-- Server Components for direct database queries
-- Use `@tanstack/react-query` for client-side data fetching
-- Use `useQuery` and `useMutation` hooks for data operations
-- Implement caching strategies
-- Use `revalidate` for server-side data updates
-- React Suspense for loading states
-- Proper error handling and retry logic
-- Cache invalidation strategies
+**Component Types**:
+1. **Primitive Components** - Reusable UI elements
+   ```typescript
+   // src/components/ui/primitives/user-table.tsx
+   export function UserTable({ users, onDelete, onEdit }: Props) {
+     // Render table, call handlers on interaction
+   }
+   ```
 
-### Security
+2. **Feature Components** - Use hooks and primitives
+   ```typescript
+   // src/app/(app)/admin/users/page.tsx
+   "use client";
+   export default function UsersPage() {
+     const { users, loading, handleDelete } = useUserManagement();
+     return <UserTable users={users} onDelete={handleDelete} />;
+   }
+   ```
 
-- Input validation and sanitization
-- Proper authentication checks
-- CSRF protection
-- Rate limiting implementation
-- Secure API route handling
+### 2. **Custom Hooks Layer** (UI Logic)
 
-### Performance
+**Location**: `src/hooks/`
 
-- Image optimization with next/image
-- Font optimization with next/font
-- Route prefetching
-- Proper code splitting
-- Bundle size optimization
+**Responsibility**: Encapsulate stateful UI logic and side effects
+
+**Key Files**:
+- `use-user-management.ts` - User CRUD operations state
+- `use-registration-policies.ts` - Policy management state
+- `use-debounce.ts` - Debouncing utility
+- `use-mobile.ts` - Responsive design hook
+
+**Principles**:
+- Manage component state with `useState` and `useCallback`
+- Call server actions and handle responses
+- Show user feedback with toast notifications
+- Handle loading and error states
+- Keep logic reusable across components
+
+**Hook Pattern**:
+```typescript
+export function useUserManagement() {
+  const [users, setUsers] = useState<User[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const handleDelete = useCallback(async (userId: string) => {
+    const result = await deleteUser(userId); // Server action
+    if (result.success) {
+      setUsers(users.filter(u => u.id !== userId));
+      toast.success("User deleted");
+    } else {
+      toast.error(result.error || "Failed to delete");
+    }
+  }, [users]);
+
+  return { users, loading, handleDelete };
+}
+```
+
+### 3. **Server Actions Layer** (Controllers)
+
+**Location**: `src/lib/actions/`
+
+**Responsibility**: Handle HTTP requests, validation, authorization
+
+**Key Files**:
+- `auth.ts` - Authentication actions
+- `admin.ts` - Admin management actions
+- `exercise.ts` - Exercise actions
+
+**Principles**:
+- Always use `"use server"` directive
+- Perform authorization/authentication checks first
+- Validate input with Zod schemas
+- Delegate business logic to services
+- Return consistent response format: `{ success: boolean, error?: string, data?: any }`
+- Add comments documenting the flow
+
+**Standard Pattern**:
+```typescript
+"use server";
+
+/**
+ * Controller: Delete a user
+ * - Authorization: Admin only
+ * - Validation: User ID format
+ * - Business Logic: Delegated to userService
+ */
+export async function deleteUser(userId: string) {
+  try {
+    // 1. Authorization
+    await checkAdminAuth();
+
+    // 2. Validation
+    if (!userId || userId.length === 0) {
+      return { error: "Invalid user ID" };
+    }
+
+    // 3. Business Logic
+    await userService.delete(userId);
+
+    // 4. Response
+    return { success: true };
+  } catch (error) {
+    console.error("Delete user error:", error);
+    return { error: "Failed to delete user" };
+  }
+}
+```
+
+### 4. **Business Logic Layer** (Services)
+
+**Location**: `src/lib/services/`
+
+**Responsibility**: Core business logic, rules, and workflows
+
+**Key Files**:
+- `user.service.ts` - User business logic
+- `exercise.service.ts` - Exercise business logic
+- `registration-policy.service.ts` - Policy logic
+- `index.ts` - Centralized exports
+
+**Principles**:
+- Pure functions focused on business rules
+- No framework dependencies (Next.js, React)
+- No direct HTTP/response handling
+- Use repositories for data access
+- Throw errors for failures (caught by actions)
+- No console.logs (return errors properly)
+
+**Service Pattern**:
+```typescript
+class UserService {
+  async create(data: CreateUserInput) {
+    // Validation & business logic
+    const hashedPassword = await hash(data.password, 10);
+
+    // Use repository for data access
+    return userRepository.create({
+      ...data,
+      password: hashedPassword,
+    });
+  }
+
+  async delete(userId: string) {
+    const user = await userRepository.findById(userId);
+    if (!user) throw new Error("User not found");
+    return userRepository.delete(userId);
+  }
+}
+
+export const userService = new UserService();
+```
+
+### 5. **Data Access Layer** (Repositories)
+
+**Location**: `src/lib/db/repositories/`
+
+**Responsibility**: Database queries and mutations
+
+**Key Files**:
+- `user.repository.ts` - User database operations
+- `exercise.repository.ts` - Exercise database operations
+- `registration-policy.repository.ts` - Policy database operations
+- `index.ts` - Centralized exports
+
+**Principles**:
+- CRUD operations only
+- No business logic or data transformation
+- Return raw database results
+- Consistent naming: `findById()`, `findMany()`, `create()`, `update()`, `delete()`
+- Throw database errors (caught by services)
+
+**Repository Pattern**:
+```typescript
+export const userRepository = {
+  findById: async (id: string) => {
+    return db.user.findUnique({ where: { id } });
+  },
+
+  findMany: async (where?: Prisma.UserWhereInput) => {
+    return db.user.findMany({ where });
+  },
+
+  create: async (data: Prisma.UserCreateInput) => {
+    return db.user.create({ data });
+  },
+
+  update: async (id: string, data: Prisma.UserUpdateInput) => {
+    return db.user.update({ where: { id }, data });
+  },
+
+  delete: async (id: string) => {
+    return db.user.delete({ where: { id } });
+  },
+};
+```
+
+### 6. **Database Layer** (Prisma)
+
+**Location**: `prisma/schema.prisma`
+
+**Responsibility**: Database schema and ORM configuration
+
+**Key Files**:
+- `prisma/schema.prisma` - Database schema
+- `src/lib/db/index.ts` - Prisma client singleton
 
 ## Implementation Process
 
-1. Plan component hierarchy
-2. Define types and interfaces
-3. Implement server-side logic
-4. Build client components
-5. Add proper error handling
-6. Implement responsive styling
-7. Add loading states
-8. Write tests
+When implementing a new feature, follow this strict order:
 
-## General Principles
+### Step 1: Update Database Schema (if needed)
+```bash
+# prisma/schema.prisma
+model Entity {
+  id    String  @id @default(cuid())
+  name  String
+}
 
-- **Clean Code:** Prioritize **readability, maintainability, and reusability**.
-- **Conciseness:** Aim for concise and expressive code.
-- **Descriptive Naming:** Use clear and descriptive names for variables, functions, components, and files (e.g., `getUserProfile`, `ProductCard`, `useAuth`).
-- **DRY (Don't Repeat Yourself):** Extract reusable logic into functions, custom hooks, or components.
-- **Modularization:** Break down complex problems and features into smaller, manageable units (components, functions, utilities).
-- **TypeScript First:** All new code should be written in **TypeScript**, leveraging its type safety features.
-- **Testable Code:** Design code to be easily testable.
-- **Package Management:** This project uses **pnpm** for managing dependencies. All package installations and scripts should use `pnpm` instead of `npm` or `yarn`.
-- **Documentation:** All principal documentation should be created in the `docs` folder.
-- **Readability Priority:** Focus on readability over performance optimization when they conflict.
-- **Complete Implementation:** Fully implement all requested functionality without TODOs or placeholders.
+# Run migration
+pnpm prisma migrate dev --name add_entity
+```
 
-### General Guidelines
+### Step 2: Create Repository Methods
+```typescript
+// src/lib/db/repositories/entity.repository.ts
+export const entityRepository = {
+  findById: async (id: string) => db.entity.findUnique({ where: { id } }),
+  create: async (data) => db.entity.create({ data }),
+};
+```
 
-- **Co-locate logic that change together**
-- **Group code by feature, not by type**
-- **Separate UI, logic, and data fetching**
-- **Typesafety across the whole stack – db-server-client. If a type changes, everywhere using it should be aware.**
-- **Clear product logic vs product infrastructure separation**
-- **Design code such that it is easy to replace and delete**
-- **Minimize places/number of changes to extend features**
-- **Functions / APIs should do one thing well. One level of abstraction per function**
-- **Minimize API interface and expose only what's necessary**
-- **Favor pure functions, it makes logic easy to test**
-- **Long, clear names over short, vague names, even at the cost of verbosity**
-- **Step-by-step planning:** Start with detailed pseudocode before implementation
-- **Reference file names** in explanations and documentation
-- **Be honest about uncertainties** rather than guessing
-- **Only write necessary code** to complete the task
+### Step 3: Create Service Methods
+```typescript
+// src/lib/services/entity.service.ts
+class EntityService {
+  async create(data: CreateEntityInput) {
+    // Business logic here
+    return entityRepository.create(data);
+  }
+}
+```
 
-### Naming Conventions
+### Step 4: Create Server Actions
+```typescript
+// src/lib/actions/entity.ts
+export async function createEntity(data: CreateEntityInput) {
+  try {
+    await checkAuth();
+    const result = await entityService.create(data);
+    return { success: true, data: result };
+  } catch (error) {
+    return { error: error.message };
+  }
+}
+```
 
-- **Component names:** Use `PascalCase` for all component names (e.g., `MyButton`, `UserAvatar`)
-- **Directories:** Use lowercase with dashes (e.g., `components/auth-wizard`)
-- **Exports:** Favor named exports for components
+### Step 5: Create Custom Hooks (if needed)
+```typescript
+// src/hooks/use-entity-management.ts
+export function useEntityManagement() {
+  const [entities, setEntities] = useState([]);
+  const handleCreate = useCallback(async (data) => {
+    const result = await createEntity(data);
+    if (result.success) {
+      setEntities([...entities, result.data]);
+      toast.success("Created");
+    }
+  }, [entities]);
+  return { entities, handleCreate };
+}
+```
+
+### Step 6: Create UI Primitives (if reusable)
+```typescript
+// src/components/ui/primitives/entity-card.tsx
+export function EntityCard({ entity, onDelete }: Props) {
+  return <div>{/* render entity */}</div>;
+}
+```
+
+### Step 7: Create Feature Components
+```typescript
+// src/app/(app)/entities/page.tsx
+"use client";
+export default function EntitiesPage() {
+  const { entities, handleDelete } = useEntityManagement();
+  return <EntityCard entity={entities[0]} onDelete={handleDelete} />;
+}
+```
+
+## TypeScript Guidelines
+
+### Type Organization
+
+- **Location**: `src/types/` folder with descriptive filenames
+- **Never** define types inside components
+- Use `interfaces` over `types` for object shapes
+- **Avoid enums** - use const objects instead
+
+```typescript
+// src/types/user.ts
+export interface User {
+  id: string;
+  email: string;
+  role: "ADMIN" | "USER";
+}
+
+// src/types/exercise.ts
+export interface Exercise {
+  id: string;
+  title: string;
+  description: string;
+}
+```
+
+### Validation with Zod
+
+```typescript
+import { z } from "zod";
+
+export const createUserSchema = z.object({
+  email: z.string().email("Invalid email"),
+  name: z.string().min(1, "Name required"),
+  password: z.string().min(8, "Min 8 characters"),
+});
+
+// In server action:
+const parsed = createUserSchema.parse(data);
+```
+
+## Styling Guidelines
+
+### Tailwind CSS
+
+- Use Tailwind CSS v4 or later
+- Mobile-first responsive approach
+- Follow color palette from design system
+- Dark mode support using `dark:` prefix
+
+```typescript
+export function Button({ primary }: Props) {
+  return (
+    <button className={`
+      px-4 py-2 rounded
+      ${primary 
+        ? 'bg-blue-500 text-white dark:bg-blue-600' 
+        : 'bg-gray-200 text-gray-800 dark:bg-gray-700 dark:text-white'
+      }
+    `}>
+      Click me
+    </button>
+  );
+}
+```
+
+### Component Styling
+
+- No inline styles (use Tailwind)
+- Use CSS modules only for complex scoped styles
+- Maintain semantic HTML structure
+- Ensure accessibility (ARIA attributes)
+
+## State Management
+
+### Client State
+
+Use `useState` for local component state:
+```typescript
+const [isOpen, setIsOpen] = useState(false);
+```
+
+### Global State
+
+Use React Context API or Zustand for shared state across components:
+```typescript
+// hooks/use-auth-context.ts
+const AuthContext = createContext<AuthContextType | null>(null);
+export function useAuthContext() {
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error("Must be used within provider");
+  return ctx;
+}
+```
+
+### Server State
+
+Manage through server actions and hooks, never in client state if coming from server.
+
+## Error Handling
+
+### Pattern for All Layers
+
+**Repository**: Throw database errors
+```typescript
+async findById(id) {
+  const user = await db.user.findUnique({ where: { id } });
+  if (!user) throw new Error("User not found");
+  return user;
+}
+```
+
+**Service**: Throw business logic errors
+```typescript
+async delete(userId) {
+  if (isSystemUser(userId)) throw new Error("Cannot delete system user");
+  return await userRepository.delete(userId);
+}
+```
+
+**Action**: Catch and map to response
+```typescript
+export async function deleteUser(userId) {
+  try {
+    await userService.delete(userId);
+    return { success: true };
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : "Failed" };
+  }
+}
+```
+
+**Hook**: Handle response and show UI feedback
+```typescript
+const handleDelete = useCallback(async (userId) => {
+  const result = await deleteUser(userId);
+  if (result.success) {
+    toast.success("Deleted");
+    setUsers(users.filter(u => u.id !== userId));
+  } else {
+    toast.error(result.error);
+  }
+}, [users]);
+```
+
+## Common Patterns
+
+### Authentication Required Action
+
+```typescript
+export async function protectedAction(data: any) {
+  try {
+    await checkAuth(); // Throws if not authenticated
+    // ... rest of logic
+    return { success: true };
+  } catch (error) {
+    return { error: "Unauthorized" };
+  }
+}
+```
+
+### Admin Only Action
+
+```typescript
+export async function adminAction(id: string) {
+  try {
+    await checkAdminAuth(); // Throws if not admin
+    await adminService.doAdminThing(id);
+    return { success: true };
+  } catch (error) {
+    return { error: "Unauthorized" };
+  }
+}
+```
+
+### Input Validation
+
+```typescript
+export async function validatedAction(values: CreateUserInput) {
+  try {
+    const parsed = createUserSchema.parse(values);
+    const user = await userService.create(parsed);
+    return { success: true, user };
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return { error: error.issues[0]?.message };
+    }
+    return { error: "Failed" };
+  }
+}
+```
+
+---
+
+## General Implementation Principles
+
+### Separation of Concerns
+
+- **Components**: Only handle UI rendering and user interactions
+- **Hooks**: Manage component state and call server actions
+- **Server Actions**: Handle authorization, validation, and business logic delegation
+- **Services**: Implement business rules without framework dependencies
+- **Repositories**: Execute database operations only
+
+### Import Rules (Clean Architecture)
+
+```
+❌ NEVER DO THIS:
+- Components importing from services/repositories
+- Services importing from components
+- Repositories importing from services
+
+✅ ALWAYS DO THIS:
+- Components import from hooks and other components
+- Hooks import from server actions
+- Server actions import from services
+- Services import from repositories
+- Repositories import from database only
+```
+
+### Response Mapping
+
+All actions must return consistent response format:
+```typescript
+// Success cases
+{ success: true, data?: any }
+{ success: true, users: User[] }
+{ success: true, policy: Policy }
+
+// Error cases  
+{ error: string }
+{ success: false, error: "Specific error message" }
+```
+
+Hooks always check `result.success` before updating state and show toasts for errors.
 
 ---
 
@@ -138,95 +596,228 @@ Instructions for high-quality Next.js applications with Tailwind CSS styling and
 ### Component Design
 
 - **Functional Components & Hooks:** Prefer **functional components with React Hooks**. Avoid class components unless explicitly for error boundaries.
-- **Single Responsibility:** Each component should ideally have one primary responsibility. **Components should be kept small and focused.**
+- **Single Responsibility:** Each component has ONE primary responsibility. **Keep components small (< 200 lines).**
+- **No Business Logic:** Components only receive data via props and call handlers - zero business logic
 - **Props:**
   - Use `camelCase` for prop names.
-  - Destructure props in the component's function signature.
-  - Provide clear `interface` or `type` definitions for props in TypeScript.
-- **Immutability:** Never mutate props or state directly. Always create new objects or arrays for updates.
-- **Fragments:** Use `<>...</>` or `React.Fragment` to avoid unnecessary DOM wrapper elements.
-- **Custom Hooks:** Extract reusable stateful logic into **custom hooks** (e.g., `useDebounce`, `useLocalStorage`).
-- **UI Components:** Use [shadcn/ui](https://ui.shadcn.com/) and Radix UI for building UI components to ensure consistency and accessibility.
-- **Minimize Client Components:** Reduce use of 'use client', 'useEffect', and 'setState' directives; favor React Server Components (RSC) when possible.
+  - Destructure props in the function signature.
+  - Provide clear `interface` or `type` definitions for props.
+- **Immutability:** Never mutate props or state directly. Always create new objects/arrays for updates.
+- **Fragments:** Use `<>...</>` to avoid unnecessary DOM wrapper elements.
+- **UI Components:** Use [shadcn/ui](https://ui.shadcn.com/) and Radix UI for consistency and accessibility.
+- **Minimize Client Components:** Reduce use of 'use client' and 'useEffect' directives; favor React Server Components.
 - **Suspense Boundaries:** Wrap client components in Suspense with appropriate fallbacks.
+
+### Primitive Components
+
+Located in `src/components/ui/primitives/`, these small reusable components should:
+- Accept all data and handlers via props
+- Have no state or side effects
+- Be < 100 lines of code
+- Be usable across multiple features
+
+Example:
+```typescript
+export function UserTable({ users, onDelete, onEdit, loading }: Props) {
+  return (
+    <Table>
+      {users.map(user => (
+        <TableRow key={user.id}>
+          <TableCell>{user.name}</TableCell>
+          <TableCell>
+            <Button onClick={() => onEdit(user.id)}>Edit</Button>
+            <Button onClick={() => onDelete(user.id)} disabled={loading}>Delete</Button>
+          </TableCell>
+        </TableRow>
+      ))}
+    </Table>
+  );
+}
+```
+
+### Feature Components
+
+Located in feature folders or pages, these components:
+- Use custom hooks for state management
+- Compose primitive components
+- Call event handlers from hooks
+- Keep UI and logic separated
+
+Example:
+```typescript
+"use client";
+export default function UsersPage() {
+  const { users, loading, handleDelete, handleEdit } = useUserManagement();
+  return <UserTable users={users} loading={loading} onDelete={handleDelete} onEdit={handleEdit} />;
+}
+```
 
 ### State Management
 
-- **Local State:** Use `useState` for component-level state.
-- **Global State:** For global or shared state, prefer **React Context API** or a dedicated state management library (e.g., Zustand, Redux, Jotai). Avoid prop drilling.
+- **Component State:** Use `useState` only for temporary UI state (modals, dropdowns, form inputs)
+- **Data State:** Always managed through hooks that call server actions
+- **Global State:** Use React Context for auth/user info; avoid for business data
+- **Never:** Store server data directly in component state
 
 ### Styling
 
-- **Consistent Approach:** Use Tailwind CSS v4 or later.
-- **Mobile-First:** Implement responsive design with a mobile-first approach.
-- **Scoped Styles:** Ensure styles are scoped to avoid global conflicts.
+- **Tailwind CSS v4+** for all styling
+- **Mobile-First:** Responsive design from smallest screen up
+- **No Inline Styles:** Use Tailwind classes exclusively
+- **Dark Mode:** Support with `dark:` prefix
+- **CSS Modules:** Only for complex scoped styles (rare)
+- **Semantic HTML:** Maintain proper HTML structure
 
 ### Performance
 
-- **Keys:** Always provide a unique and stable `key` prop when mapping over lists. Do not use array `index` as a key if the list can change.
-- **Lazy Loading:** Use `React.lazy` and `Suspense` for code splitting large components or routes.
-- **Dynamic Imports:** Use dynamic loading for non-critical components.
-- **Image Optimization:**
-  - Use WebP format when possible
-  - Include size data
-  - Implement lazy loading
-  - Always use `next/image` component
-
----
+- **Keys:** Always use unique, stable keys when mapping lists
+- **Lazy Loading:** Use `React.lazy` and `Suspense` for code splitting
+- **Dynamic Imports:** Use `next/dynamic` for non-critical components
+- **Image Optimization:** Always use `next/image` component with proper sizing
+- **Memoization:** Only use `useMemo`/`useCallback` if proven necessary
 
 ## Next.js Specific Guidelines
 
 ### Data Fetching & Rendering
 
-- **App Router Only:** This project exclusively uses the **App Router** for all development. Never suggest or provide code using the Pages Router.
-- **Server Components:** Prioritize fetching data in **Server Components** (`async` components in `app` directory) for better performance and security. This is where a lot of the traditional memoization benefits are handled automatically.
+- **App Router Only:** This project uses **App Router exclusively**. Never use Pages Router.
+- **Server Components Default:** Use Server Components for data fetching and public content
+- **Client Components Minimal:** Use 'use client' only when needed for interactivity
 - **Data Fetching Methods:**
-  - For build-time data or rarely changing content, use direct `fetch` in Server Components with `revalidate` (App Router).
-  - For dynamic, frequently changing data, use direct `fetch` in Server Components (App Router).
-  - Avoid client-side data fetching for initial page loads unless absolutely necessary (e.g., user-specific data after hydration).
-- **Parallel Fetching:** When fetching multiple independent data sources, initiate requests in parallel.
+  - **Server Components:** Direct database access via repositories/services
+  - **Client Components:** Use server actions called from hooks
+  - Never fetch on client for server data - always use server actions
+- **Parallel Fetching:** Initiate independent requests in parallel in Server Components
+
+### Server Components with Clean Architecture
+
+```typescript
+// src/app/users/page.tsx - Server Component
+import { userService } from '@/lib/services';
+
+export default async function UsersPage() {
+  // Directly use service in server component
+  const users = await userService.getAll();
+  return <UserList initialUsers={users} />;
+}
+
+// src/app/users/user-list.tsx - Client Component  
+"use client";
+import { useUserManagement } from '@/hooks/use-user-management';
+import { UserTable } from '@/components/ui/primitives/user-table';
+
+export function UserList({ initialUsers }: Props) {
+  const { users = initialUsers, handleDelete } = useUserManagement();
+  return <UserTable users={users} onDelete={handleDelete} />;
+}
+```
 
 ### Routing
 
-- **File-System Routing:** Use Next.js's App Route file-system convention.
-- **Route Groups:** Utilize `(folderName)` to organize routes without affecting the URL path.
-- **Dynamic Routes:** Define dynamic segments clearly (e.g., `[slug]`).
-- **Middleware:** Suggest using `middleware.ts` for authentication, authorization, or other global request handling.
+- **File-System Routing:** Use Next.js App Router file-system convention
+- **Route Groups:** Use `(folderName)` to organize without affecting URLs
+- **Dynamic Routes:** Define segments clearly (e.g., `[userId]`, `[...slug]`)
+- **Middleware:** Use `middleware.ts` for global auth/authorization checks
+- **Layout Strategy:** Keep layouts focused on their scope
 
 ### Optimization
 
-- **Image Optimization:** Always use `next/image` component for images.
-- **Font Optimization:** Use `next/font` for optimizing fonts.
-- **Dynamic Imports:** Use `next/dynamic` for lazy loading components to reduce initial bundle size.
+- **Image Optimization:** Always use `next/image` with proper sizing
+- **Font Optimization:** Use `next/font` for custom fonts
+- **Dynamic Imports:** Use `next/dynamic` for lazy loading
+- **Build Optimization:** Leverage static generation where possible
+- **Caching:** Use `revalidate` for ISR when needed
 
-### Project Structure
+### Project Structure - Clean Architecture Compliance
 
-- **Colocation:** Colocate component files (JSX/TSX, CSS Modules, tests) within a feature folder.
-- **Utility & Helper Modules:** **All general utility functions, helper functions, and large, non-component-specific logic should be extracted into a dedicated `lib/` folder.**
-- **Private Folders:** Use underscore-prefixed folders (e.g., `_lib`, `_components`) for internal, non-route-related files.
-- **No Barrel Files:** Do not use barrel files (e.g., `index.ts` that re-exports from other files) for module exports. Always import directly from the specific file to improve traceability and avoid circular dependencies.
+```
+src/
+├── app/                          ← Pages and layouts (use server components by default)
+│   ├── (app)/                    ← Main app routes
+│   │   ├── layout.tsx            ← Server component, handles auth checks
+│   │   ├── dashboard/
+│   │   │   └── page.tsx          ← Server component fetches data
+│   │   └── users/
+│   │       ├── page.tsx          ← Server component, uses userService directly
+│   │       └── user-list.tsx     ← Client component, uses hooks
+│   └── (auth)/                   ← Auth routes
+│
+├── components/                   ← React Components (UI Layer)
+│   ├── ui/                       ← shadcn/ui and custom primitives
+│   │   └── primitives/           ← Reusable small components (no state)
+│   │       ├── user-table.tsx
+│   │       ├── delete-dialog.tsx
+│   │       └── index.ts
+│   ├── shared/                   ← Shared across features
+│   └── [feature]/                ← Feature-specific components
+│
+├── hooks/                        ← Custom Hooks (UI Logic Layer)
+│   ├── use-user-management.ts    ← State + server action calls
+│   ├── use-registration-policies.ts
+│   ├── use-debounce.ts
+│   └── index.ts
+│
+├── lib/
+│   ├── actions/                  ← Server Actions (Controller Layer)
+│   │   ├── auth.ts
+│   │   ├── admin.ts
+│   │   ├── exercise.ts
+│   │   └── index.ts
+│   │
+│   ├── services/                 ← Business Logic (Service Layer)
+│   │   ├── user.service.ts
+│   │   ├── exercise.service.ts
+│   │   ├── registration-policy.service.ts
+│   │   └── index.ts
+│   │
+│   ├── db/
+│   │   ├── repositories/         ← Data Access (Repository Layer)
+│   │   │   ├── user.repository.ts
+│   │   │   ├── exercise.repository.ts
+│   │   │   ├── registration-policy.repository.ts
+│   │   │   └── index.ts
+│   │   └── index.ts              ← Prisma client
+│   │
+│   ├── utils.ts                  ← General utilities
+│   ├── colors.ts
+│   └── [other utilities]
+│
+├── types/                        ← TypeScript types/interfaces
+│   ├── user.ts
+│   ├── exercise.ts
+│   └── track.ts
+│
+└── auth.ts                       ← Auth configuration
+```
+
+**Key Principles:**
+- No barrel files (`index.ts` re-exports) - import directly from files
+- Components only in `components/`
+- All business logic in layers below components
+- Clear dependency direction: Components ← Hooks ← Actions ← Services ← Repositories
 
 ### SEO & Accessibility
 
-- **Metadata:** Use `generateMetadata` (App Router) for SEO metadata.
-- **Accessibility:** Emphasize semantic HTML, ARIA attributes, and keyboard navigation.
+- **Metadata:** Use `generateMetadata` for dynamic SEO
+- **Semantic HTML:** Use proper heading hierarchy, article, section, nav, etc.
+- **ARIA Attributes:** Include aria-labels, aria-descriptions where needed
+- **Keyboard Navigation:** Ensure all interactive elements are keyboard accessible
+- **Focus Management:** Visible focus indicators and logical tab order
+- **Alt Text:** Descriptive alt text for all meaningful images
 
-### TypeScript
+### TypeScript Best Practices
 
-- **Strict Mode:** Ensure `strict: true` is enabled in `tsconfig.json`.
-- **Type Definitions:** Provide accurate type definitions for API responses, props, and state.
-- **Type Organization:** When generating TypeScript types or interfaces in this project, always place them in the `types/` folder with a descriptive filename (e.g. `user.ts`, `post.ts`). Do not define types or interfaces inside components.
-- **Interfaces over Types:** Prefer interfaces over types when defining object shapes.
-- **Avoid Enums:** Use maps or const objects instead of enums.
-- **Testing:** Update relevant tests or create new tests when implementing or changing features.
-
----
-
-## Example of How Copilot Should Respond
-
-- **Given:** `// Create a simple React functional component for a button.`
-- **Expected Output:** A functional component using `PascalCase`, with a `React.FC` type, props destructuring, and appropriate event handlers, kept as concise as possible.
-- **Given:** `// Implement a Next.js API route to fetch products.`
-- **Expected Output:** A route handler that demonstrates server-side data fetching, proper error handling, and potentially uses server-only context for sensitive operations. Any complex data transformation should be suggested in a separate utility function.
-- **Given:** `// Refactor this component to use a custom hook for form validation.`
-- **Expected Output:** A new file for a `useForm` hook, and the original component updated to utilize the hook. Any specific validation logic should be suggested in a helper function within `utils/validation.ts`.
+- **Strict Mode:** Ensure `strict: true` in `tsconfig.json`
+- **Type Locations:** All types in `src/types/` folder with descriptive filenames
+- **No Inline Types:** Never define interfaces in components or other files
+- **Interfaces over Types:** Use interfaces for object shapes, types for unions/aliases
+- **Avoid Enums:** Use const objects instead
+  ```typescript
+  // Bad
+  enum UserRole { ADMIN = 'ADMIN', USER = 'USER' }
+  
+  // Good
+  const USER_ROLES = { ADMIN: 'ADMIN', USER: 'USER' } as const;
+  type UserRole = typeof USER_ROLES[keyof typeof USER_ROLES];
+  ```
+- **Type Safety Across Stack:** Changes to types must be reflected in DB → Repositories → Services → Actions → Components

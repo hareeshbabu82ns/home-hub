@@ -1,8 +1,8 @@
 "use server";
 
 import { signIn as nextAuthSignIn, signOut as nextAuthSignOut } from "@/auth";
+import { userService } from "@/lib/services";
 import { db } from "@/lib/db/index";
-import { hash, compare } from "bcryptjs";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { randomBytes } from "node:crypto";
@@ -15,21 +15,20 @@ import {
   passwordResetSchema,
 } from "@/lib/auth/schemas";
 
+/**
+ * Controller: Sign up user
+ * Handles validation, authorization checks, and delegates to service
+ */
 export async function signUp(values: z.infer<typeof signUpSchema>) {
   try {
     const parsed = signUpSchema.parse(values);
 
     // Check if email already exists
-    const existingUser = await db.user.findUnique({
-      where: { email: parsed.email },
-    });
+    const existingUser = await userService.getByEmail(parsed.email);
 
     if (existingUser) {
       return { error: "Email already registered" };
     }
-
-    // Hash password
-    const hashedPassword = await hash(parsed.password, 10);
 
     // Check if email is in admin emails list
     const adminEmails =
@@ -39,13 +38,11 @@ export async function signUp(values: z.infer<typeof signUpSchema>) {
     const isAdmin = adminEmails.includes(parsed.email);
 
     // Create user
-    const user = await db.user.create({
-      data: {
-        email: parsed.email,
-        name: parsed.name,
-        password: hashedPassword,
-        role: isAdmin ? "ADMIN" : "USER",
-      },
+    const user = await userService.create({
+      email: parsed.email,
+      name: parsed.name,
+      password: parsed.password,
+      role: isAdmin ? "ADMIN" : "USER",
     });
 
     // Sign in user
@@ -64,6 +61,9 @@ export async function signUp(values: z.infer<typeof signUpSchema>) {
   }
 }
 
+/**
+ * Controller: Sign in user
+ */
 export async function signIn(values: z.infer<typeof signInSchema>) {
   try {
     const parsed = signInSchema.parse(values);
@@ -87,16 +87,20 @@ export async function signIn(values: z.infer<typeof signInSchema>) {
   }
 }
 
+/**
+ * Controller: Sign out user
+ */
 export async function signOut() {
   await nextAuthSignOut({ redirect: false });
   redirect("/sign-in");
 }
 
+/**
+ * Controller: Request password reset
+ */
 export async function requestPasswordReset(email: string) {
   try {
-    const user = await db.user.findUnique({
-      where: { email },
-    });
+    const user = await userService.getByEmail(email);
 
     if (!user) {
       // Don't reveal if email exists for security
@@ -145,6 +149,9 @@ export async function requestPasswordReset(email: string) {
   }
 }
 
+/**
+ * Controller: Reset password
+ */
 export async function resetPassword(
   token: string,
   values: z.infer<typeof passwordResetSchema>,
@@ -162,11 +169,7 @@ export async function resetPassword(
     }
 
     // Update password
-    const hashedPassword = await hash(parsed.password, 10);
-    await db.user.update({
-      where: { id: resetToken.userId },
-      data: { password: hashedPassword },
-    });
+    await userService.changePassword(resetToken.userId, parsed.password);
 
     // Delete reset token
     await db.passwordReset.delete({
@@ -182,6 +185,9 @@ export async function resetPassword(
   }
 }
 
+/**
+ * Controller: Update user profile
+ */
 export async function updateUserProfile(name: string, image?: string) {
   try {
     await checkAuth();
@@ -191,12 +197,9 @@ export async function updateUserProfile(name: string, image?: string) {
       return { error: "Unauthorized" };
     }
 
-    const user = await db.user.update({
-      where: { id: session.user.id },
-      data: {
-        name,
-        ...(image && { image }),
-      },
+    const user = await userService.update(session.user.id, {
+      name,
+      ...(image && { image }),
     });
 
     return { success: true, user };
@@ -205,6 +208,9 @@ export async function updateUserProfile(name: string, image?: string) {
   }
 }
 
+/**
+ * Controller: Change password
+ */
 export async function changePassword(
   currentPassword: string,
   newPassword: string,
@@ -226,25 +232,21 @@ export async function changePassword(
       return { error: "Unauthorized" };
     }
 
-    const user = await db.user.findUniqueOrThrow({
-      where: { id: session.user.id },
-      select: { password: true },
-    });
+    const user = await userService.getById(session.user.id);
 
-    if (!user.password) {
+    if (!user?.password) {
       return { error: "User account not properly configured" };
     }
 
-    const passwordMatch = await compare(currentPassword, user.password);
+    const passwordMatch = await userService.verifyPassword(
+      currentPassword,
+      user.password,
+    );
     if (!passwordMatch) {
       return { error: "Current password is incorrect" };
     }
 
-    const hashedPassword = await hash(newPassword, 10);
-    await db.user.update({
-      where: { id: session.user.id },
-      data: { password: hashedPassword },
-    });
+    await userService.changePassword(session.user.id, newPassword);
 
     return { success: true };
   } catch (_error) {
