@@ -191,7 +191,7 @@ export function TopicCard({
   return (
     <div
       className={cn(
-        "group bg-card relative overflow-hidden rounded-2xl border p-6 transition-all duration-300",
+        "group bg-card relative flex flex-col overflow-hidden rounded-2xl border py-2 transition-all duration-300",
         "hover:shadow-lg hover:shadow-black/5 dark:hover:shadow-black/20",
         isRunning && "dark:ring-offset-background ring-2 ring-offset-2",
       )}
@@ -212,7 +212,7 @@ export function TopicCard({
       )}
 
       {/* Header */}
-      <div className="relative mb-4 flex items-start justify-between">
+      <div className="relative flex items-start justify-between px-4">
         <div className="flex items-center gap-3">
           <div
             className="flex size-10 items-center justify-center rounded-xl"
@@ -221,7 +221,7 @@ export function TopicCard({
             <IconComponent className="size-5" style={{ color: topic.color }} />
           </div>
           <div>
-            <h3 className="font-semibold">{topic.name}</h3>
+            <h3 className="text-lg font-semibold">{topic.name}</h3>
             <p className="text-muted-foreground text-xs">
               {topic.sessionCount} sessions
             </p>
@@ -280,16 +280,13 @@ export function TopicCard({
       </div>
 
       {/* Timer Display */}
-      <div className="relative mb-6 flex flex-col items-center py-4">
+      <div className="relative flex flex-row items-center justify-around py-4">
         <TimerDisplay
           elapsedMs={elapsedMs}
           isRunning={isRunning}
           color={topic.color}
         />
-      </div>
-
-      {/* Play/Stop Button */}
-      <div className="flex justify-center">
+        {/* Play/Stop Button */}
         <TimerButton
           isRunning={isRunning}
           onStart={handleStart}
@@ -300,7 +297,7 @@ export function TopicCard({
       </div>
 
       {/* Stats Footer */}
-      <div className="mt-6 grid grid-cols-3 gap-2 border-t pt-4">
+      <div className="grid grid-cols-3 gap-2 border-t pt-2">
         <div className="text-center">
           <p className="text-muted-foreground text-xs">Today</p>
           <p className="text-sm font-medium">

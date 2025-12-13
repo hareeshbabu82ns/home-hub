@@ -3,7 +3,15 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { format } from "date-fns";
-import { Pencil, Trash2, Save, X, Clock, ArrowLeft } from "lucide-react";
+import {
+  Pencil,
+  Trash2,
+  Save,
+  X,
+  Clock,
+  ArrowLeft,
+  RefreshCw,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -35,6 +43,7 @@ import {
   updateTimeSession,
   deleteTimeSession,
   fetchTopicSessions,
+  recalculateTopicStatsAction,
 } from "../actions";
 
 interface TopicDetailsClientProps {
@@ -207,6 +216,31 @@ export function TopicDetailsClient({ topic }: TopicDetailsClientProps) {
     }
   };
 
+  const handleRecalculate = async () => {
+    setLoading(true);
+    try {
+      const formData = new FormData();
+      formData.append("topicId", topic.id);
+      const result = await recalculateTopicStatsAction(
+        { message: "", success: false },
+        formData,
+      );
+      if (result.success) {
+        toast.success("Recalculated topic stats");
+        // Refresh server data and sessions
+        await loadSessions();
+        router.refresh();
+      } else {
+        toast.error(result.message || "Failed to recalculate stats");
+      }
+    } catch (error) {
+      console.error("Recalculate error:", error);
+      toast.error("Failed to recalculate stats");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const formatDuration = (ms: number) => {
     const totalSeconds = Math.floor(ms / 1000);
     const hours = Math.floor(totalSeconds / 3600);
@@ -324,8 +358,20 @@ export function TopicDetailsClient({ topic }: TopicDetailsClientProps) {
 
       {/* Sessions Table */}
       <Card>
-        <CardHeader>
+        <CardHeader className="flex items-center justify-between">
           <CardTitle>Session History</CardTitle>
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleRecalculate}
+              disabled={loading}
+              aria-label="Recalculate topic stats"
+            >
+              <RefreshCw className="mr-2 size-4" />
+              Recalculate
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
           {loading ? (

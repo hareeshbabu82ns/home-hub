@@ -137,7 +137,7 @@ export function TopicDialog({
           {/* Color Selection */}
           <div className="space-y-2">
             <Label>Color</Label>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex max-h-32 flex-wrap gap-2 overflow-y-auto p-2">
               {TOPIC_COLORS.map((c) => (
                 <button
                   key={c.value}
@@ -162,7 +162,7 @@ export function TopicDialog({
           {/* Icon Selection */}
           <div className="space-y-2">
             <Label>Icon</Label>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex max-h-32 flex-wrap gap-2 overflow-y-auto">
               {TOPIC_ICONS.map((iconName) => {
                 const IconComponent = getIconByName(iconName);
                 return (
@@ -237,7 +237,7 @@ export function AddTopicCard() {
   return (
     <TopicDialog
       trigger={
-        <button className="group border-muted-foreground/25 bg-muted/20 hover:border-muted-foreground/50 hover:bg-muted/40 flex min-h-70 flex-col items-center justify-center rounded-2xl border-2 border-dashed p-6 transition-all">
+        <button className="group border-muted-foreground/25 bg-muted/20 hover:border-muted-foreground/50 hover:bg-muted/40 flex min-h-40 flex-col items-center justify-center rounded-2xl border-2 border-dashed p-6 transition-all">
           <div className="bg-muted flex size-14 items-center justify-center rounded-full transition-transform group-hover:scale-110">
             <Plus className="text-muted-foreground size-6" />
           </div>

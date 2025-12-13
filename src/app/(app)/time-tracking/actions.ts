@@ -443,6 +443,26 @@ export async function refreshAllTopicStats() {
   revalidatePath("/time-tracking");
 }
 
+export async function recalculateTopicStatsAction(
+  _prevState: { message: string; success?: boolean },
+  formData: FormData,
+) {
+  const { session } = await getUserAuth();
+  if (!session) return { message: "Not authenticated", success: false };
+
+  const topicId = formData.get("topicId") as string;
+  if (!topicId) return { message: "Topic ID required", success: false };
+
+  try {
+    await recalculateTopicStats(topicId, session.user.id);
+    revalidatePath("/time-tracking");
+    return { message: "Recalculated topic stats", success: true };
+  } catch (error) {
+    console.error("Error recalculating topic stats:", error);
+    return { message: "Failed to recalculate", success: false };
+  }
+}
+
 // ============================================
 // Session History
 // ============================================

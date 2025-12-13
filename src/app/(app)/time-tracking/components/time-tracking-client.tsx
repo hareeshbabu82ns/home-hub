@@ -76,7 +76,7 @@ export function TimeTrackingClient({ initialTopics }: TimeTrackingClientProps) {
     <div className="space-y-6">
       {/* Header Stats */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Card className="bg-linear-to-br from-indigo-500/10 to-purple-500/10 dark:from-indigo-500/20 dark:to-purple-500/20">
+        <Card className="h-20 justify-center bg-linear-to-br from-indigo-500/10 to-purple-500/10 py-0 dark:from-indigo-500/20 dark:to-purple-500/20">
           <CardContent className="flex items-center gap-4 p-6">
             <div className="flex size-12 items-center justify-center rounded-xl bg-indigo-500/20">
               <Clock className="size-6 text-indigo-500" />
@@ -88,7 +88,7 @@ export function TimeTrackingClient({ initialTopics }: TimeTrackingClientProps) {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="h-20 justify-center py-0">
           <CardContent className="flex items-center gap-4 p-6">
             <div className="flex size-12 items-center justify-center rounded-xl bg-emerald-500/20">
               <Clock className="size-6 text-emerald-500" />
@@ -102,7 +102,7 @@ export function TimeTrackingClient({ initialTopics }: TimeTrackingClientProps) {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="h-20 justify-center py-0">
           <CardContent className="flex items-center gap-4 p-6">
             <div className="flex size-12 items-center justify-center rounded-xl bg-amber-500/20">
               <Clock className="size-6 text-amber-500" />
@@ -116,7 +116,7 @@ export function TimeTrackingClient({ initialTopics }: TimeTrackingClientProps) {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="h-20 justify-center py-0">
           <CardContent className="flex items-center gap-4 p-6">
             <div className="flex size-12 items-center justify-center rounded-xl bg-rose-500/20">
               <Clock className="size-6 text-rose-500" />
@@ -133,7 +133,7 @@ export function TimeTrackingClient({ initialTopics }: TimeTrackingClientProps) {
 
       {/* Running Timers Banner */}
       {runningTimers.length > 0 && (
-        <Card className="border-emerald-500/50 bg-emerald-500/5">
+        <Card className="border-emerald-500/50 bg-emerald-500/5 py-0">
           <CardContent className="space-y-4 p-4">
             <div className="flex items-center gap-4">
               <div className="relative">
@@ -176,8 +176,8 @@ export function TimeTrackingClient({ initialTopics }: TimeTrackingClientProps) {
                       className="flex items-center justify-between rounded-lg border border-emerald-500/20 bg-emerald-500/10 p-3"
                     >
                       <div className="flex-1">
-                        <p className="text-sm font-medium">{topic.name}</p>
-                        <p className="font-mono text-lg font-bold text-emerald-600 dark:text-emerald-400">
+                        <p className="text-lg font-medium">{topic.name}</p>
+                        <p className="font-mono text-sm font-bold text-emerald-600 dark:text-emerald-400">
                           {formatTime(timerState.elapsedMs)}
                         </p>
                       </div>

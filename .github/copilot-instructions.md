@@ -9,6 +9,8 @@ This file provides guidelines for GitHub Copilot to ensure consistent, clean, an
 
 Note: for **Validating Changes by GitHub Copilot** do not build the app, instead check the errors from the terminal and fix them. If app is not running, suggest to run `pnpm dev` to start the development server or compile using `tsc --noEmit` to check for TypeScript errors.
 
+Note: never read .env file variables or secrets for security reasons.
+
 # Clean Architecture + Next.js + Tailwind Development Instructions
 
 Instructions for high-quality Next.js applications following Clean Architecture with Tailwind CSS styling and TypeScript.
