@@ -18,8 +18,7 @@ type AdditionalLinks = {
 
 export const defaultLinks: ISidebarLink[] = [
   { href: "/dashboard", title: "Home", icon: HomeIcon },
-  { href: "/account", title: "Account", icon: Cog },
-  { href: "/settings", title: "Settings", icon: Cog },
+  // Account and Settings moved to top-nav user menu
 ];
 
 export const additionalLinks: AdditionalLinks[] = [

@@ -133,7 +133,12 @@ export function MobileFirstLayout({
           <Sheet>
             {/* Top Navigation - Always visible with mobile-first design */}
             <header className="border-border bg-background/95 supports-backdrop-filter:bg-background/60 sticky top-0 z-50 flex h-14 items-center border-b backdrop-blur">
-              <Navbar themeToggle sidebarTrigger desktopSidebarToggle>
+              <Navbar
+                themeToggle
+                sidebarTrigger
+                desktopSidebarToggle
+                session={session}
+              >
                 <AppTitleLogo className="lg:hidden" />
               </Navbar>
             </header>

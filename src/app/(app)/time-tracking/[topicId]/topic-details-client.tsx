@@ -257,7 +257,7 @@ export function TopicDetailsClient({ topic }: TopicDetailsClientProps) {
   };
 
   return (
-    <div className="container mx-auto max-w-7xl space-y-6 py-6">
+    <div className="container mx-auto max-w-7xl space-y-6 p-4">
       {/* Header */}
       <div className="flex items-center gap-4">
         <Button
