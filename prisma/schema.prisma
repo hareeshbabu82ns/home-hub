@@ -109,6 +109,8 @@ model User {
   TrackItem       TrackItem[]
   TrackAttributes TrackAttributes[]
   passwordResets  PasswordReset[]
+  timeTopics      TimeTopic[]
+  timeSessions    TimeSession[]
 }
 
 model VerificationToken {
@@ -144,6 +146,55 @@ model RegistrationPolicy {
   updatedAt DateTime                  @updatedAt
   
   @@unique([type, value])
+}
+
+// Time Tracking Schema - Separate from Track Items
+model TimeTopic {
+  id          String  @id @default(auto()) @map("_id") @db.ObjectId
+  userId      String  @db.ObjectId
+  name        String
+  color       String  @default("#6366f1") // Indigo default
+  icon        String? // Lucide icon name
+  isFavorite  Boolean @default(false)
+  isArchived  Boolean @default(false)
+  sortOrder   Int     @default(0)
+
+  // Cached statistics (pre-computed)
+  totalDurationMs     BigInt   @default(0) // Total time tracked in milliseconds
+  todayDurationMs     BigInt   @default(0) // Today's duration (reset daily)
+  weekDurationMs      BigInt   @default(0) // This week's duration (reset weekly)
+  monthDurationMs     BigInt   @default(0) // This month's duration (reset monthly)
+  lastTrackedAt       DateTime?
+  sessionCount        Int      @default(0) // Total number of sessions
+
+  user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sessions  TimeSession[]
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+
+  @@unique([userId, name])
+  @@index([userId, isFavorite])
+  @@index([userId, isArchived])
+}
+
+model TimeSession {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String   @db.ObjectId
+  topicId   String   @db.ObjectId
+  
+  startTime   DateTime
+  endTime     DateTime?
+  durationMs  BigInt?   // Calculated on stop
+  isRunning   Boolean   @default(true)
+  notes       String?
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  topic     TimeTopic @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([userId, isRunning])
+  @@index([topicId, startTime])
 }
 
 // Exercise Schema

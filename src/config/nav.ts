@@ -8,6 +8,7 @@ import {
   Database,
   Users,
   Shield,
+  Clock,
 } from "lucide-react";
 
 type AdditionalLinks = {
@@ -35,6 +36,11 @@ export const additionalLinks: AdditionalLinks[] = [
   {
     title: "Entities",
     links: [
+      {
+        href: "/time-tracking",
+        title: "Time Tracking",
+        icon: Clock,
+      },
       {
         href: "/tracks",
         title: "Tracks",
