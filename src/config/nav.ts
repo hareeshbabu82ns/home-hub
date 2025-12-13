@@ -5,6 +5,7 @@ import {
   Timer as Tracks,
   IndianRupee as Loans,
   Dumbbell,
+  Database,
 } from "lucide-react";
 
 type AdditionalLinks = {
@@ -19,6 +20,16 @@ export const defaultLinks: ISidebarLink[] = [
 ];
 
 export const additionalLinks: AdditionalLinks[] = [
+  {
+    title: "Database",
+    links: [
+      {
+        href: "/db-management",
+        title: "DB Management",
+        icon: Database,
+      },
+    ],
+  },
   {
     title: "Entities",
     links: [
