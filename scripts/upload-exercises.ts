@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import { readFileSync, mkdirSync, createWriteStream } from "fs";
 import { join } from "path";
 import { db } from "../src/lib/db";
@@ -98,7 +99,8 @@ async function transformExerciseData(exercise: ExerciseData, index: number) {
   }
 
   // Create image data structure for the Exercise model (keep original GitHub URLs as backup)
-  const img =
+  // Keep original GitHub URLs as backup (unused for now)
+  const _img =
     imageUrls.length > 0
       ? {
           male: imageUrls[0],

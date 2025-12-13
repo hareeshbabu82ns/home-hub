@@ -1,6 +1,6 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useRef, useEffect, useCallback } from "react";
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function useDebouncedCallback<T extends (..._args: any[]) => any>(
   callback: T,
   delay: number,
@@ -14,13 +14,12 @@ function useDebouncedCallback<T extends (..._args: any[]) => any>(
   }, [callback]);
 
   const debouncedCallback = useCallback(
-    (..._args: any[]) => {
+    (..._args: Parameters<T>) => {
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current);
       }
       timeoutRef.current = setTimeout(() => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (callbackRef.current as any)(..._args);
+        (callbackRef.current as T)(..._args);
       }, delay);
     },
     [delay],

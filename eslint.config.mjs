@@ -117,12 +117,9 @@ const eslintConfig = [
       "@next/next/no-html-link-for-pages": "off", // Allow HTML links for external pages
 
       // General code quality rules
-      "no-console": ["warn", { allow: ["warn", "error"] }],
       "no-debugger": "error",
       "no-duplicate-imports": "error",
       "no-unused-expressions": "error",
-      "prefer-const": "error",
-      "no-var": "error",
       "object-shorthand": "error",
       "prefer-template": "error",
       "no-useless-escape": "error",

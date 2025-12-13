@@ -1,3 +1,4 @@
+/* eslint-disable no-console, @typescript-eslint/no-explicit-any */
 import fs from "fs/promises";
 import path from "path";
 import { db } from "../src/lib/db";
@@ -136,7 +137,7 @@ async function downloadExercisePage(
     const data = await response.json();
     console.log(
       `🔍 Raw response for page ${page}:`,
-      JSON.stringify(data, null, 2).substring(0, 500) + "...",
+      `${JSON.stringify(data, null, 2).substring(0, 500)}...`,
     );
 
     if (

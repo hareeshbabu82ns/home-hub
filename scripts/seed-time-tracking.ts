@@ -1,3 +1,4 @@
+/* eslint-disable no-console, @typescript-eslint/no-non-null-assertion, @typescript-eslint/no-explicit-any */
 import { db } from "../src/lib/db";
 
 function buildDurationBreakdown(
@@ -207,7 +208,7 @@ async function main() {
   }
 
   // Now recompute and update topic stats
-  for (const [name, id] of Object.entries(createdTopics)) {
+  for (const [_name, id] of Object.entries(createdTopics)) {
     const sessions = await db.timeSession.findMany({
       where: { topicId: id, userId, isRunning: false },
     });

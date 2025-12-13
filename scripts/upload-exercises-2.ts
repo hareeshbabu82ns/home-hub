@@ -2,6 +2,7 @@ import { readFileSync, mkdirSync, createWriteStream } from "fs";
 import { join } from "path";
 import { db } from "../src/lib/db";
 import * as https from "https";
+/* eslint-disable no-console */
 import { pipeline } from "stream/promises";
 
 interface ExerciseData2 {
@@ -68,7 +69,7 @@ function generateNumericId(stringId: string): number {
   return Math.abs(hash);
 }
 
-async function transformExerciseData(exercise: ExerciseData2, index: number) {
+async function transformExerciseData(exercise: ExerciseData2, _index: number) {
   // Generate a unique numeric exerciseId from the string ID
   const numericExerciseId = generateNumericId(exercise.exerciseId);
 

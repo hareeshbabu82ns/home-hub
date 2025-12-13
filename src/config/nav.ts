@@ -1,6 +1,5 @@
 import type { ISidebarLink } from "@/components/SidebarItems";
 import {
-  Cog,
   HomeIcon,
   Timer as Tracks,
   IndianRupee as Loans,

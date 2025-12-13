@@ -39,9 +39,18 @@ export function useSidebar() {
     }
   }, [isDesktopCollapsed, isHydrated]);
 
-  const toggleMobile = useCallback(() => setIsMobileOpen((prev) => !prev), []);
-  const closeMobile = useCallback(() => setIsMobileOpen(false), []);
-  const openMobile = useCallback(() => setIsMobileOpen(true), []);
+  const toggleMobile = useCallback(
+    () => setIsMobileOpen((prev) => !prev),
+    [setIsMobileOpen],
+  );
+  const closeMobile = useCallback(
+    () => setIsMobileOpen(false),
+    [setIsMobileOpen],
+  );
+  const openMobile = useCallback(
+    () => setIsMobileOpen(true),
+    [setIsMobileOpen],
+  );
 
   const toggleDesktopCollapsed = () =>
     setIsDesktopCollapsed(!isDesktopCollapsed);

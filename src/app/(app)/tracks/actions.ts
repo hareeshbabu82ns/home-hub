@@ -1359,7 +1359,7 @@ export const getTrackItemStats = async (
   let startDate: Date;
   let endDate: Date;
   let periodLabel: string;
-  let dateFormat: (date: Date) => string;
+  let dateFormat: (_date: Date) => string;
 
   switch (period) {
     case "daily": {
@@ -1410,7 +1410,7 @@ export const getTrackItemStats = async (
   const hasNext = offset < 0;
 
   // Check if there's data in the previous period
-  const previousOffset = offset - 1;
+  // const previousOffset = offset - 1;
   let previousStartDate: Date;
   switch (period) {
     case "daily":
