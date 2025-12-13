@@ -145,6 +145,7 @@ export const TOPIC_ICONS = [
   "Truck",
   "Umbrella",
   "Wifi",
+  "Zap",
 ] as const;
 
 export type TopicIconName = (typeof TOPIC_ICONS)[number];

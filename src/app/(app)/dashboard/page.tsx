@@ -8,7 +8,13 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { getUserAuth } from "@/lib/auth/utils";
+import {
+  fetchTimeTopics,
+  getFrequentTimeTopics,
+  getRecentTimeTopics,
+} from "@/app/(app)/time-tracking/actions";
 import Link from "next/link";
+import { DashboardTimeTracking } from "./components/dashboard-time-tracking";
 import { BarChart3, Users, DollarSign, TrendingUp } from "lucide-react";
 
 export default async function Home() {
@@ -32,6 +38,12 @@ export default async function Home() {
     );
   }
 
+  const [initialTopics, frequentTopics, recentTopics] = await Promise.all([
+    fetchTimeTopics(),
+    getFrequentTimeTopics(),
+    getRecentTimeTopics(),
+  ]);
+
   return (
     <main className="space-y-6 p-4">
       {/* Header */}
@@ -44,6 +56,13 @@ export default async function Home() {
           happening with your account.
         </p>
       </div>
+
+      {/* Time Tracking Widget */}
+      <DashboardTimeTracking
+        initialTopics={initialTopics}
+        frequentTopics={frequentTopics}
+        recentTopics={recentTopics}
+      />
 
       {/* Stats Cards Grid - Mobile-first responsive */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

@@ -884,3 +884,56 @@ export const getTimeTopicsForStats = async (): Promise<
     sessionCount: topic.sessionCount,
   }));
 };
+
+export const getFrequentTimeTopics = async (
+  limit: number = 5,
+): Promise<
+  Array<{ id: string; name: string; color: string; sessionCount: number }>
+> => {
+  const { session } = await getUserAuth();
+  if (!session) return [];
+
+  const topics = await db.timeTopic.findMany({
+    where: { userId: session.user.id, isArchived: false },
+    orderBy: { sessionCount: "desc" },
+    take: limit,
+  });
+
+  return topics.map((topic) => ({
+    id: topic.id,
+    name: topic.name,
+    color: topic.color,
+    sessionCount: topic.sessionCount,
+  }));
+};
+
+export const getRecentTimeTopics = async (
+  limit: number = 5,
+): Promise<
+  Array<{
+    id: string;
+    name: string;
+    color: string;
+    lastTrackedAt?: Date | null;
+  }>
+> => {
+  const { session } = await getUserAuth();
+  if (!session) return [];
+
+  const topics = await db.timeTopic.findMany({
+    where: {
+      userId: session.user.id,
+      isArchived: false,
+      lastTrackedAt: { not: null },
+    },
+    orderBy: { lastTrackedAt: "desc" },
+    take: limit,
+  });
+
+  return topics.map((topic) => ({
+    id: topic.id,
+    name: topic.name,
+    color: topic.color,
+    lastTrackedAt: topic.lastTrackedAt,
+  }));
+};

@@ -59,6 +59,7 @@ import {
   Truck,
   Umbrella,
   Wifi,
+  Zap,
 } from "lucide-react";
 
 const iconMap: Record<string, LucideIcon> = {
@@ -121,10 +122,30 @@ const iconMap: Record<string, LucideIcon> = {
   Truck,
   Umbrella,
   Wifi,
+  Zap,
 };
 
+function normalizeIconName(name: string): string {
+  if (!name) return name;
+  const parts = name
+    .replace(/[^a-zA-Z0-9]+/g, " ")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((p) => p.charAt(0).toUpperCase() + p.slice(1).toLowerCase());
+  return parts.join("");
+}
+
 export function getIconByName(name: string): LucideIcon {
-  return iconMap[name] || Clock;
+  if (!name) return Clock;
+  if (iconMap[name]) return iconMap[name];
+  const normalized = normalizeIconName(name);
+  if (iconMap[normalized]) return iconMap[normalized];
+  const found = Object.keys(iconMap).find(
+    (k) => k.toLowerCase() === name.toLowerCase(),
+  );
+  if (found) return iconMap[found];
+  return Clock;
 }
 
 export function getAllIcons(): Array<{ name: string; icon: LucideIcon }> {
