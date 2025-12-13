@@ -1,5 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
+import { redirect } from "next/navigation";
+import { getUserAuth } from "@/lib/auth/utils";
 import ThemeToggle from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { InstallPWAButton } from "@/components/install-pwa-button";
@@ -22,7 +24,9 @@ import {
   House,
 } from "lucide-react";
 
-export default function Home() {
+export default async function Home() {
+  const { session } = await getUserAuth();
+  if (session) redirect("/dashboard");
   return (
     <div className="flex min-h-screen flex-col">
       <header className="bg-background/95 supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50 w-full border-b backdrop-blur">
