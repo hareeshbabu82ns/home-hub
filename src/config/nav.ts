@@ -6,6 +6,8 @@ import {
   IndianRupee as Loans,
   Dumbbell,
   Database,
+  Users,
+  Shield,
 } from "lucide-react";
 
 type AdditionalLinks = {
@@ -47,6 +49,21 @@ export const additionalLinks: AdditionalLinks[] = [
         href: "/exercises",
         title: "Exercises",
         icon: Dumbbell,
+      },
+    ],
+  },
+  {
+    title: "Admin",
+    links: [
+      {
+        href: "/admin/users",
+        title: "Users",
+        icon: Users,
+      },
+      {
+        href: "/admin/registration",
+        title: "Registration",
+        icon: Shield,
       },
     ],
   },

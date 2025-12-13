@@ -5,12 +5,7 @@ import { getUserAuth, checkAdminAuth } from "@/lib/auth/utils";
 import { z } from "zod";
 import { randomBytes } from "node:crypto";
 import { resend } from "@/lib/email";
-
-export const registrationPolicySchema = z.object({
-  type: z.enum(["DOMAIN", "EMAIL"]),
-  value: z.string().min(1),
-  isAllowed: z.boolean(),
-});
+import { registrationPolicySchema } from "@/lib/schemas/admin";
 
 /**
  * Controller: Get all registration policies
@@ -129,7 +124,7 @@ export async function updateUser(
 
 /**
  * Controller: Reset user password
- * Triggers password reset email
+ * Generates a temporary password and sends it to the user
  */
 export async function resetUserPassword(userId: string) {
   try {
@@ -141,32 +136,29 @@ export async function resetUserPassword(userId: string) {
       return { error: "User not found" };
     }
 
-    // Create reset token
-    const token = randomBytes(32).toString("hex");
-    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+    // Generate a temporary password (12 characters: mix of letters, numbers, special chars)
+    const tempPassword = randomBytes(9).toString("hex"); // 18 chars hex = 9 bytes
 
-    // TODO: Create password reset in database
-    // await db.passwordReset.create({...})
+    // Update user password with temporary password
+    await userService.changePassword(userId, tempPassword);
 
-    // Send email with reset link
-    const resetUrl = `${process.env.NEXTAUTH_URL}/reset-password?token=${token}`;
-
+    // Send email with temporary password
     if (resend && user.email) {
       await resend.emails.send({
         from: "onboarding@resend.dev",
         to: user.email,
-        subject: "Password reset request from admin",
+        subject: "Your temporary password from admin",
         html: `
-          <h1>Password Reset Request</h1>
-          <p>An administrator has requested a password reset for your account.</p>
-          <p>Click the link below to set a new password:</p>
-          <a href="${resetUrl}">Reset Password</a>
-          <p>This link expires in 24 hours.</p>
+          <h1>Password Reset</h1>
+          <p>An administrator has reset your password.</p>
+          <p>Your temporary password is:</p>
+          <p><strong>${tempPassword}</strong></p>
+          <p>Please log in with this password and change it to a new password in your account settings.</p>
         `,
       });
     }
 
-    return { success: true };
+    return { success: true, tempPassword };
   } catch (_error) {
     return { error: "Failed to reset password" };
   }

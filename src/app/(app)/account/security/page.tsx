@@ -8,6 +8,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Shield, Key, Smartphone } from "lucide-react";
+import { ChangePasswordDialog } from "@/components/account/ChangePasswordDialog";
 
 export default async function SecurityPage() {
   await getUserAuth();
@@ -38,7 +39,7 @@ export default async function SecurityPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <Button variant="outline">Change Password</Button>
+            <ChangePasswordDialog />
             <p className="text-muted-foreground text-sm">
               Last changed: Never (using OAuth)
             </p>

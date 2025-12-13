@@ -109,7 +109,7 @@ export default function RegistrationPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-4">
       <Card>
         <CardHeader>
           <CardTitle>Add Registration Policy</CardTitle>

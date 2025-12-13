@@ -15,7 +15,7 @@ export default async function AdminLayout({
 
   return (
     <div className="space-y-4">
-      <div className="border-b">
+      <div className="border-b p-4">
         <h1 className="text-3xl font-bold">Admin Dashboard</h1>
         <p className="text-muted-foreground">
           Manage users and system settings
