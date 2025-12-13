@@ -1,4 +1,5 @@
 "use client";
+import { useEffect, useState } from "react";
 import UpdateNameCard from "./UpdateNameCard";
 import {
   Card,
@@ -11,7 +12,30 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import type { Session } from "next-auth";
 import { User, Mail, Calendar } from "lucide-react";
 
-export default function UserSettings({ session }: { session: Session | null }) {
+export default function UserSettings() {
+  const [session, setSession] = useState<Session | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchSession = async () => {
+      try {
+        const response = await fetch("/api/auth/session");
+        const data = await response.json();
+        setSession(data);
+      } catch (error) {
+        console.error("Failed to fetch session:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchSession();
+  }, []);
+
+  if (loading) {
+    return <div className="text-muted-foreground">Loading...</div>;
+  }
+
   return (
     <div className="space-y-6">
       {/* Profile Overview */}
