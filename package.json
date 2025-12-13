@@ -21,6 +21,7 @@
     "download-exercises": "tsx scripts/download-exercises.ts",
     "upload-exercises": "tsx scripts/upload-exercises.ts",
     "upload-exercises-2": "tsx scripts/upload-exercises-2.ts",
+    "seed:time-tracking": "tsx scripts/seed-time-tracking.ts",
     "release:patch": "npm version patch && git push && git push --tags",
     "release:minor": "npm version minor && git push && git push --tags",
     "release:major": "npm version major && git push && git push --tags"
