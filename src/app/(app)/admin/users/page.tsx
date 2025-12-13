@@ -79,7 +79,7 @@ export default function UsersPage() {
       setPasswordDialog({
         open: true,
         tempPassword: result.tempPassword,
-        userEmail: userEmail,
+        userEmail,
       });
     } else {
       toast.error(result.error || "Failed to reset password");

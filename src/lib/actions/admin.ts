@@ -233,11 +233,12 @@ export async function toggleUserStatus(userId: string, isActive: boolean) {
     // Prevent deactivating self
     const { session } = await getUserAuth();
     if (session?.user.id === userId) {
-      return { error: "Cannot change your own status" };
+      return { error: "Cannot change your own status", success: false };
     }
 
     await userService.toggleStatus(userId, isActive);
+    return { success: true };
   } catch (_error) {
-    return { error: "Failed to update user status" };
+    return { error: "Failed to update user status", success: false };
   }
 }

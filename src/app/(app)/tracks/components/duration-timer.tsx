@@ -29,18 +29,32 @@ export function DurationTimer({
   }));
 
   // Action states for timer operations
-  const [startState, startAction] = useActionState(startTimer, { message: "", success: false });
-  const [stopState, stopAction] = useActionState(stopTimer, { message: "", success: false });
-  const [pauseState, pauseAction] = useActionState(pauseTimer, { message: "", success: false });
-  const [resumeState, resumeAction] = useActionState(resumeTimer, { message: "", success: false });
+  const [startState, startAction] = useActionState(startTimer, {
+    message: "",
+    success: false,
+  });
+  const [stopState, stopAction] = useActionState(stopTimer, {
+    message: "",
+    success: false,
+  });
+  const [pauseState, pauseAction] = useActionState(pauseTimer, {
+    message: "",
+    success: false,
+  });
+  const [resumeState, resumeAction] = useActionState(resumeTimer, {
+    message: "",
+    success: false,
+  });
 
   // Update timer display every second when running
   useEffect(() => {
     if (!timerState.isRunning || !timerState.startTime) return;
 
+    const startTime = new Date(
+      timerState.startTime as unknown as string | number | Date,
+    );
     const updateTimer = () => {
       const now = new Date();
-      const startTime = new Date(timerState.startTime!);
       const existingMinutes = attribute.valueDuration || 0;
       const elapsedMs =
         now.getTime() - startTime.getTime() + existingMinutes * 60 * 1000;
@@ -52,7 +66,12 @@ export function DurationTimer({
     const interval = setInterval(updateTimer, 1000);
 
     return () => clearInterval(interval);
-  }, [timerState.isRunning, timerState.startTime, attribute.valueDuration]);
+  }, [
+    timerState.isRunning,
+    timerState.startTime,
+    attribute.id,
+    attribute.valueDuration,
+  ]);
 
   // Update timer state when attribute changes
   useEffect(() => {
@@ -64,9 +83,11 @@ export function DurationTimer({
       elapsedMs: timerState.elapsedMs,
     });
   }, [
+    attribute.id,
     attribute.isTimerRunning,
     attribute.timerStartTime,
     attribute.timerEndTime,
+    timerState.elapsedMs,
   ]);
 
   // Handle action results

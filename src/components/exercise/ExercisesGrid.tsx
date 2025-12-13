@@ -171,6 +171,7 @@ export function ExercisesGrid({
     showCardioOnly,
     showYogaOnly,
     showFavoritesOnly,
+    fetchExercises,
   ]);
 
   const handleTagToggle = (tag: string) => {

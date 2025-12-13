@@ -1,6 +1,6 @@
 import { PrismaClient } from "@/app/generated/prisma";
 
-declare const global: any;
+declare const global: { db?: PrismaClient };
 
 export const db: PrismaClient =
   global.db ||

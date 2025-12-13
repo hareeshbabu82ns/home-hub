@@ -16,6 +16,9 @@ const initialTrackAttr: Omit<TrackAttributes, "userId"> = {
   valueDate: new Date(),
   createdAt: new Date(),
   updatedAt: new Date(),
+  timerStartTime: null,
+  timerEndTime: null,
+  isTimerRunning: false,
 };
 
 export default async function TrackDetailsForm({

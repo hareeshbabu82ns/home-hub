@@ -1,7 +1,7 @@
 import { useRef, useEffect, useCallback } from "react";
 
-// eslint-disable-next-line no-unused-vars
-function useDebouncedCallback<T extends (...args: any[]) => void>(
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function useDebouncedCallback<T extends (..._args: any[]) => any>(
   callback: T,
   delay: number,
 ) {
@@ -13,14 +13,14 @@ function useDebouncedCallback<T extends (...args: any[]) => void>(
     callbackRef.current = callback;
   }, [callback]);
 
-  // eslint-disable-next-line no-unused-vars
-  const debouncedCallback: (...args: Parameters<T>) => void = useCallback(
-    (...args: Parameters<T>) => {
+  const debouncedCallback = useCallback(
+    (..._args: any[]) => {
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current);
       }
       timeoutRef.current = setTimeout(() => {
-        callbackRef.current(...args);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (callbackRef.current as any)(..._args);
       }, delay);
     },
     [delay],

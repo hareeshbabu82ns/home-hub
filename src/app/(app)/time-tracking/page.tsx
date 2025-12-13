@@ -12,7 +12,7 @@ export default async function TimeTrackingPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="flex size-10 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-purple-500">
+          <div className="flex size-10 items-center justify-center rounded-xl bg-linear-to-br from-indigo-500 to-purple-500">
             <Clock className="size-5 text-white" />
           </div>
           <div>

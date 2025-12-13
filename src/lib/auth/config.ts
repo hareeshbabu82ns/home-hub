@@ -118,7 +118,9 @@ export const authConfig = {
 
       // Admin routes
       if (pathname.startsWith("/admin")) {
-        return !!(auth?.user && (auth.user as any).role === "ADMIN");
+        return !!(
+          auth?.user && (auth.user as { role?: string }).role === "ADMIN"
+        );
       }
 
       // Protected routes

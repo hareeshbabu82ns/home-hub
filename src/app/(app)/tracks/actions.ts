@@ -40,6 +40,7 @@ export const fetchTrackAttributesWithFilters = async (
   const { session } = await getUserAuth();
   if (!session) return [];
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const where: any = {
     userId: session.user.id,
     trackId,
@@ -133,6 +134,7 @@ export async function createTrackItemAttribute(
   // Parse and transform the form data based on valueType
   const valueType = formData.get("valueType") as string;
   const rawValue = formData.get("value") as string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const parsedData: any = {
     trackId: formData.get("trackId"),
     title: formData.get("title"),
@@ -237,6 +239,7 @@ export async function updateTrackItemAttribute(
   // Parse and transform the form data based on valueType
   const valueType = formData.get("valueType") as string;
   const rawValue = formData.get("value") as string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const parsedData: any = {
     id: formData.get("id"),
     trackId: formData.get("trackId"),
@@ -375,6 +378,7 @@ export const fetchTrackItems = async (filters?: TrackItemFilter) => {
   const { session } = await getUserAuth();
   if (!session) return [];
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const where: any = {
     userId: session.user.id,
   };
@@ -463,13 +467,7 @@ export async function createTrackItem(
   const data = parse.data;
 
   try {
-    console.log("Creating trackItem:", {
-      title: data.title,
-      description: data.description,
-      userId: session.user.id,
-    });
-
-    const newTrack = await db.trackItem.create({
+    await db.trackItem.create({
       data: {
         title: data.title,
         description: data.description || null,
@@ -477,7 +475,6 @@ export async function createTrackItem(
       },
     });
 
-    console.log("Successfully created track:", newTrack.id);
     revalidatePath("/tracks");
     return {
       message: `Successfully added track: ${data.title}`,
@@ -760,7 +757,8 @@ export const fetchUniqueAttributeTitles = async (
   const { session } = await getUserAuth();
   if (!session && !userId) return [];
 
-  const userIdToUse = userId || session!.user.id;
+  const userIdToUse = userId || session?.user.id;
+  if (!userIdToUse) return [];
 
   const attributes = await db.trackAttributes.findMany({
     where: {
@@ -786,7 +784,8 @@ export const fetchAttributeDetailsByTitle = async (
   const { session } = await getUserAuth();
   if (!session && !userId) return null;
 
-  const userIdToUse = userId || session!.user.id;
+  const userIdToUse = userId || session?.user.id;
+  if (!userIdToUse) return null;
 
   // Find the most commonly used value type for this title
   const attributes = await db.trackAttributes.groupBy({

@@ -71,7 +71,6 @@ export default function DBManagementPage() {
     refreshUsers,
     addUser,
     removeUser,
-    changeUserPassword,
     updateUser,
   } = useDatabaseManagement();
 
@@ -455,7 +454,7 @@ export default function DBManagementPage() {
         databaseName={selectedDatabase?.name || ""}
         isOpen={createBackupDialogOpen}
         onOpenChange={setCreateBackupDialogOpen}
-        onCreate={async (name: string, description?: string) => {
+        onCreate={async (name: string) => {
           const backup = await createDatabaseBackup(name);
           if (backup) {
             await refreshBackups();

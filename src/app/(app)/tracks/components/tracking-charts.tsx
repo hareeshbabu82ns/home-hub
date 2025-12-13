@@ -43,7 +43,7 @@ export function TrackingCharts({
   metrics,
   title,
 }: TrackingChartsProps) {
-  const formatTooltipValue = (value: any, name: string) => {
+  const formatTooltipValue = (value: number | string, name: string) => {
     if (name === "value" && typeof value === "number") {
       return [value.toLocaleString(), "Value"];
     }

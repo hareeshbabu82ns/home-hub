@@ -2,7 +2,7 @@
 
 import { atom, useAtom } from "jotai";
 import { useIsMobile } from "./use-mobile";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { usePathname } from "next/navigation";
 
 const SIDEBAR_STORAGE_KEY = "sidebar-collapsed";
@@ -39,9 +39,9 @@ export function useSidebar() {
     }
   }, [isDesktopCollapsed, isHydrated]);
 
-  const toggleMobile = () => setIsMobileOpen(!isMobileOpen);
-  const closeMobile = () => setIsMobileOpen(false);
-  const openMobile = () => setIsMobileOpen(true);
+  const toggleMobile = useCallback(() => setIsMobileOpen((prev) => !prev), []);
+  const closeMobile = useCallback(() => setIsMobileOpen(false), []);
+  const openMobile = useCallback(() => setIsMobileOpen(true), []);
 
   const toggleDesktopCollapsed = () =>
     setIsDesktopCollapsed(!isDesktopCollapsed);
@@ -53,14 +53,14 @@ export function useSidebar() {
     if (isMobile && isMobileOpen) {
       closeMobile();
     }
-  }, [pathname, isMobile, isMobileOpen]);
+  }, [pathname, isMobile, isMobileOpen, closeMobile]);
 
   // Close mobile sidebar when screen size changes from mobile to desktop
   useEffect(() => {
     if (!isMobile && isMobileOpen) {
       closeMobile();
     }
-  }, [isMobile, isMobileOpen]);
+  }, [isMobile, isMobileOpen, closeMobile]);
 
   return {
     // Mobile sidebar state

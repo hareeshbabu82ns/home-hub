@@ -13,7 +13,6 @@ import {
 } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
-import UpdateEmailCard from "./UpdateEmailCard";
 import {
   Select,
   SelectContent,
@@ -32,7 +31,6 @@ import {
   Smartphone,
   Palette,
   Globe,
-  Clock,
   Receipt,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";

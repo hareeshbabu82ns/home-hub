@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { fetchTrackItems, getTrackingMetrics } from "../actions";
 import type {
   TrackItemWithAttributes,
@@ -22,7 +22,7 @@ export function TracksPageClient() {
   const [filters, setFilters] = useState<TrackItemFilter>({});
   const [loading, setLoading] = useState(true);
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       setLoading(true);
       const [tracksData, metricsData] = await Promise.all([
@@ -36,11 +36,11 @@ export function TracksPageClient() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [filters]);
 
   useEffect(() => {
     loadData();
-  }, [filters]);
+  }, [loadData]);
 
   const handleFilterChange = (newFilters: TrackItemFilter) => {
     setFilters(newFilters);

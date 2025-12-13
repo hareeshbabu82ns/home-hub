@@ -11,7 +11,6 @@ import type {
   MonthDuration,
   DayDuration,
 } from "@/types/time-tracking";
-import type { TimeSession } from "@/app/generated/prisma";
 
 // ============================================
 // Topic Actions
@@ -336,12 +335,14 @@ function buildDurationBreakdown(
     if (!yearMap.has(year)) {
       yearMap.set(year, new Map());
     }
-    const monthMap = yearMap.get(year)!;
+    const monthMap = yearMap.get(year);
+    if (!monthMap) continue;
 
     if (!monthMap.has(month)) {
       monthMap.set(month, new Map());
     }
-    const dayMap = monthMap.get(month)!;
+    const dayMap = monthMap.get(month);
+    if (!dayMap) continue;
 
     dayMap.set(day, (dayMap.get(day) || 0) + duration);
   }
@@ -406,8 +407,8 @@ async function recalculateTopicStats(topicId: string, userId: string) {
   // Find last tracked time
   let lastTrackedAt: Date | null = null;
   for (const sess of allSessions) {
-    if (!lastTrackedAt || sess.endTime! > lastTrackedAt) {
-      lastTrackedAt = sess.endTime!;
+    if (sess.endTime && (!lastTrackedAt || sess.endTime > lastTrackedAt)) {
+      lastTrackedAt = sess.endTime;
     }
   }
 
@@ -418,6 +419,7 @@ async function recalculateTopicStats(topicId: string, userId: string) {
   await db.timeTopic.update({
     where: { id: topicId },
     data: {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       durationBreakdown: durationBreakdown as any, // Cast to satisfy Prisma's InputJsonValue
       sessionCount: allSessions.length,
       lastTrackedAt,

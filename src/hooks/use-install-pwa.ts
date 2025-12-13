@@ -87,9 +87,9 @@ export function useInstallPWA(): UseInstallPWAReturn {
       const result = await installPrompt.userChoice;
 
       if (result.outcome === "accepted") {
-        console.log("User accepted the PWA installation");
+        console.error("User accepted the PWA installation");
       } else {
-        console.log("User dismissed the PWA installation");
+        console.error("User dismissed the PWA installation");
       }
 
       // Clear the prompt as it can only be used once

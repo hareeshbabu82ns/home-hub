@@ -73,7 +73,7 @@ export async function downloadValidLinks({
       await fileStreamDownload(link.url, title, "pdf", (progress) => {
         const progressRounded = Math.round(progress);
         if (progressRounded % 10 !== 0) return;
-        console.log(`Downloading ${title}: ${progressRounded}%`);
+        console.error(`Downloading ${title}: ${progressRounded}%`);
       });
 
       await csvWriter.writeRecords([link]);
@@ -238,7 +238,7 @@ export async function searchArchiveOrg({
   if (cursor) url.searchParams.set("cursor", cursor);
   if (total_only) url.searchParams.set("total_only", "true");
 
-  console.log("Fetching:", url.toString());
+  console.error("Fetching:", url.toString());
   const res = await fetch(url.toString());
   const json = await res.json();
   return json as ArchiveOrgSearchResult;

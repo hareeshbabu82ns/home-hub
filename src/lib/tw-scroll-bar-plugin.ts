@@ -1,19 +1,7 @@
 // ref - https://github.com/gradints/tailwindcss-scrollbar/blob/main/README.md
-import plugin from "tailwindcss/plugin";
+import plugin, { type PluginAPI } from "tailwindcss/plugin";
 
-// Type definitions for Tailwind CSS v4+ compatibility
-interface PluginAPI {
-  // eslint-disable-next-line no-unused-vars
-  addBase: (styles: any) => void;
-  // eslint-disable-next-line no-unused-vars
-  addUtilities: (utilities: any) => void;
-  // eslint-disable-next-line no-unused-vars
-  theme: (path: string, defaultValue?: any) => any;
-  // eslint-disable-next-line no-unused-vars
-  config: (path: string) => any;
-}
-
-type CSSRuleObject = Record<string, any>;
+type CSSRuleObject = Record<string, unknown>;
 type DarkModeConfig = "media" | "class" | ["class", string];
 
 interface StyleOptions {
@@ -30,8 +18,8 @@ interface PluginOptions {
 const themeKey = "scrollbar"; // theme.scrollbar
 const darkClass = "dark";
 
-// eslint-disable-next-line no-unused-vars
-const omit = (key: string, { [key]: _, ...obj }) => obj;
+const omit = (key: string, { [key]: _, ...obj }: Record<string, unknown>) =>
+  obj;
 
 /**
  * Handle plugin.withOptions and theme.scrollbar.DEFAULT
@@ -40,11 +28,14 @@ const getDefaultStyle = (options: PluginOptions, pluginAPI: PluginAPI) => {
   const { theme, config } = pluginAPI;
 
   const getSize = () => {
-    return options?.size ?? theme(`${themeKey}.DEFAULT.size`, "5px");
+    return (
+      options?.size ?? (theme(`${themeKey}.DEFAULT.size`, "5px") as string)
+    );
   };
   const getStyleTrack = () => {
     const background = "#f1f1f1"; // default
-    const fromConfig = theme(`${themeKey}.DEFAULT.track`, {}); // with tailwind.config.js
+    const fromConfig =
+      (theme(`${themeKey}.DEFAULT.track`, {}) as Record<string, unknown>) || {}; // with tailwind.config.js
     const fromOptions = options?.track ?? {}; // with plugin options
 
     const finalConfig = { background, ...fromConfig, ...fromOptions };
@@ -57,7 +48,8 @@ const getDefaultStyle = (options: PluginOptions, pluginAPI: PluginAPI) => {
   };
   const getStyleThumb = () => {
     const background = "#c1c1c1";
-    const fromConfig = theme(`${themeKey}.DEFAULT.thumb`, {}); // with tailwind.config.js
+    const fromConfig =
+      (theme(`${themeKey}.DEFAULT.thumb`, {}) as Record<string, unknown>) || {}; // with tailwind.config.js
     const fromOptions = options?.thumb ?? {}; // with plugin options
 
     const finalConfig = { background, ...fromConfig, ...fromOptions };
@@ -66,7 +58,8 @@ const getDefaultStyle = (options: PluginOptions, pluginAPI: PluginAPI) => {
   };
   const getStyleThumbHover = () => {
     const background = "#a8a8a8";
-    const fromConfig = theme(`${themeKey}.DEFAULT.hover`, {}); // with tailwind.config.js
+    const fromConfig =
+      (theme(`${themeKey}.DEFAULT.hover`, {}) as Record<string, unknown>) || {}; // with tailwind.config.js
     const fromOptions = options?.hover ?? {}; // with plugin options
 
     const finalConfig = { background, ...fromConfig, ...fromOptions };
@@ -114,7 +107,10 @@ const getDefaultStyle = (options: PluginOptions, pluginAPI: PluginAPI) => {
     },
   };
 
-  if ((config("darkMode") as Partial<DarkModeConfig>) === "media") {
+  const darkModeConfig = config(
+    "darkMode",
+  ) as unknown as Partial<DarkModeConfig>;
+  if (darkModeConfig === "media") {
     styles.push({
       "@media (prefers-color-scheme: dark)": dark,
       "@media (prefers-color-scheme: light)": light,
@@ -169,15 +165,15 @@ const getCustomStyles = (pluginAPI: PluginAPI) => {
         },
         [`${className}::-webkit-scrollbar-track`]: omit(
           "darkBackground",
-          track,
+          track as Record<string, unknown>,
         ),
         [`${className}::-webkit-scrollbar-thumb`]: omit(
           "darkBackground",
-          thumb,
+          thumb as Record<string, unknown>,
         ),
         [`${className}::-webkit-scrollbar-thumb:hover`]: omit(
           "darkBackground",
-          hover,
+          hover as Record<string, unknown>,
         ),
       } as CSSRuleObject;
     });
@@ -225,7 +221,10 @@ const getCustomStyles = (pluginAPI: PluginAPI) => {
       };
     });
 
-  if ((config("darkMode") as Partial<DarkModeConfig>) === "media") {
+  const darkModeConfig2 = config(
+    "darkMode",
+  ) as unknown as Partial<DarkModeConfig>;
+  if (darkModeConfig2 === "media") {
     styles.push({
       "@media (prefers-color-scheme: dark)": dark,
       "@media (prefers-color-scheme: light)": light,
@@ -256,13 +255,16 @@ const scrollbarNoneStyle: CSSRuleObject[] = [
 ];
 
 export default plugin.withOptions<PluginOptions>((options = {}) => {
-  return (pluginAPI: PluginAPI) => {
+  return (pluginAPI): void => {
     const { addBase, addUtilities } = pluginAPI;
 
-    addBase(getDefaultStyle(options, pluginAPI));
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    addBase(getDefaultStyle(options, pluginAPI as any) as any);
 
-    addUtilities(getCustomStyles(pluginAPI));
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    addUtilities(getCustomStyles(pluginAPI as any) as any);
 
-    addUtilities(scrollbarNoneStyle);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    addUtilities(scrollbarNoneStyle as any);
   };
 });

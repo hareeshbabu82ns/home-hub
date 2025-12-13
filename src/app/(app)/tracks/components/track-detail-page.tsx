@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useTransition } from "react";
+import React, { useState, useEffect, useCallback, useTransition } from "react";
 import {
   fetchTrackItem,
   fetchTrackItemAttributes,
@@ -67,7 +67,7 @@ export function TrackDetailPage({ trackId }: TrackDetailPageProps) {
     useTransition();
   const [isPendingTrackDelete, startTrackDeleteTransition] = useTransition();
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       setLoading(true);
       const [trackData, attributesData] = await Promise.all([
@@ -106,9 +106,9 @@ export function TrackDetailPage({ trackId }: TrackDetailPageProps) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [trackId, chartPeriod, selectedAttribute]);
 
-  const loadChartData = async () => {
+  const loadChartData = useCallback(async () => {
     if (selectedAttribute) {
       try {
         const data = await getAttributeChartData(
@@ -122,15 +122,15 @@ export function TrackDetailPage({ trackId }: TrackDetailPageProps) {
         toast.error("Failed to load chart data");
       }
     }
-  };
+  }, [trackId, selectedAttribute, chartPeriod]);
 
   useEffect(() => {
     loadData();
-  }, [trackId]);
+  }, [loadData]);
 
   useEffect(() => {
     loadChartData();
-  }, [selectedAttribute, chartPeriod, trackId]);
+  }, [loadChartData]);
 
   const handleAddAttribute = () => {
     setEditingAttribute({
@@ -146,6 +146,9 @@ export function TrackDetailPage({ trackId }: TrackDetailPageProps) {
       userId: "",
       createdAt: new Date(),
       updatedAt: new Date(),
+      timerStartTime: null,
+      timerEndTime: null,
+      isTimerRunning: null,
     });
     setShowAddDialog(true);
   };

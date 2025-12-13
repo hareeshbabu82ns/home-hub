@@ -121,7 +121,8 @@ export function TrackAttributesDataGrid({
     });
 
     return filtered.sort((a, b) => {
-      let aValue: any, bValue: any;
+      let aValue: string | number | Date = "";
+      let bValue: string | number | Date = "";
 
       switch (sortField) {
         case "title":
