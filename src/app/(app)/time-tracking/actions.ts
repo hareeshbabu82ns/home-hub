@@ -632,3 +632,255 @@ export async function getRunningTimers() {
     },
   });
 }
+
+// ============================================
+// Time Tracking Stats for Charts
+// ============================================
+
+export interface TimeTrackingStats {
+  topicId: string;
+  topicName: string;
+  topicColor: string;
+  data: Array<{
+    date: string;
+    value: number; // Duration in minutes
+    label: string;
+  }>;
+  periodLabel: string;
+  hasPrevious: boolean;
+  hasNext: boolean;
+}
+
+export type TimeStatsPeriod = "daily" | "weekly" | "yearly";
+
+/**
+ * Get time tracking statistics for a specific topic and date range
+ * Aggregates session durations for charting
+ */
+export const getTimeTrackingStats = async (
+  topicId: string,
+  period: TimeStatsPeriod = "weekly",
+  offset: number = 0, // 0 = current, -1 = previous, 1 = next
+): Promise<TimeTrackingStats | null> => {
+  const { session } = await getUserAuth();
+  if (!session) return null;
+
+  const now = new Date();
+  let startDate: Date;
+  let endDate: Date;
+  let periodLabel: string;
+  let dateFormat: (date: Date) => string;
+
+  switch (period) {
+    case "daily": {
+      // Show data for a specific day (each point is hourly aggregate)
+      const targetDate = new Date(now);
+      targetDate.setDate(targetDate.getDate() + offset);
+      startDate = new Date(targetDate);
+      startDate.setHours(0, 0, 0, 0);
+      endDate = new Date(targetDate);
+      endDate.setHours(23, 59, 59, 999);
+      periodLabel = targetDate.toLocaleDateString("en-US", {
+        weekday: "long",
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      });
+      dateFormat = (date: Date) =>
+        date.toLocaleTimeString("en-US", {
+          hour: "2-digit",
+          minute: "2-digit",
+        });
+      break;
+    }
+    case "weekly": {
+      // Show data for a week (each point is a day)
+      // Start of week (Monday)
+      const dayOfWeek = now.getDay();
+      const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+      const targetWeekStart = new Date(now);
+      targetWeekStart.setDate(now.getDate() + diffToMonday + offset * 7);
+      targetWeekStart.setHours(0, 0, 0, 0);
+      startDate = targetWeekStart;
+      endDate = new Date(targetWeekStart);
+      endDate.setDate(endDate.getDate() + 6);
+      endDate.setHours(23, 59, 59, 999);
+      periodLabel = `${startDate.toLocaleDateString("en-US", { month: "short", day: "numeric" })} - ${endDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`;
+      dateFormat = (date: Date) =>
+        date.toLocaleDateString("en-US", { weekday: "short", day: "numeric" });
+      break;
+    }
+    case "yearly": {
+      // Show data for a year (each point is a month)
+      const targetYear = now.getFullYear() + offset;
+      startDate = new Date(targetYear, 0, 1, 0, 0, 0, 0);
+      endDate = new Date(targetYear, 11, 31, 23, 59, 59, 999);
+      periodLabel = targetYear.toString();
+      dateFormat = (date: Date) =>
+        date.toLocaleDateString("en-US", { month: "short" });
+      break;
+    }
+  }
+
+  // Check if next period is in the future (disable next button)
+  const hasNext = offset < 0;
+
+  // Get topic info
+  const topic = await db.timeTopic.findFirst({
+    where: {
+      id: topicId,
+      userId: session.user.id,
+    },
+  });
+
+  if (!topic) return null;
+
+  // Fetch sessions within the date range
+  const sessions = await db.timeSession.findMany({
+    where: {
+      userId: session.user.id,
+      topicId,
+      startTime: {
+        gte: startDate,
+        lte: endDate,
+      },
+      isRunning: false,
+      durationMs: { not: null },
+    },
+    orderBy: { startTime: "asc" },
+  });
+
+  // Check if there's any data in the previous period
+  const previousDataCount = await db.timeSession.count({
+    where: {
+      userId: session.user.id,
+      topicId,
+      startTime: { lt: startDate },
+      isRunning: false,
+      durationMs: { not: null },
+    },
+  });
+
+  const hasPrevious = previousDataCount > 0;
+
+  // Aggregate data based on period
+  const aggregatedData: Record<string, { totalMs: number; count: number }> = {};
+
+  sessions.forEach((sess) => {
+    let key: string;
+    const sessDate = new Date(sess.startTime);
+
+    switch (period) {
+      case "daily":
+        // Group by hour
+        key = `${sessDate.getHours()}:00`;
+        break;
+      case "weekly":
+        // Group by day of week
+        key = sessDate.toISOString().split("T")[0];
+        break;
+      case "yearly":
+        // Group by month
+        key = `${sessDate.getFullYear()}-${String(sessDate.getMonth() + 1).padStart(2, "0")}`;
+        break;
+    }
+
+    if (!aggregatedData[key]) {
+      aggregatedData[key] = { totalMs: 0, count: 0 };
+    }
+
+    aggregatedData[key].totalMs += Number(sess.durationMs || 0);
+    aggregatedData[key].count += 1;
+  });
+
+  // Generate all time slots for the period
+  const chartData: Array<{ date: string; value: number; label: string }> = [];
+
+  switch (period) {
+    case "daily":
+      // Generate 24 hours
+      for (let hour = 0; hour < 24; hour++) {
+        const key = `${hour}:00`;
+        const date = new Date(startDate);
+        date.setHours(hour, 0, 0, 0);
+        const data = aggregatedData[key];
+        const durationMinutes = data ? Math.round(data.totalMs / 60000) : 0;
+        chartData.push({
+          date: dateFormat(date),
+          value: durationMinutes,
+          label: data
+            ? `${data.count} session${data.count > 1 ? "s" : ""}`
+            : "No sessions",
+        });
+      }
+      break;
+    case "weekly":
+      // Generate 7 days
+      for (let day = 0; day < 7; day++) {
+        const date = new Date(startDate);
+        date.setDate(date.getDate() + day);
+        const key = date.toISOString().split("T")[0];
+        const data = aggregatedData[key];
+        const durationMinutes = data ? Math.round(data.totalMs / 60000) : 0;
+        chartData.push({
+          date: dateFormat(date),
+          value: durationMinutes,
+          label: data
+            ? `${data.count} session${data.count > 1 ? "s" : ""}`
+            : "No sessions",
+        });
+      }
+      break;
+    case "yearly":
+      // Generate 12 months
+      for (let month = 0; month < 12; month++) {
+        const date = new Date(startDate.getFullYear(), month, 1);
+        const key = `${date.getFullYear()}-${String(month + 1).padStart(2, "0")}`;
+        const data = aggregatedData[key];
+        const durationMinutes = data ? Math.round(data.totalMs / 60000) : 0;
+        chartData.push({
+          date: dateFormat(date),
+          value: durationMinutes,
+          label: data
+            ? `${data.count} session${data.count > 1 ? "s" : ""}`
+            : "No sessions",
+        });
+      }
+      break;
+  }
+
+  return {
+    topicId,
+    topicName: topic.name,
+    topicColor: topic.color,
+    data: chartData,
+    periodLabel,
+    hasPrevious,
+    hasNext,
+  };
+};
+
+/**
+ * Get all time topics for dropdown selection
+ */
+export const getTimeTopicsForStats = async (): Promise<
+  Array<{ id: string; name: string; color: string; sessionCount: number }>
+> => {
+  const { session } = await getUserAuth();
+  if (!session) return [];
+
+  const topics = await db.timeTopic.findMany({
+    where: {
+      userId: session.user.id,
+      isArchived: false,
+    },
+    orderBy: [{ isFavorite: "desc" }, { name: "asc" }],
+  });
+
+  return topics.map((topic) => ({
+    id: topic.id,
+    name: topic.name,
+    color: topic.color,
+    sessionCount: topic.sessionCount,
+  }));
+};

@@ -1325,3 +1325,279 @@ export async function resumeTimer(
     return { message: "Failed to resume timer", success: false };
   }
 }
+
+// Track Item Stats for Interactive Charts
+
+export interface TrackItemStats {
+  trackItemId: string;
+  trackItemTitle: string;
+  data: Array<{
+    date: string;
+    value: number;
+    label: string;
+  }>;
+  periodLabel: string;
+  hasPrevious: boolean;
+  hasNext: boolean;
+}
+
+export type StatsPeriod = "daily" | "weekly" | "yearly";
+
+/**
+ * Get track item statistics for a specific date range
+ * Aggregates attribute values (INT, FLOAT, DURATION) for charting
+ */
+export const getTrackItemStats = async (
+  trackItemId: string,
+  period: StatsPeriod = "daily",
+  offset: number = 0, // 0 = current, -1 = previous, 1 = next
+): Promise<TrackItemStats | null> => {
+  const { session } = await getUserAuth();
+  if (!session) return null;
+
+  const now = new Date();
+  let startDate: Date;
+  let endDate: Date;
+  let periodLabel: string;
+  let dateFormat: (date: Date) => string;
+
+  switch (period) {
+    case "daily": {
+      // Show data for a specific day (each point is hourly aggregate)
+      const targetDate = new Date(now);
+      targetDate.setDate(targetDate.getDate() + offset);
+      startDate = startOfDay(targetDate);
+      endDate = endOfDay(targetDate);
+      periodLabel = targetDate.toLocaleDateString("en-US", {
+        weekday: "long",
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      });
+      dateFormat = (date: Date) =>
+        date.toLocaleTimeString("en-US", {
+          hour: "2-digit",
+          minute: "2-digit",
+        });
+      break;
+    }
+    case "weekly": {
+      // Show data for a week (each point is a day)
+      const targetWeekStart = startOfWeek(now, { weekStartsOn: 1 });
+      targetWeekStart.setDate(targetWeekStart.getDate() + offset * 7);
+      startDate = targetWeekStart;
+      endDate = new Date(targetWeekStart);
+      endDate.setDate(endDate.getDate() + 6);
+      endDate = endOfDay(endDate);
+      periodLabel = `${startDate.toLocaleDateString("en-US", { month: "short", day: "numeric" })} - ${endDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`;
+      dateFormat = (date: Date) =>
+        date.toLocaleDateString("en-US", { weekday: "short", day: "numeric" });
+      break;
+    }
+    case "yearly": {
+      // Show data for a year (each point is a month)
+      const targetYear = now.getFullYear() + offset;
+      startDate = new Date(targetYear, 0, 1);
+      endDate = new Date(targetYear, 11, 31, 23, 59, 59, 999);
+      periodLabel = targetYear.toString();
+      dateFormat = (date: Date) =>
+        date.toLocaleDateString("en-US", { month: "short" });
+      break;
+    }
+  }
+
+  // Check if next period is in the future (disable next button)
+  const hasNext = offset < 0;
+
+  // Check if there's data in the previous period
+  const previousOffset = offset - 1;
+  let previousStartDate: Date;
+  switch (period) {
+    case "daily":
+      previousStartDate = new Date(startDate);
+      previousStartDate.setDate(previousStartDate.getDate() - 1);
+      break;
+    case "weekly":
+      previousStartDate = new Date(startDate);
+      previousStartDate.setDate(previousStartDate.getDate() - 7);
+      break;
+    case "yearly":
+      previousStartDate = new Date(startDate.getFullYear() - 1, 0, 1);
+      break;
+  }
+
+  // Get track item info
+  const trackItem = await db.trackItem.findUnique({
+    where: {
+      id: trackItemId,
+      userId: session.user.id,
+    },
+  });
+
+  if (!trackItem) return null;
+
+  // Fetch attributes within the date range
+  const attributes = await db.trackAttributes.findMany({
+    where: {
+      userId: session.user.id,
+      trackId: trackItemId,
+      createdAt: {
+        gte: startDate,
+        lte: endDate,
+      },
+      valueType: {
+        in: ["INT", "FLOAT", "DURATION"],
+      },
+    },
+    orderBy: { createdAt: "asc" },
+  });
+
+  // Check if there's any data in the previous period
+  const previousDataCount = await db.trackAttributes.count({
+    where: {
+      userId: session.user.id,
+      trackId: trackItemId,
+      createdAt: { lt: startDate },
+      valueType: {
+        in: ["INT", "FLOAT", "DURATION"],
+      },
+    },
+  });
+
+  const hasPrevious = previousDataCount > 0;
+
+  // Aggregate data based on period
+  const aggregatedData: Record<string, { total: number; count: number }> = {};
+
+  attributes.forEach((attr) => {
+    let key: string;
+    const attrDate = new Date(attr.createdAt);
+
+    switch (period) {
+      case "daily":
+        // Group by hour
+        key = `${attrDate.getHours()}:00`;
+        break;
+      case "weekly":
+        // Group by day of week
+        key = attrDate.toISOString().split("T")[0];
+        break;
+      case "yearly":
+        // Group by month
+        key = `${attrDate.getFullYear()}-${String(attrDate.getMonth() + 1).padStart(2, "0")}`;
+        break;
+    }
+
+    if (!aggregatedData[key]) {
+      aggregatedData[key] = { total: 0, count: 0 };
+    }
+
+    let value = 0;
+    switch (attr.valueType) {
+      case "INT":
+        value = attr.valueInt || 0;
+        break;
+      case "FLOAT":
+        value = attr.valueFloat || 0;
+        break;
+      case "DURATION":
+        value = attr.valueDuration || 0;
+        break;
+    }
+
+    aggregatedData[key].total += value;
+    aggregatedData[key].count += 1;
+  });
+
+  // Generate all time slots for the period
+  const chartData: Array<{ date: string; value: number; label: string }> = [];
+
+  switch (period) {
+    case "daily":
+      // Generate 24 hours
+      for (let hour = 0; hour < 24; hour++) {
+        const key = `${hour}:00`;
+        const date = new Date(startDate);
+        date.setHours(hour, 0, 0, 0);
+        const data = aggregatedData[key];
+        chartData.push({
+          date: dateFormat(date),
+          value: data ? data.total : 0,
+          label: data ? `${data.count} entries` : "No entries",
+        });
+      }
+      break;
+    case "weekly":
+      // Generate 7 days
+      for (let day = 0; day < 7; day++) {
+        const date = new Date(startDate);
+        date.setDate(date.getDate() + day);
+        const key = date.toISOString().split("T")[0];
+        const data = aggregatedData[key];
+        chartData.push({
+          date: dateFormat(date),
+          value: data ? data.total : 0,
+          label: data ? `${data.count} entries` : "No entries",
+        });
+      }
+      break;
+    case "yearly":
+      // Generate 12 months
+      for (let month = 0; month < 12; month++) {
+        const date = new Date(startDate.getFullYear(), month, 1);
+        const key = `${date.getFullYear()}-${String(month + 1).padStart(2, "0")}`;
+        const data = aggregatedData[key];
+        chartData.push({
+          date: dateFormat(date),
+          value: data ? data.total : 0,
+          label: data ? `${data.count} entries` : "No entries",
+        });
+      }
+      break;
+  }
+
+  return {
+    trackItemId,
+    trackItemTitle: trackItem.title,
+    data: chartData,
+    periodLabel,
+    hasPrevious,
+    hasNext,
+  };
+};
+
+/**
+ * Get all track items for dropdown selection
+ */
+export const getTrackItemsForStats = async (): Promise<
+  Array<{ id: string; title: string; attributeCount: number }>
+> => {
+  const { session } = await getUserAuth();
+  if (!session) return [];
+
+  const trackItems = await db.trackItem.findMany({
+    where: {
+      userId: session.user.id,
+    },
+    include: {
+      _count: {
+        select: {
+          TrackAttributes: {
+            where: {
+              valueType: {
+                in: ["INT", "FLOAT", "DURATION"],
+              },
+            },
+          },
+        },
+      },
+    },
+    orderBy: { updatedAt: "desc" },
+  });
+
+  return trackItems.map((item) => ({
+    id: item.id,
+    title: item.title,
+    attributeCount: item._count.TrackAttributes,
+  }));
+};

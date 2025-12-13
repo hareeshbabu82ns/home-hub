@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TrackingCharts } from "./components/tracking-charts";
 import { TrackItemTable } from "./components/track-item-table";
 import { QuickEntryPanelWrapper } from "./components/quick-entry-panel-wrapper";
+import { TrackStatsChart } from "./components/track-stats-chart";
 
 export default async function TracksPage() {
   const [tracks, metrics] = await Promise.all([
@@ -35,6 +36,9 @@ export default async function TracksPage() {
 
       {/* Quick Entry Panel */}
       <QuickEntryPanelWrapper />
+
+      {/* Track Statistics Chart */}
+      <TrackStatsChart />
 
       {/* Metrics Overview */}
       <TrackingCharts metrics={metrics} />

@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { fetchTimeTopics } from "./actions";
 import { TimeTrackingClient } from "./components/time-tracking-client";
 import { TopicDialog } from "./components/topic-dialog";
+import { TimeStatsChart } from "./components/time-stats-chart";
 
 export default async function TimeTrackingPage() {
   const topics = await fetchTimeTopics();
@@ -32,6 +33,9 @@ export default async function TimeTrackingPage() {
           }
         />
       </div>
+
+      {/* Time Statistics Chart */}
+      <TimeStatsChart />
 
       {/* Main Content */}
       <TimeTrackingClient initialTopics={topics} />
