@@ -8,9 +8,21 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TopicCard } from "./topic-card";
 import { TopicDialog, AddTopicCard } from "./topic-dialog";
-import { useTimerSync, formatDurationShort, formatTime } from "../hooks/use-timer-sync";
+import {
+  useTimerSync,
+  formatDurationShort,
+  formatTime,
+} from "../hooks/use-timer-sync";
+import {
+  getTodayDuration,
+  getWeekDuration,
+  getTotalDuration,
+} from "@/lib/time-tracking-utils";
+import type {
+  DurationBreakdown,
+  TimeTopicWithSessions,
+} from "@/types/time-tracking";
 import { stopTopicTimer } from "../actions";
-import type { TimeTopicWithSessions } from "@/types/time-tracking";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -20,7 +32,6 @@ interface TimeTrackingClientProps {
 
 export function TimeTrackingClient({ initialTopics }: TimeTrackingClientProps) {
   const router = useRouter();
-  const [topics] = useState(initialTopics);
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [filter, setFilter] = useState<"all" | "favorites">("all");
   const [editingTopic, setEditingTopic] =
@@ -31,25 +42,33 @@ export function TimeTrackingClient({ initialTopics }: TimeTrackingClientProps) {
   }, [router]);
 
   const { timers, startTimer, stopTimer, getRunningTimers } = useTimerSync({
-    topics,
+    topics: initialTopics,
     onTimerUpdate: handleTimerUpdate,
   });
 
   const runningTimers = getRunningTimers();
   const filteredTopics =
-    filter === "favorites" ? topics.filter((t) => t.isFavorite) : topics;
+    filter === "favorites"
+      ? initialTopics.filter((t) => t.isFavorite)
+      : initialTopics;
 
-  // Calculate totals
-  const totalToday = topics.reduce(
-    (sum, t) => sum + Number(t.todayDurationMs),
+  // Calculate totals from breakdown
+  const totalToday = initialTopics.reduce(
+    (sum, t) =>
+      sum +
+      getTodayDuration(t.durationBreakdown as unknown as DurationBreakdown),
     0,
   );
-  const totalWeek = topics.reduce(
-    (sum, t) => sum + Number(t.weekDurationMs),
+  const totalWeek = initialTopics.reduce(
+    (sum, t) =>
+      sum +
+      getWeekDuration(t.durationBreakdown as unknown as DurationBreakdown),
     0,
   );
-  const totalAllTime = topics.reduce(
-    (sum, t) => sum + Number(t.totalDurationMs),
+  const totalAllTime = initialTopics.reduce(
+    (sum, t) =>
+      sum +
+      getTotalDuration(t.durationBreakdown as unknown as DurationBreakdown),
     0,
   );
 
@@ -57,7 +76,7 @@ export function TimeTrackingClient({ initialTopics }: TimeTrackingClientProps) {
     <div className="space-y-6">
       {/* Header Stats */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Card className="bg-gradient-to-br from-indigo-500/10 to-purple-500/10 dark:from-indigo-500/20 dark:to-purple-500/20">
+        <Card className="bg-linear-to-br from-indigo-500/10 to-purple-500/10 dark:from-indigo-500/20 dark:to-purple-500/20">
           <CardContent className="flex items-center gap-4 p-6">
             <div className="flex size-12 items-center justify-center rounded-xl bg-indigo-500/20">
               <Clock className="size-6 text-indigo-500" />
@@ -129,7 +148,7 @@ export function TimeTrackingClient({ initialTopics }: TimeTrackingClientProps) {
 
             {/* Active Timers List */}
             <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-              {topics
+              {initialTopics
                 .filter((t) => timers.has(t.id))
                 .map((topic) => {
                   const timerState = timers.get(topic.id);
@@ -142,11 +161,13 @@ export function TimeTrackingClient({ initialTopics }: TimeTrackingClientProps) {
                     if (timerState.sessionId) {
                       formData.append("sessionId", timerState.sessionId);
                     }
-                    stopTopicTimer({ message: "", success: false }, formData).then(() => {
-                      toast.success("Timer stopped");
-                    }).catch((error) => {
-                      toast.error(error?.message || "Failed to stop timer");
-                    });
+                    stopTopicTimer({ message: "", success: false }, formData)
+                      .then(() => {
+                        toast.success("Timer stopped");
+                      })
+                      .catch((error) => {
+                        toast.error(error?.message || "Failed to stop timer");
+                      });
                   };
 
                   return (

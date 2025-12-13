@@ -1,7 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import { Star, MoreVertical, Trash2, Edit, Archive, Clock } from "lucide-react";
+import { useRouter } from "next/navigation";
+import {
+  Star,
+  MoreVertical,
+  Trash2,
+  Edit,
+  Archive,
+  Clock,
+  FileText,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
@@ -13,15 +22,25 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { TimerDisplay, TimerButton } from "./timer-display";
 import { formatDurationShort } from "../hooks/use-timer-sync";
-import { 
-  startTopicTimer, 
-  stopTopicTimer, 
-  updateTimeTopic, 
-  deleteTimeTopic 
+import {
+  getTodayDuration,
+  getWeekDuration,
+  getTotalDuration,
+} from "@/lib/time-tracking-utils";
+import type {
+  DurationBreakdown,
+  TimeTopicWithSessions,
+  ClientTimerState,
+} from "@/types/time-tracking";
+import {
+  startTopicTimer,
+  stopTopicTimer,
+  updateTimeTopic,
+  deleteTimeTopic,
 } from "../actions";
-import type { TimeTopicWithSessions, ClientTimerState } from "@/types/time-tracking";
 import { toast } from "sonner";
 import { getIconByName } from "@/lib/icons";
+import { DeleteConfirmationDialog } from "@/components/ui/primitives/delete-confirmation-dialog";
 
 interface TopicCardProps {
   topic: TimeTopicWithSessions;
@@ -31,16 +50,21 @@ interface TopicCardProps {
   onEdit?: (_topic: TimeTopicWithSessions) => void;
 }
 
-export function TopicCard({ 
-  topic, 
-  timerState, 
+export function TopicCard({
+  topic,
+  timerState,
   onTimerStart,
   onTimerStop,
-  onEdit 
+  onEdit,
 }: TopicCardProps) {
+  const router = useRouter();
   const [isPending, setIsPending] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   // Optimistic state for favorite
-  const [optimisticFavorite, setOptimisticFavorite] = useState(topic.isFavorite);
+  const [optimisticFavorite, setOptimisticFavorite] = useState(
+    topic.isFavorite,
+  );
 
   const isRunning = timerState?.isRunning ?? false;
   const elapsedMs = timerState?.elapsedMs ?? 0;
@@ -54,11 +78,14 @@ export function TopicCard({
       onTimerStart(topic.id);
       const formData = new FormData();
       formData.append("topicId", topic.id);
-      const result = await startTopicTimer({ message: "", success: false }, formData);
+      const result = await startTopicTimer(
+        { message: "", success: false },
+        formData,
+      );
       if (!result.success) {
         toast.error(result.message || "Failed to start timer");
       }
-    } catch (error) {
+    } catch (_error) {
       toast.error("Failed to start timer");
     }
   };
@@ -72,13 +99,16 @@ export function TopicCard({
       if (timerState?.sessionId) {
         formData.append("sessionId", timerState.sessionId);
       }
-      const result = await stopTopicTimer({ message: "", success: false }, formData);
+      const result = await stopTopicTimer(
+        { message: "", success: false },
+        formData,
+      );
       if (!result.success) {
         toast.error(result.message || "Failed to stop timer");
       } else {
         toast.success(result.message);
       }
-    } catch (error) {
+    } catch (_error) {
       toast.error("Failed to stop timer");
     } finally {
       setIsPending(false);
@@ -94,14 +124,17 @@ export function TopicCard({
       const formData = new FormData();
       formData.append("id", topic.id);
       formData.append("isFavorite", String(newFavoriteState));
-      const result = await updateTimeTopic({ message: "", success: false }, formData);
-      
+      const result = await updateTimeTopic(
+        { message: "", success: false },
+        formData,
+      );
+
       if (!result.success) {
         // Revert optimistic update
         setOptimisticFavorite(isFavorite);
         toast.error(result.message || "Failed to update");
       }
-    } catch (error) {
+    } catch (_error) {
       // Revert optimistic update
       setOptimisticFavorite(isFavorite);
       toast.error("Failed to update topic");
@@ -113,46 +146,54 @@ export function TopicCard({
       const formData = new FormData();
       formData.append("id", topic.id);
       formData.append("isArchived", "true");
-      const result = await updateTimeTopic({ message: "", success: false }, formData);
+      const result = await updateTimeTopic(
+        { message: "", success: false },
+        formData,
+      );
       if (!result.success) {
         toast.error(result.message || "Failed to archive");
       } else {
         toast.success(result.message);
+        router.refresh();
       }
-    } catch (error) {
+    } catch (_error) {
       toast.error("Failed to archive topic");
     }
   };
 
-  const handleDelete = async () => {
-    if (
-      !confirm(
-        `Delete "${topic.name}"? This will also delete all time sessions.`,
-      )
-    ) {
-      return;
-    }
+  const handleDelete = () => {
+    setDeleteDialogOpen(true);
+  };
 
+  const handleConfirmDelete = async () => {
     try {
+      setIsDeleting(true);
       const formData = new FormData();
       formData.append("id", topic.id);
-      const result = await deleteTimeTopic({ message: "", success: false }, formData);
+      const result = await deleteTimeTopic(
+        { message: "", success: false },
+        formData,
+      );
       if (!result.success) {
         toast.error(result.message || "Failed to delete");
       } else {
         toast.success(result.message);
+        setDeleteDialogOpen(false);
+        router.refresh();
       }
-    } catch (error) {
+    } catch (_error) {
       toast.error("Failed to delete topic");
+    } finally {
+      setIsDeleting(false);
     }
   };
 
   return (
     <div
       className={cn(
-        "group relative overflow-hidden rounded-2xl border bg-card p-6 transition-all duration-300",
+        "group bg-card relative overflow-hidden rounded-2xl border p-6 transition-all duration-300",
         "hover:shadow-lg hover:shadow-black/5 dark:hover:shadow-black/20",
-        isRunning && "ring-2 ring-offset-2 dark:ring-offset-background"
+        isRunning && "dark:ring-offset-background ring-2 ring-offset-2",
       )}
       style={{
         borderColor: isRunning ? topic.color : undefined,
@@ -162,10 +203,10 @@ export function TopicCard({
     >
       {/* Background gradient when running */}
       {isRunning && (
-        <div 
+        <div
           className="absolute inset-0 opacity-5"
-          style={{ 
-            background: `linear-gradient(135deg, ${topic.color} 0%, transparent 60%)` 
+          style={{
+            background: `linear-gradient(135deg, ${topic.color} 0%, transparent 60%)`,
           }}
         />
       )}
@@ -173,18 +214,15 @@ export function TopicCard({
       {/* Header */}
       <div className="relative mb-4 flex items-start justify-between">
         <div className="flex items-center gap-3">
-          <div 
+          <div
             className="flex size-10 items-center justify-center rounded-xl"
             style={{ backgroundColor: `${topic.color}20` }}
           >
-            <IconComponent 
-              className="size-5" 
-              style={{ color: topic.color }}
-            />
+            <IconComponent className="size-5" style={{ color: topic.color }} />
           </div>
           <div>
             <h3 className="font-semibold">{topic.name}</h3>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-muted-foreground text-xs">
               {topic.sessionCount} sessions
             </p>
           </div>
@@ -197,12 +235,12 @@ export function TopicCard({
             className="size-8"
             onClick={handleToggleFavorite}
           >
-            <Star 
+            <Star
               className={cn(
                 "size-4 transition-colors",
-                isFavorite 
-                  ? "fill-yellow-400 text-yellow-400" 
-                  : "text-muted-foreground"
+                isFavorite
+                  ? "fill-yellow-400 text-yellow-400"
+                  : "text-muted-foreground",
               )}
             />
           </Button>
@@ -214,6 +252,12 @@ export function TopicCard({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
+              <DropdownMenuItem
+                onClick={() => router.push(`/time-tracking/${topic.id}`)}
+              >
+                <FileText className="mr-2 size-4" />
+                View Details
+              </DropdownMenuItem>
               <DropdownMenuItem onClick={() => onEdit?.(topic)}>
                 <Edit className="mr-2 size-4" />
                 Edit
@@ -223,7 +267,7 @@ export function TopicCard({
                 Archive
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem 
+              <DropdownMenuItem
                 onClick={handleDelete}
                 className="text-destructive focus:text-destructive"
               >
@@ -237,8 +281,8 @@ export function TopicCard({
 
       {/* Timer Display */}
       <div className="relative mb-6 flex flex-col items-center py-4">
-        <TimerDisplay 
-          elapsedMs={elapsedMs} 
+        <TimerDisplay
+          elapsedMs={elapsedMs}
           isRunning={isRunning}
           color={topic.color}
         />
@@ -258,24 +302,45 @@ export function TopicCard({
       {/* Stats Footer */}
       <div className="mt-6 grid grid-cols-3 gap-2 border-t pt-4">
         <div className="text-center">
-          <p className="text-xs text-muted-foreground">Today</p>
+          <p className="text-muted-foreground text-xs">Today</p>
           <p className="text-sm font-medium">
-            {formatDurationShort(Number(topic.todayDurationMs))}
+            {formatDurationShort(
+              getTodayDuration(
+                topic.durationBreakdown as unknown as DurationBreakdown,
+              ),
+            )}
           </p>
         </div>
         <div className="text-center">
-          <p className="text-xs text-muted-foreground">Week</p>
+          <p className="text-muted-foreground text-xs">Week</p>
           <p className="text-sm font-medium">
-            {formatDurationShort(Number(topic.weekDurationMs))}
+            {formatDurationShort(
+              getWeekDuration(
+                topic.durationBreakdown as unknown as DurationBreakdown,
+              ),
+            )}
           </p>
         </div>
         <div className="text-center">
-          <p className="text-xs text-muted-foreground">Total</p>
+          <p className="text-muted-foreground text-xs">Total</p>
           <p className="text-sm font-medium">
-            {formatDurationShort(Number(topic.totalDurationMs))}
+            {formatDurationShort(
+              getTotalDuration(
+                topic.durationBreakdown as unknown as DurationBreakdown,
+              ),
+            )}
           </p>
         </div>
       </div>
+
+      <DeleteConfirmationDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        onConfirm={handleConfirmDelete}
+        isLoading={isDeleting}
+        title="Delete Topic"
+        description={`Are you sure you want to delete "${topic.name}"? This will also delete all time sessions associated with this topic. This action cannot be undone.`}
+      />
     </div>
   );
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useActionState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,6 +36,7 @@ export function TopicDialog({
   open,
   onOpenChange,
 }: TopicDialogProps) {
+  const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
   const [name, setName] = useState(topic?.name ?? "");
   const [color, setColor] = useState(topic?.color ?? TOPIC_COLORS[0].value);
@@ -61,19 +63,21 @@ export function TopicDialog({
       toast.success(createState.message);
       setDialogOpen(false);
       resetForm();
+      router.refresh();
     } else if (createState.message && !createState.success) {
       toast.error(createState.message);
     }
-  }, [createState, setDialogOpen]);
+  }, [createState, setDialogOpen, router]);
 
   useEffect(() => {
     if (updateState.success) {
       toast.success(updateState.message);
       setDialogOpen(false);
+      router.refresh();
     } else if (updateState.message && !updateState.success) {
       toast.error(updateState.message);
     }
-  }, [updateState, setDialogOpen]);
+  }, [updateState, setDialogOpen, router]);
 
   useEffect(() => {
     if (topic) {
@@ -89,15 +93,14 @@ export function TopicDialog({
     setIcon("Clock");
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    const formData = new FormData();
-    formData.append("name", name);
-    formData.append("color", color);
-    formData.append("icon", icon);
-
-    if (isEdit) {
+  const handleSubmit = (formData: FormData) => {
+    // Add topic ID for edit mode
+    if (isEdit && topic?.id) {
       formData.append("id", topic.id);
+    }
+
+    // Call appropriate action
+    if (isEdit) {
       updateAction(formData);
     } else {
       createAction(formData);
@@ -112,12 +115,17 @@ export function TopicDialog({
           <DialogTitle>{isEdit ? "Edit Topic" : "New Topic"}</DialogTitle>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form action={handleSubmit} className="space-y-6">
+          {/* Hidden inputs for color and icon since they're set via buttons */}
+          <input type="hidden" name="color" value={color} />
+          <input type="hidden" name="icon" value={icon} />
+
           {/* Name Input */}
           <div className="space-y-2">
             <Label htmlFor="name">Name</Label>
             <Input
               id="name"
+              name="name"
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g., Work, Study, Exercise"
@@ -229,7 +237,7 @@ export function AddTopicCard() {
   return (
     <TopicDialog
       trigger={
-        <button className="group border-muted-foreground/25 bg-muted/20 hover:border-muted-foreground/50 hover:bg-muted/40 flex min-h-[280px] flex-col items-center justify-center rounded-2xl border-2 border-dashed p-6 transition-all">
+        <button className="group border-muted-foreground/25 bg-muted/20 hover:border-muted-foreground/50 hover:bg-muted/40 flex min-h-70 flex-col items-center justify-center rounded-2xl border-2 border-dashed p-6 transition-all">
           <div className="bg-muted flex size-14 items-center justify-center rounded-full transition-transform group-hover:scale-110">
             <Plus className="text-muted-foreground size-6" />
           </div>

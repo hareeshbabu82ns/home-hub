@@ -52,11 +52,15 @@ export function TrackForm({
     if (state?.message) {
       if (state.success) {
         toast.success(state.message);
-        // Redirect to tracks list after successful creation
+        // Refresh and redirect to tracks list after successful creation
         if (track?.id === "new") {
+          router.refresh();
           setTimeout(() => {
             router.push("/tracks");
           }, 1000);
+        } else {
+          // Just refresh for updates
+          router.refresh();
         }
       } else {
         toast.error(state.message);

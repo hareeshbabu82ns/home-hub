@@ -1,17 +1,39 @@
 import type { TimeTopic, TimeSession } from "@/app/generated/prisma";
 
+export type { TimeSession };
+
 export interface TimeTopicWithSessions extends TimeTopic {
   sessions: TimeSession[];
   activeSession?: TimeSession;
 }
 
+// Hierarchical duration breakdown structures
+export interface DayDuration {
+  day: number; // Day of month (1-31)
+  durationMs: number;
+}
+
+export interface MonthDuration {
+  month: number; // Month (1-12)
+  durationMs: number;
+  durations: DayDuration[];
+}
+
+export interface YearDuration {
+  year: number;
+  durationMs: number;
+  durations: MonthDuration[];
+}
+
+export interface DurationBreakdown {
+  totalDurationMs: number;
+  durations: YearDuration[];
+}
+
 export interface TimeTopicStats {
-  totalDurationMs: bigint;
-  todayDurationMs: bigint;
-  weekDurationMs: bigint;
-  monthDurationMs: bigint;
   sessionCount: number;
   lastTrackedAt: Date | null;
+  durationBreakdown?: DurationBreakdown;
 }
 
 export interface ClientTimerState {

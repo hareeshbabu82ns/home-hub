@@ -160,10 +160,7 @@ model TimeTopic {
   sortOrder   Int     @default(0)
 
   // Cached statistics (pre-computed)
-  totalDurationMs     BigInt   @default(0) // Total time tracked in milliseconds
-  todayDurationMs     BigInt   @default(0) // Today's duration (reset daily)
-  weekDurationMs      BigInt   @default(0) // This week's duration (reset weekly)
-  monthDurationMs     BigInt   @default(0) // This month's duration (reset monthly)
+  durationBreakdown   Json?                // Hierarchical breakdown by year/month/day for charts
   lastTrackedAt       DateTime?
   sessionCount        Int      @default(0) // Total number of sessions
 

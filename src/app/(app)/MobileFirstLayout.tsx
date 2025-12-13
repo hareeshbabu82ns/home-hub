@@ -67,7 +67,7 @@ export function MobileFirstLayout({
             </div>
           </aside>
           <div className="flex flex-1 flex-col overflow-hidden">
-            <header className="border-border bg-background/95 supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50 flex h-14 items-center border-b backdrop-blur">
+            <header className="border-border bg-background/95 supports-backdrop-filter:bg-background/60 sticky top-0 z-50 flex h-14 items-center border-b backdrop-blur">
               <div className="flex w-full items-center justify-between px-4 py-2 sm:px-6">
                 <AppTitleLogo />
               </div>
@@ -132,14 +132,14 @@ export function MobileFirstLayout({
           {/* Mobile Sheet for sidebar */}
           <Sheet>
             {/* Top Navigation - Always visible with mobile-first design */}
-            <header className="border-border bg-background/95 supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50 flex h-14 items-center border-b backdrop-blur">
+            <header className="border-border bg-background/95 supports-backdrop-filter:bg-background/60 sticky top-0 z-50 flex h-14 items-center border-b backdrop-blur">
               <Navbar themeToggle sidebarTrigger desktopSidebarToggle>
                 <AppTitleLogo className="lg:hidden" />
               </Navbar>
             </header>
 
             {/* Mobile Sidebar Sheet */}
-            <SheetContent side="left" className="w-[280px] p-0 sm:w-[300px]">
+            <SheetContent side="left" className="w-70 p-0 sm:w-75">
               <div className="flex h-full flex-col">
                 <div className="border-border flex h-14 items-center border-b px-4">
                   <AppTitleLogo />

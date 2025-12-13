@@ -215,7 +215,7 @@ export function QuickEntryPanel({
                   variant="outline"
                   size="sm"
                   onClick={() => onQuickEntry(attr)}
-                  className="group hover:bg-muted/50 flex h-auto min-h-[2.5rem] flex-col items-start gap-1 p-2 text-left transition-all"
+                  className="group hover:bg-muted/50 flex h-auto min-h-10 flex-col items-start gap-1 p-2 text-left transition-all"
                 >
                   <div className="flex w-full items-center justify-between gap-2">
                     <div className="flex items-center gap-1">

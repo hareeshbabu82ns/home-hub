@@ -4,8 +4,14 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getUserAuth } from "@/lib/auth/utils";
 import { db } from "@/lib/db";
-import { startOfDay, startOfWeek, startOfMonth, endOfDay } from "date-fns";
-import type { TimeTopicWithSessions } from "@/types/time-tracking";
+import type {
+  TimeTopicWithSessions,
+  DurationBreakdown,
+  YearDuration,
+  MonthDuration,
+  DayDuration,
+} from "@/types/time-tracking";
+import type { TimeSession } from "@/app/generated/prisma";
 
 // ============================================
 // Topic Actions
@@ -305,13 +311,88 @@ export async function stopTopicTimer(
 // Statistics Recalculation
 // ============================================
 
-async function recalculateTopicStats(topicId: string, userId: string) {
-  const now = new Date();
-  const todayStart = startOfDay(now);
-  const weekStart = startOfWeek(now, { weekStartsOn: 1 }); // Monday
-  const monthStart = startOfMonth(now);
-  const todayEnd = endOfDay(now);
+/**
+ * Build hierarchical duration breakdown from sessions
+ * Structure: { totalDurationMs, durations: [{ year, durations: [{ month, durations: [{ day, duration }] }] }] }
+ */
+function buildDurationBreakdown(
+  sessions: Array<{ startTime: Date; durationMs: bigint | null }>,
+): DurationBreakdown {
+  // Group sessions by year, month, day
+  const yearMap = new Map<number, Map<number, Map<number, number>>>();
+  let totalDurationMs = 0;
 
+  for (const session of sessions) {
+    if (!session.durationMs) continue;
+
+    const duration = Number(session.durationMs);
+    totalDurationMs += duration;
+
+    const date = new Date(session.startTime);
+    const year = date.getFullYear();
+    const month = date.getMonth() + 1; // 1-12
+    const day = date.getDate(); // 1-31
+
+    if (!yearMap.has(year)) {
+      yearMap.set(year, new Map());
+    }
+    const monthMap = yearMap.get(year)!;
+
+    if (!monthMap.has(month)) {
+      monthMap.set(month, new Map());
+    }
+    const dayMap = monthMap.get(month)!;
+
+    dayMap.set(day, (dayMap.get(day) || 0) + duration);
+  }
+
+  // Build hierarchical structure
+  const durations: YearDuration[] = [];
+
+  for (const [year, monthMap] of yearMap.entries()) {
+    let yearDurationMs = 0;
+    const yearMonths: MonthDuration[] = [];
+
+    for (const [month, dayMap] of monthMap.entries()) {
+      let monthDurationMs = 0;
+      const monthDays: DayDuration[] = [];
+
+      for (const [day, duration] of dayMap.entries()) {
+        monthDurationMs += duration;
+        monthDays.push({ day, durationMs: duration });
+      }
+
+      // Sort days
+      monthDays.sort((a, b) => a.day - b.day);
+
+      yearDurationMs += monthDurationMs;
+      yearMonths.push({
+        month,
+        durationMs: monthDurationMs,
+        durations: monthDays,
+      });
+    }
+
+    // Sort months
+    yearMonths.sort((a, b) => a.month - b.month);
+
+    durations.push({
+      year,
+      durationMs: yearDurationMs,
+      durations: yearMonths,
+    });
+  }
+
+  // Sort years
+  durations.sort((a, b) => a.year - b.year);
+
+  return {
+    totalDurationMs,
+    durations,
+  };
+}
+
+async function recalculateTopicStats(topicId: string, userId: string) {
   // Get all completed sessions for this topic
   const allSessions = await db.timeSession.findMany({
     where: {
@@ -322,40 +403,22 @@ async function recalculateTopicStats(topicId: string, userId: string) {
     },
   });
 
-  // Calculate totals
-  let totalDurationMs = BigInt(0);
-  let todayDurationMs = BigInt(0);
-  let weekDurationMs = BigInt(0);
-  let monthDurationMs = BigInt(0);
+  // Find last tracked time
   let lastTrackedAt: Date | null = null;
-
   for (const sess of allSessions) {
-    const duration = sess.durationMs || BigInt(0);
-    totalDurationMs += duration;
-
-    if (sess.startTime >= todayStart && sess.startTime <= todayEnd) {
-      todayDurationMs += duration;
-    }
-    if (sess.startTime >= weekStart) {
-      weekDurationMs += duration;
-    }
-    if (sess.startTime >= monthStart) {
-      monthDurationMs += duration;
-    }
-
     if (!lastTrackedAt || sess.endTime! > lastTrackedAt) {
       lastTrackedAt = sess.endTime!;
     }
   }
 
+  // Build hierarchical duration breakdown for charts/stats
+  const durationBreakdown = buildDurationBreakdown(allSessions);
+
   // Update topic with cached stats
   await db.timeTopic.update({
     where: { id: topicId },
     data: {
-      totalDurationMs,
-      todayDurationMs,
-      weekDurationMs,
-      monthDurationMs,
+      durationBreakdown: durationBreakdown as any, // Cast to satisfy Prisma's InputJsonValue
       sessionCount: allSessions.length,
       lastTrackedAt,
     },
@@ -431,6 +494,83 @@ export async function deleteTimeSession(
   } catch (error) {
     console.error("Error deleting session:", error);
     return { message: "Failed to delete session", success: false };
+  }
+}
+
+export async function updateTimeSession(
+  _prevState: { message: string; success?: boolean },
+  formData: FormData,
+) {
+  const { session } = await getUserAuth();
+  if (!session) {
+    return { message: "Not authenticated", success: false };
+  }
+
+  const sessionId = formData.get("sessionId") as string;
+  if (!sessionId) {
+    return { message: "Session ID required", success: false };
+  }
+
+  const schema = z.object({
+    startTime: z.string().optional(),
+    endTime: z.string().optional(),
+    durationMs: z.string().optional(),
+    notes: z.string().optional(),
+  });
+
+  const parse = schema.safeParse({
+    startTime: formData.get("startTime") as string | undefined,
+    endTime: formData.get("endTime") as string | undefined,
+    durationMs: formData.get("durationMs") as string | undefined,
+    notes: formData.get("notes") as string | undefined,
+  });
+
+  if (!parse.success) {
+    return { message: "Invalid input", success: false };
+  }
+
+  try {
+    const timeSession = await db.timeSession.findFirst({
+      where: { id: sessionId, userId: session.user.id },
+    });
+
+    if (!timeSession) {
+      return { message: "Session not found", success: false };
+    }
+
+    const updateData: {
+      startTime?: Date;
+      endTime?: Date;
+      durationMs?: bigint;
+      notes?: string;
+    } = {};
+
+    if (parse.data.startTime) {
+      updateData.startTime = new Date(parse.data.startTime);
+    }
+    if (parse.data.endTime) {
+      updateData.endTime = new Date(parse.data.endTime);
+    }
+    if (parse.data.durationMs) {
+      updateData.durationMs = BigInt(parse.data.durationMs);
+    }
+    if (parse.data.notes !== undefined) {
+      updateData.notes = parse.data.notes;
+    }
+
+    await db.timeSession.update({
+      where: { id: sessionId },
+      data: updateData,
+    });
+
+    // Recalculate stats after update
+    await recalculateTopicStats(timeSession.topicId, session.user.id);
+
+    revalidatePath("/time-tracking");
+    return { message: "Session updated", success: true };
+  } catch (error) {
+    console.error("Error updating session:", error);
+    return { message: "Failed to update session", success: false };
   }
 }
 
