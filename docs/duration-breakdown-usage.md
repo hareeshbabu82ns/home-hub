@@ -152,7 +152,7 @@ const now = new Date();
 const days = getMonthDays(
   topic.durationBreakdown,
   now.getFullYear(),
-  now.getMonth() + 1
+  now.getMonth() + 1,
 );
 
 // Create chart data
@@ -169,8 +169,20 @@ const chartData = days.map(({ day, durationMs }) => ({
 const year = new Date().getFullYear();
 const months = getYearMonths(topic.durationBreakdown, year);
 
-const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-                   'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const monthNames = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
+];
 
 const chartData = months.map(({ month, durationMs }) => ({
   month: monthNames[month - 1],
@@ -197,7 +209,7 @@ const days = getMonthDays(topic.durationBreakdown, 2025, 12);
 
 // Create a map for easy lookup
 const durationMap = new Map(
-  days.map(({ day, durationMs }) => [day, durationMs])
+  days.map(({ day, durationMs }) => [day, durationMs]),
 );
 
 // Render calendar (31 days max)

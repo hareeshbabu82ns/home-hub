@@ -669,7 +669,7 @@ export const getTimeTrackingStats = async (
   let startDate: Date;
   let endDate: Date;
   let periodLabel: string;
-  let dateFormat: (date: Date) => string;
+  let dateFormat: (_date: Date) => string;
 
   switch (period) {
     case "daily": {

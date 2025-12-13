@@ -29,7 +29,7 @@ export default async function Home() {
   if (session) redirect("/dashboard");
   return (
     <div className="flex min-h-screen flex-col">
-      <header className="bg-background/95 supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50 w-full border-b backdrop-blur">
+      <header className="bg-background/95 supports-backdrop-filter:bg-background/60 sticky top-0 z-50 w-full border-b backdrop-blur">
         <div className="container mx-auto flex h-14 max-w-6xl items-center px-4">
           <Link className="flex items-center space-x-2" href="/">
             <Image
@@ -72,7 +72,7 @@ export default async function Home() {
                 </div>
                 <h1 className="text-3xl font-bold tracking-tight sm:text-4xl md:text-5xl lg:text-6xl">
                   Your Smart{" "}
-                  <span className="from-primary to-primary/60 bg-gradient-to-r bg-clip-text text-transparent">
+                  <span className="from-primary to-primary/60 bg-linear-to-r bg-clip-text text-transparent">
                     HomeHub
                   </span>
                 </h1>
@@ -123,7 +123,7 @@ export default async function Home() {
               {/* Hero Visual */}
               <div className="mt-8 w-full max-w-4xl">
                 <div className="bg-muted/30 relative mx-auto aspect-video overflow-hidden rounded-lg border shadow-2xl">
-                  <div className="from-primary/20 to-secondary/20 absolute inset-0 bg-gradient-to-br" />
+                  <div className="from-primary/20 to-secondary/20 absolute inset-0 bg-linear-to-br" />
                   <div className="relative flex h-full items-center justify-center">
                     <div className="text-center">
                       <Image
