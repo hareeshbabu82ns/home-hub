@@ -1,18 +1,18 @@
 "use client";
 
-import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import React from "react";
 
 import type { LucideIcon } from "lucide-react";
 
-import { cn } from "@/lib/utils";
-import { defaultLinks, additionalLinks } from "@/config/nav";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { additionalLinks, defaultLinks } from "@/config/nav";
+import { cn } from "@/lib/utils";
 
 export interface ISidebarLink {
   title: string;
@@ -56,7 +56,6 @@ const SidebarLinkGroup = ({
   isCollapsed?: boolean;
 }) => {
   const fullPathname = usePathname();
-  const pathname = `/${fullPathname.split("/")[1]}`;
 
   return (
     <div className={border ? "border-border my-6 border-t pt-6" : ""}>
@@ -70,7 +69,10 @@ const SidebarLinkGroup = ({
           <SidebarLink
             key={link.title}
             link={link}
-            active={pathname === link.href}
+            active={
+              fullPathname === link.href ||
+              fullPathname.startsWith(`${link.href}/`)
+            }
             isCollapsed={isCollapsed}
           />
         ))}

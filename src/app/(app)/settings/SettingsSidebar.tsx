@@ -1,18 +1,19 @@
 "use client";
 
-import Link from "next/link";
-import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import {
-  Palette,
   Bell,
-  Shield,
   Database,
-  Zap,
-  Globe,
-  Users,
   Download,
+  Globe,
+  Palette,
+  Router,
+  Shield,
+  Users,
+  Zap,
 } from "lucide-react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 
 const settingsNavItems = [
   {
@@ -38,6 +39,12 @@ const settingsNavItems = [
     href: "/settings/data",
     icon: Database,
     description: "Import, export, and manage data",
+  },
+  {
+    title: "Network",
+    href: "/settings/network",
+    icon: Router,
+    description: "Router API and scan settings",
   },
   {
     title: "Performance",

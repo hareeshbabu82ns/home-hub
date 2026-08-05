@@ -1,13 +1,15 @@
 import type { ISidebarLink } from "@/components/SidebarItems";
 import {
-  HomeIcon,
-  Timer as Tracks,
-  IndianRupee as Loans,
-  Dumbbell,
-  Database,
-  Users,
-  Shield,
+  Activity,
   Clock,
+  Database,
+  Dumbbell,
+  HomeIcon,
+  IndianRupee as Loans,
+  Router,
+  Shield,
+  Timer as Tracks,
+  Users,
 } from "lucide-react";
 
 type AdditionalLinks = {
@@ -21,6 +23,21 @@ export const defaultLinks: ISidebarLink[] = [
 ];
 
 export const additionalLinks: AdditionalLinks[] = [
+  {
+    title: "Network",
+    links: [
+      {
+        href: "/network/devices",
+        title: "Devices",
+        icon: Router,
+      },
+      {
+        href: "/network/traffic",
+        title: "Traffic",
+        icon: Activity,
+      },
+    ],
+  },
   {
     title: "Database",
     links: [

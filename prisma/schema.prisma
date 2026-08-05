@@ -111,6 +111,49 @@ model User {
   passwordResets  PasswordReset[]
   timeTopics      TimeTopic[]
   timeSessions    TimeSession[]
+  networkDevices  NetworkDevice[]
+  networkSettings NetworkIntegrationSettings?
+}
+
+model NetworkIntegrationSettings {
+  id      String @id @default(auto()) @map("_id") @db.ObjectId
+  userId  String @unique @db.ObjectId
+
+  apiBaseUrl       String
+  apiKey           String
+  apiSecret        String
+  defaultSubnet    String?
+  verifyTls        Boolean  @default(false)
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model NetworkDevice {
+  id      String @id @default(auto()) @map("_id") @db.ObjectId
+  userId  String @db.ObjectId
+
+  name       String?
+  hostname   String?
+  ipAddress  String
+  macAddress String?
+  vendor     String?
+  deviceType String?
+  intf       String?
+  intfDescription String?
+  isNew      Boolean  @default(true)
+  firstSeenAt DateTime @default(now())
+  lastSeenAt  DateTime @default(now())
+  notes      String?
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, ipAddress])
+  @@index([userId, isNew])
+  @@index([userId, lastSeenAt])
 }
 
 model VerificationToken {
