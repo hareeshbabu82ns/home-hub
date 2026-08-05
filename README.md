@@ -31,10 +31,21 @@ A modern Progressive Web App (PWA) for smart home management, built with Next.js
 3. Click install to add HomeHub to your home screen
 
 ### Development Setup
+#### Option A: Dev Container (recommended)
 
-#### Prerequisites
+1. Open this repository in VS Code.
+2. Run "Dev Containers: Reopen in Container".
+3. Wait for post-create to complete. It will:
+    - install dependencies with `pnpm install`
+    - generate Prisma client with `pnpm db:gen`
 
-#### Prerequisites
+Then run the app:
+
+```sh
+pnpm dev
+```
+
+#### Option B: Local Setup (without dev container)
 
 ```sh
 # Clone the repository
@@ -43,62 +54,50 @@ cd home-hub
 
 # Install dependencies
 pnpm install
-```
 
-#### Initial Project Setup (Reference)
+# Generate Prisma client
+pnpm db:gen
 
-```sh
-npx create-next-app@latest home-hub --typescript --tailwind --eslint
-
-git config --local commit.gpgsign false
-git config --local user.email hareeshbabu82ns@gmail.com
-```
-
-#### Dependencies
-
-```sh
-# Core dependencies
-pnpm add next-auth @auth/core @prisma/client @auth/prisma-adapter
-pnpm add @t3-oss/env-nextjs dotenv zod react-hook-form resend
-
-# PWA dependencies
-pnpm add next-pwa workbox-webpack-plugin
-
-# UI components
-npx shadcn@latest init
-npx shadcn@latest add button dropdown-menu
+# Start development server
+pnpm dev
 ```
 
 #### Environment Setup
 
-#### Environment Setup
-
-- Add Environment Variables to your `.env` (use `.env.sample` for reference)
+- Add environment variables to `.env` (use `.env.sample` as reference)
 - Google Auth: https://console.cloud.google.com/apis/credentials
 - GitHub Auth: https://github.com/settings/apps
 
-#### Database Setup
+#### Database
 
-Optional, if running local database:
+If you are not using the dev container-managed services, start local services manually:
 
 ```sh
 docker compose up -d
 ```
 
-#### Development Commands
+Open Prisma Studio:
 
 ```sh
-# Generate Prisma client
-pnpm run db:gen
+pnpm db:studio
+```
 
-# Run database migrations
-pnpm run db:migrate
+Prisma Studio runs on `http://localhost:5555` by default.
 
-# Open database explorer
-pnpm run db:studio
+#### Common Development Commands
 
+```sh
 # Start development server
-pnpm run dev
+pnpm dev
+
+# Generate Prisma client
+pnpm db:gen
+
+# Sync schema to database
+pnpm db:push
+
+# Open Prisma Studio
+pnpm db:studio
 ```
 
 #### Production Build
@@ -162,8 +161,6 @@ src/
 
 ## Development Notes
 
-## Development Notes
-
 - PWA features are disabled in development mode for faster iteration
 - Service worker and offline capabilities are only active in production builds
 - Use `pnpm run build && pnpm run start` to test PWA features locally
@@ -190,8 +187,6 @@ This allows you to:
 - Work offline without internet connection
 
 **Note**: This bypass only works when `NODE_ENV` is set to "development" and should never be enabled in production.
-
-## Deployment
 
 ## Deployment
 

@@ -1,50 +1,33 @@
 {
-  "name": "Home Hub",
-  "image": "mcr.microsoft.com/devcontainers/typescript-node:22-bullseye",
+  "name": "home-hub (Next.js + pnpm + MongoDB RS)",
+  "dockerComposeFile": ["docker-compose.yml"],
+  "service": "app",
   "workspaceFolder": "/workspaces/home-hub",
-
-  // Features to install
-  "features": {
-    "ghcr.io/devcontainers/features/git:1": {},
-    "ghcr.io/devcontainers/features/github-cli:1": {},
-    "ghcr.io/devcontainers/features/python:1": { "version": "3.11" }
-  },
-
-  // Install system packages needed for development
-  "onCreateCommand": "bash .devcontainer/on-create.sh",
-
-  // Run commands after container is created
+  "runServices": ["app", "mongo", "mongo-init"],
+  "shutdownAction": "stopCompose",
+  "overrideCommand": false,
+  "updateRemoteUserUID": true,
+  "remoteUser": "node",
   "postCreateCommand": "bash .devcontainer/post-create.sh",
-
-  // Display helpful information when container starts
-  "postStartCommand": "bash .devcontainer/post-start.sh",
-
-  // Mount the downloads folder
-  "mounts": ["source=${localEnv:HOME}/Downloads,target=/downloads,type=bind"],
-
-  // Port configuration
-  "forwardPorts": [3000, 3001, 5555],
+  "forwardPorts": [3000, 27017, 5555],
   "portsAttributes": {
     "3000": {
-      "label": "Next.js App",
+      "label": "Next.js",
       "onAutoForward": "notify"
     },
-    "3001": {
-      "label": "Next.js App (alt)",
-      "onAutoForward": "notify"
+    "27017": {
+      "label": "MongoDB Replica Set",
+      "onAutoForward": "silent"
     },
     "5555": {
       "label": "Prisma Studio",
       "onAutoForward": "notify"
     }
   },
-
-  // Environment variables for development
   "remoteEnv": {
-    "NODE_ENV": "development"
+    "NODE_ENV": "development",
+    "DATABASE_URL": "mongodb://mongo:27017/home-hub?replicaSet=rs0"
   },
-
-  // Customize the VS Code environment
   "customizations": {
     "vscode": {
       "extensions": [
@@ -53,24 +36,11 @@
         "bradlc.vscode-tailwindcss",
         "prisma.prisma",
         "mongodb.mongodb-vscode",
-        "ms-python.python",
-        "ms-python.vscode-pylance",
-        "eamodio.gitlens",
-        "GitHub.copilot",
-        "humao.rest-client"
+        "GitHub.copilot"
       ],
       "settings": {
         "editor.formatOnSave": true,
         "editor.defaultFormatter": "esbenp.prettier-vscode",
-        "[typescript]": {
-          "editor.defaultFormatter": "esbenp.prettier-vscode"
-        },
-        "[typescriptreact]": {
-          "editor.defaultFormatter": "esbenp.prettier-vscode"
-        },
-        "[json]": {
-          "editor.defaultFormatter": "esbenp.prettier-vscode"
-        },
         "editor.codeActionsOnSave": {
           "source.fixAll.eslint": "explicit",
           "source.organizeImports": "explicit"
@@ -79,24 +49,9 @@
           "**/.git/objects/**": true,
           "**/.git/subtree-cache/**": true,
           "**/node_modules/*/**": true,
-          "**/.next/**": true,
-          "**/dist/**": true
-        },
-        "search.exclude": {
-          "**/.next": true,
-          "**/node_modules": true,
-          "**/dist": true
+          "**/.next/**": true
         }
       }
     }
-  },
-
-  // Run as non-root user
-  "remoteUser": "node",
-
-  // Resource limits (adjust as needed)
-  "hostRequirements": {
-    "cpus": 2,
-    "memory": "4gb"
   }
 }

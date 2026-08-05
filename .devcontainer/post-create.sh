@@ -1,17 +1,13 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -euo pipefail
 
-echo "Installing project dependencies..."
-if ! pnpm install --frozen-lockfile; then
-	echo "Lockfile install failed, retrying without frozen lockfile..."
-	pnpm install --no-frozen-lockfile
-fi
+corepack enable
+corepack prepare pnpm@10 --activate
 
-echo "Generating Prisma client..."
-if [ -f .env ] && grep -q '^DATABASE_URL=' .env; then
-	pnpm db:gen
+if [ -f pnpm-lock.yaml ]; then
+  pnpm install --frozen-lockfile
 else
-	echo "Skipping Prisma generation: DATABASE_URL is not configured in .env yet."
+  pnpm install
 fi
 
-echo "Project setup complete!"
+pnpm db:gen
