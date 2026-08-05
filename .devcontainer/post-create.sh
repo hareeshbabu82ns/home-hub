@@ -1,23 +1,17 @@
 #!/bin/bash
-set -e
+set -euo pipefail
 
-echo "📦 Installing pnpm..."
-npm install -g pnpm@latest
+echo "Installing project dependencies..."
+if ! pnpm install --frozen-lockfile; then
+	echo "Lockfile install failed, retrying without frozen lockfile..."
+	pnpm install --no-frozen-lockfile
+fi
 
-echo "⚙️  Setting up pnpm global bin directory..."
-export SHELL=/bin/bash
-pnpm setup
-source /home/node/.bashrc
+echo "Generating Prisma client..."
+if [ -f .env ] && grep -q '^DATABASE_URL=' .env; then
+	pnpm db:gen
+else
+	echo "Skipping Prisma generation: DATABASE_URL is not configured in .env yet."
+fi
 
-echo "🔧 Installing project dependencies..."
-pnpm install
-
-echo "🗄️ Generating Prisma client..."
-pnpm db:gen
-
-echo "✅ Devcontainer setup complete!"
-echo ""
-echo "📝 Next steps:"
-echo "  - Run 'pnpm dev' to start the development server"
-echo "  - Visit http://localhost:3000 in your browser"
-echo "  - Files in ~/Downloads are accessible at /downloads"
+echo "Project setup complete!"
