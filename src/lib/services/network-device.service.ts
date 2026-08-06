@@ -1,4 +1,5 @@
 import { networkDeviceRepository } from "@/lib/db/repositories";
+import type { NetworkDnsQueryResult, NetworkDnsQueryRow } from "@/types/network";
 
 interface ScanResult {
   devices: Awaited<ReturnType<typeof networkDeviceRepository.findManyByUser>>;
@@ -33,12 +34,34 @@ interface DiscoveredDevice {
   intfDescription?: string;
 }
 
+interface DnsSearchQueriesPayload {
+  total: number;
+  rowCount: number;
+  current: number;
+  rows: NetworkDnsQueryRow[];
+}
+
 function asString( value: unknown ): string | undefined {
   if ( typeof value === "string" ) {
     const trimmed = value.trim();
     return trimmed.length > 0 ? trimmed : undefined;
   }
   return undefined;
+}
+
+function asNumber( value: unknown, fallback = 0 ): number {
+  if ( typeof value === "number" && Number.isFinite( value ) ) {
+    return value;
+  }
+
+  if ( typeof value === "string" ) {
+    const parsed = Number( value );
+    if ( Number.isFinite( parsed ) ) {
+      return parsed;
+    }
+  }
+
+  return fallback;
 }
 
 function pickField(
@@ -117,6 +140,54 @@ function mapDiscoveredDevices( payload: unknown ): DiscoveredDevice[] {
   }
 
   return discoveredDevices;
+}
+
+function mapDnsSearchQueries( payload: unknown ): DnsSearchQueriesPayload {
+  if ( typeof payload !== "object" || payload === null ) {
+    return {
+      total: 0,
+      rowCount: 0,
+      current: 1,
+      rows: [],
+    };
+  }
+
+  const objectPayload = payload as Record<string, unknown>;
+  const rowsUnknown = Array.isArray( objectPayload.rows ) ? objectPayload.rows : [];
+
+  const rows = rowsUnknown
+    .filter( ( row ) => typeof row === "object" && row !== null )
+    .map( ( row ) => {
+      const rowObject = row as Record<string, unknown>;
+
+      return {
+        uuid:
+          typeof rowObject.uuid === "string" || rowObject.uuid === null
+            ? rowObject.uuid
+            : null,
+        time: asNumber( rowObject.time ),
+        client: asString( rowObject.client ) || "",
+        family: asString( rowObject.family ) || "",
+        type: asString( rowObject.type ) || "",
+        domain: asString( rowObject.domain ) || "",
+        action: asString( rowObject.action ) || "",
+        source: asString( rowObject.source ) || "",
+        blocklist: asString( rowObject.blocklist ) || "",
+        rcode: asString( rowObject.rcode ) || "",
+        resolveTimeMs: asNumber( rowObject.resolve_time_ms ),
+        dnssecStatus: asString( rowObject.dnssec_status ) || "",
+        ttl: asNumber( rowObject.ttl ),
+        policy: asString( rowObject.policy ) || "",
+        status: asNumber( rowObject.status ),
+      };
+    } );
+
+  return {
+    total: asNumber( objectPayload.total ),
+    rowCount: asNumber( objectPayload.rowCount ),
+    current: asNumber( objectPayload.current, 1 ),
+    rows,
+  };
 }
 
 async function discoverFromRouterApi( input: {
@@ -297,9 +368,78 @@ async function searchAliasFromRouter( input: {
     .map( ( row ) => row as AliasSearchRow );
 }
 
+async function searchDnsQueriesFromRouter( input: {
+  apiBaseUrl: string;
+  apiKey: string;
+  apiSecret: string;
+  verifyTls: boolean;
+  clientIp: string;
+  current?: number;
+  rowCount?: number;
+  action?: string;
+} ): Promise<DnsSearchQueriesPayload> {
+  const baseUrl = input.apiBaseUrl.replace( /\/$/, "" );
+  const url = `${baseUrl}/api/unbound/overview/search_queries`;
+
+  const credentials = Buffer.from( `${input.apiKey}:${input.apiSecret}` ).toString(
+    "base64",
+  );
+
+  const originalTlsSetting = process.env.NODE_TLS_REJECT_UNAUTHORIZED;
+  if ( !input.verifyTls ) {
+    process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
+  }
+
+  let response: Response;
+  try {
+    const requestBody: {
+      current: number;
+      rowCount: number;
+      client: string;
+      action?: string;
+    } = {
+      current: input.current ?? 1,
+      rowCount: input.rowCount ?? 50,
+      client: input.clientIp,
+    };
+
+    if ( input.action ) {
+      requestBody.action = input.action;
+    }
+
+    response = await fetch( url, {
+      method: "POST",
+      headers: {
+        Authorization: `Basic ${credentials}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify( requestBody ),
+    } );
+  } finally {
+    if ( !input.verifyTls ) {
+      if ( typeof originalTlsSetting === "string" ) {
+        process.env.NODE_TLS_REJECT_UNAUTHORIZED = originalTlsSetting;
+      } else {
+        delete process.env.NODE_TLS_REJECT_UNAUTHORIZED;
+      }
+    }
+  }
+
+  if ( !response.ok ) {
+    throw new Error( `Router API responded with ${response.status}` );
+  }
+
+  const payload = ( await response.json() ) as unknown;
+  return mapDnsSearchQueries( payload );
+}
+
 class NetworkDeviceService {
   async list( userId: string, search?: string ) {
     return networkDeviceRepository.findManyByUser( { userId, search } );
+  }
+
+  async getById( userId: string, id: string ) {
+    return networkDeviceRepository.findById( id, userId );
   }
 
   async scanAndSave(
@@ -414,6 +554,19 @@ class NetworkDeviceService {
 
     const blockedAlias = rows.find( ( row ) => row.name === "Blocked_Devices" );
     return parseBlockedAddresses( blockedAlias?.content );
+  }
+
+  async getDnsSearchQueries( input: {
+    apiBaseUrl: string;
+    apiKey: string;
+    apiSecret: string;
+    verifyTls: boolean;
+    clientIp: string;
+    current?: number;
+    rowCount?: number;
+    action?: string;
+  } ): Promise<NetworkDnsQueryResult> {
+    return searchDnsQueriesFromRouter( input );
   }
 }
 

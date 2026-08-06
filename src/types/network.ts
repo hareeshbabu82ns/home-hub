@@ -64,3 +64,28 @@ export interface NetworkTrafficSnapshot {
   records: NetworkTrafficRecord[];
   fetchedAt: string;
 }
+
+export interface NetworkDnsQueryRow {
+  uuid: string | null;
+  time: number;
+  client: string;
+  family: string;
+  type: string;
+  domain: string;
+  action: string;
+  source: string;
+  blocklist: string;
+  rcode: string;
+  resolveTimeMs: number;
+  dnssecStatus: string;
+  ttl: number;
+  policy: string;
+  status: number;
+}
+
+export interface NetworkDnsQueryResult {
+  total: number;
+  rowCount: number;
+  current: number;
+  rows: NetworkDnsQueryRow[];
+}

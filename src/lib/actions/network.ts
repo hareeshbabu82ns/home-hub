@@ -8,7 +8,7 @@ import {
   networkSettingsService,
   networkTrafficService,
 } from "@/lib/services";
-import type { NetworkTrafficSnapshot } from "@/types/network";
+import type { NetworkDnsQueryResult, NetworkTrafficSnapshot } from "@/types/network";
 
 const networkSettingsSchema = z.object( {
   apiBaseUrl: z.string().url( "Valid API base URL is required" ),
@@ -34,6 +34,13 @@ const updateNetworkDeviceSchema = z.object( {
 const toggleNetworkDeviceBlockSchema = z.object( {
   id: z.string().min( 1 ),
   isBlocked: z.boolean(),
+} );
+
+const networkDnsQuerySearchSchema = z.object( {
+  id: z.string().min( 1 ),
+  current: z.number().int().positive().optional(),
+  rowCount: z.number().int().positive().max( 500 ).optional(),
+  action: z.string().min( 1 ).max( 30 ).optional(),
 } );
 
 async function getUserIdOrThrow() {
@@ -79,6 +86,104 @@ export async function getNetworkDevices( search?: string ) {
     };
   } catch {
     return { success: false, error: "Failed to load devices" };
+  }
+}
+
+export async function getNetworkDeviceDetails( id: string ) {
+  try {
+    const userId = await getUserIdOrThrow();
+
+    const [ device, settings ] = await Promise.all( [
+      networkDeviceService.getById( userId, id ),
+      networkSettingsService.getByUserId( userId ),
+    ] );
+
+    if ( !device ) {
+      return { success: false, error: "Device not found" };
+    }
+
+    if ( !settings ) {
+      return {
+        success: true,
+        device: {
+          ...device,
+          isBlocked: false,
+        },
+      };
+    }
+
+    const blockedAddresses = await networkDeviceService.getBlockedAddresses( {
+      apiBaseUrl: settings.apiBaseUrl,
+      apiKey: settings.apiKey,
+      apiSecret: settings.apiSecret,
+      verifyTls: settings.verifyTls,
+    } );
+
+    return {
+      success: true,
+      device: {
+        ...device,
+        isBlocked: blockedAddresses.has( device.ipAddress ),
+      },
+    };
+  } catch {
+    return { success: false, error: "Failed to load device details" };
+  }
+}
+
+export async function getNetworkDeviceDnsQueries(
+  values: z.infer<typeof networkDnsQuerySearchSchema>,
+): Promise<{ success: boolean; data?: NetworkDnsQueryResult; error?: string }> {
+  try {
+    const userId = await getUserIdOrThrow();
+    const parsed = networkDnsQuerySearchSchema.parse( values );
+
+    const [ device, settings ] = await Promise.all( [
+      networkDeviceService.getById( userId, parsed.id ),
+      networkSettingsService.getByUserId( userId ),
+    ] );
+
+    if ( !device ) {
+      return {
+        success: false,
+        error: "Device not found",
+      };
+    }
+
+    if ( !settings ) {
+      return {
+        success: false,
+        error: "Configure network API credentials in Settings first",
+      };
+    }
+
+    const data = await networkDeviceService.getDnsSearchQueries( {
+      apiBaseUrl: settings.apiBaseUrl,
+      apiKey: settings.apiKey,
+      apiSecret: settings.apiSecret,
+      verifyTls: settings.verifyTls,
+      clientIp: device.ipAddress,
+      current: parsed.current,
+      rowCount: parsed.rowCount,
+      action: parsed.action,
+    } );
+
+    return {
+      success: true,
+      data,
+    };
+  } catch ( error ) {
+    if ( error instanceof z.ZodError ) {
+      return {
+        success: false,
+        error: error.issues[ 0 ]?.message || "Invalid input",
+      };
+    }
+
+    return {
+      success: false,
+      error: "Failed to load DNS queries",
+    };
   }
 }
 

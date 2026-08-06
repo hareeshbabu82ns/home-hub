@@ -11,6 +11,7 @@ import {
   Trash2,
   Wifi,
 } from "lucide-react";
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
@@ -237,7 +238,16 @@ export default function NetworkDevicesPage() {
                           {device.ipAddress}
                         </TableCell>
                         <TableCell className="font-mono text-xs">
-                          {device.macAddress || "-"}
+                          {device.macAddress ? (
+                            <Link
+                              href={`/network/devices/${device.id}`}
+                              className="text-primary hover:underline"
+                            >
+                              {device.macAddress}
+                            </Link>
+                          ) : (
+                            "-"
+                          )}
                         </TableCell>
                         <TableCell>{device.deviceType || "-"}</TableCell>
                         <TableCell>
