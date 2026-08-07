@@ -83,8 +83,9 @@ export function TrafficMonitorClient() {
 
     const result = await getNetworkTrafficTopLan();
     const now = Date.now();
+    const snapshot = result.data;
 
-    if (!result.success || !result.data) {
+    if (!result.success || !snapshot) {
       setError(result.error || "Failed to load traffic data");
       setPolling(false);
       setLoading(false);
@@ -92,10 +93,10 @@ export function TrafficMonitorClient() {
     }
 
     setError(null);
-    setRecords(result.data.records);
+    setRecords(snapshot.records);
     setAddressNameMap((previous) => {
       const next = { ...previous };
-      for (const record of result.data.records) {
+      for (const record of snapshot.records) {
         next[record.address] =
           record.displayName || record.rname || record.address;
       }
@@ -104,13 +105,10 @@ export function TrafficMonitorClient() {
 
     const point: HistoryPoint = {
       timestamp: now,
-      values: result.data.records.reduce<Record<string, number>>(
-        (acc, record) => {
-          acc[record.address] = record.rateBits;
-          return acc;
-        },
-        {},
-      ),
+      values: snapshot.records.reduce<Record<string, number>>((acc, record) => {
+        acc[record.address] = record.rateBits;
+        return acc;
+      }, {}),
     };
 
     setHistory((previous) => {

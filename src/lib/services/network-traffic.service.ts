@@ -1,9 +1,9 @@
 interface TrafficTopLanDetail {
   address: string;
-  rate?: string;
+  rate: string | undefined;
   rateBits: number;
-  cumulative?: string;
-  cumulativeBytes?: number;
+  cumulative: string | undefined;
+  cumulativeBytes: number;
   tags: string[];
 }
 
@@ -18,12 +18,12 @@ export interface TrafficTopLanRecord {
   tags: string[];
   details: TrafficTopLanDetail[];
   rname: string;
-  rateIn?: string;
-  rateOut?: string;
-  rate?: string;
-  cumulativeIn?: string;
-  cumulativeOut?: string;
-  cumulative?: string;
+  rateIn: string | undefined;
+  rateOut: string | undefined;
+  rate: string | undefined;
+  cumulativeIn: string | undefined;
+  cumulativeOut: string | undefined;
+  cumulative: string | undefined;
 }
 
 function asString( value: unknown ): string {
@@ -81,9 +81,9 @@ function mapDetails( value: unknown ): TrafficTopLanDetail[] {
         cumulative: asString( row.cumulative ) || undefined,
         cumulativeBytes: asNumber( row.cumulative_bytes ),
         tags: asStringArray( row.tags ),
-      };
+      } satisfies TrafficTopLanDetail;
     } )
-    .filter( ( row ): row is TrafficTopLanDetail => row !== null );
+    .filter( ( row ): row is NonNullable<typeof row> & TrafficTopLanDetail => row !== null );
 }
 
 function mapRecords( payload: unknown ): TrafficTopLanRecord[] {
@@ -128,9 +128,9 @@ function mapRecords( payload: unknown ): TrafficTopLanRecord[] {
         cumulativeIn: asString( row.cumulative_in ) || undefined,
         cumulativeOut: asString( row.cumulative_out ) || undefined,
         cumulative: asString( row.cumulative ) || undefined,
-      };
+      } satisfies TrafficTopLanRecord;
     } )
-    .filter( ( row ): row is TrafficTopLanRecord => row !== null );
+    .filter( ( row ): row is NonNullable<typeof row> & TrafficTopLanRecord => row !== null );
 }
 
 class NetworkTrafficService {
