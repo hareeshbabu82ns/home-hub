@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import type { TooltipValueType } from "recharts";
 import {
   LineChart,
   Line,
@@ -43,11 +44,14 @@ export function TrackingCharts({
   metrics,
   title,
 }: TrackingChartsProps) {
-  const formatTooltipValue = (value: number | string, name: string) => {
+  const formatTooltipValue = (
+    value: TooltipValueType | undefined,
+    name: string | number | undefined,
+  ): [React.ReactNode, React.ReactNode] => {
     if (name === "value" && typeof value === "number") {
       return [value.toLocaleString(), "Value"];
     }
-    return [value, name];
+    return [Array.isArray(value) ? value.join(" – ") : value, name];
   };
 
   const formatPieData = (metrics: TrackingMetrics) => {
@@ -142,7 +146,7 @@ export function TrackingCharts({
                   <Tooltip
                     formatter={formatTooltipValue}
                     labelFormatter={(value) =>
-                      `Date: ${new Date(value).toLocaleDateString()}`
+                      `Date: ${new Date(String(value)).toLocaleDateString()}`
                     }
                   />
                   <Line
@@ -182,7 +186,7 @@ export function TrackingCharts({
                   <Tooltip
                     formatter={(value) => [value, "Entries"]}
                     labelFormatter={(value) =>
-                      `Date: ${new Date(value).toLocaleDateString()}`
+                      `Date: ${new Date(String(value)).toLocaleDateString()}`
                     }
                   />
                   <Bar dataKey="value" fill="#82ca9d" />
@@ -207,7 +211,7 @@ export function TrackingCharts({
                     cy="50%"
                     labelLine={false}
                     label={({ name, percent }) =>
-                      `${name} ${(percent * 100).toFixed(0)}%`
+                      `${name} ${((percent ?? 0) * 100).toFixed(0)}%`
                     }
                     outerRadius={80}
                     fill="#8884d8"

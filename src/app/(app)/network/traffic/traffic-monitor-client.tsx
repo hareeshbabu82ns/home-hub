@@ -232,9 +232,9 @@ export function TrafficMonitorClient() {
                     tickFormatter={(value) => formatRateBits(Number(value))}
                   />
                   <Tooltip
-                    formatter={(value: number, address: string) => [
-                      formatRateBits(value),
-                      addressNameMap[address] || address,
+                    formatter={(value, address) => [
+                      formatRateBits(Number(value)),
+                      addressNameMap[String(address)] || address,
                     ]}
                     labelFormatter={(_label, payload) => {
                       const ts = payload?.[0]?.payload?.timestamp;

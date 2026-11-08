@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/* eslint-disable @typescript-eslint/no-var-requires, no-console */
+/* eslint-disable no-console */
 
 /**
  * Complete PWA Assets Generator
@@ -15,8 +15,8 @@
  * - sharp package: pnpm add -D sharp
  */
 
-const fs = require("fs");
-const path = require("path");
+import fs from "node:fs";
+import path from "node:path";
 
 async function generateAllPWAAssets() {
   try {
