@@ -19,11 +19,22 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   getRouterControl,
   prepareRouterControl,
+  setNetworkTimezone,
   setQuarantineNewDevices,
 } from "@/lib/actions/network-control";
+
+const SERVER_DEFAULT = "__server__";
+const TIME_ZONES: string[] = (() => {
+  try {
+    return Intl.supportedValuesOf("timeZone");
+  } catch {
+    return ["UTC"];
+  }
+})();
 
 type ControlData = Extract<Awaited<ReturnType<typeof getRouterControl>>, { success: true }>["data"];
 
@@ -80,6 +91,18 @@ export function RouterControlCard() {
           ? `Router prepared: created ${created.join(", ")}${migrated.length ? `; moved ${migrated.length} blocked device(s)` : ""}`
           : "Router already prepared; MAC control enabled",
       );
+      await load();
+    } else {
+      toast.error(result.error);
+    }
+  }
+
+  async function changeTimeZone(value: string) {
+    setBusy(true);
+    const result = await setNetworkTimezone(value === SERVER_DEFAULT ? null : value);
+    setBusy(false);
+    if (result.success) {
+      toast.success(`Schedules and quotas now use ${result.timeZone}`);
       await load();
     } else {
       toast.error(result.error);
@@ -189,9 +212,34 @@ export function RouterControlCard() {
           </div>
         )}
 
+        <div className="flex flex-col gap-2 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-sm font-medium">Timezone</p>
+            <p className="text-muted-foreground text-xs">
+              Used for schedules, daily quotas and &ldquo;today&rdquo; totals.
+            </p>
+          </div>
+          <Select
+            value={data.timeZoneSetting ?? SERVER_DEFAULT}
+            disabled={!data.canManage || busy}
+            onValueChange={(value) => void changeTimeZone(value)}
+          >
+            <SelectTrigger className="w-64">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className="max-h-80">
+              <SelectItem value={SERVER_DEFAULT}>Server default ({data.serverTimeZone})</SelectItem>
+              {TIME_ZONES.map((zone) => (
+                <SelectItem key={zone} value={zone}>
+                  {zone}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
         {mode === "mac" && (
           <p className="text-muted-foreground text-xs">
-            Schedules use the {data.timeZone} timezone.{" "}
             {enforcement
               ? `Last enforced ${formatDistanceToNowStrict(new Date(enforcement.at), { addSuffix: true })}: ${enforcement.blockedDevices} device(s) blocked${enforcement.errors.length ? `, ${enforcement.errors.length} error(s)` : ""}.`
               : "Not enforced yet; the collector applies changes every minute."}

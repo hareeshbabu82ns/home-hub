@@ -4,7 +4,7 @@ import { ObjectId } from "mongodb";
 
 import { getUserAuth } from "@/lib/auth/utils";
 import { db } from "@/lib/db";
-import { resolveTimeZone } from "@/lib/network/access-policy";
+import { resolveTimeZone, startOfLocalDay } from "@/lib/network/access-policy";
 import { getUsageSinceLocalMidnight } from "@/lib/network/enforcement";
 import { networkDeviceService } from "@/lib/services";
 import { networkInsightsService } from "@/lib/services/network-insights.service";
@@ -32,8 +32,10 @@ const HISTORY_WINDOWS = new Set([1, 5, 15, 60]);
 export async function getTrafficOverview(minutes: number) {
   return withUser("Failed to load traffic history", async (userId) => {
     const window = HISTORY_WINDOWS.has(minutes) ? minutes : 5;
-    const todayStart = new Date();
-    todayStart.setUTCHours(0, 0, 0, 0);
+    const settings = await db.networkIntegrationSettings.findUnique({ where: { userId } });
+    // Local day, matching quotas and the devices list.
+    const todayStart = startOfLocalDay(new Date(), resolveTimeZone(settings?.timezone));
+    todayStart.setMinutes(0, 0, 0);
     const [status, history, topToday] = await Promise.all([
       networkInsightsService.getCollectorStatus(userId),
       networkInsightsService.getTrafficHistory(userId, window),
@@ -49,7 +51,11 @@ export async function getDeviceInsights(deviceId: string) {
     const device = await networkDeviceService.getById(userId, deviceId);
     if (!device) throw new Error("Device not found");
     const [usage, domains, presence] = await Promise.all([
-      networkInsightsService.getDeviceUsage(userId, deviceId),
+      db.networkIntegrationSettings
+        .findUnique({ where: { userId } })
+        .then((settings) =>
+          networkInsightsService.getDeviceUsage(userId, deviceId, resolveTimeZone(settings?.timezone)),
+        ),
       networkInsightsService.getDeviceTopDomains(userId, deviceId),
       networkInsightsService.getDevicePresence(userId, deviceId),
     ]);

@@ -139,12 +139,20 @@ async function runReconcile(
     },
     select: { deviceId: true, ip: true },
   });
+  // An address can be reassigned by DHCP. Who holds it *now* (online
+  // devices) wins, and a device's last-known IP only counts while it's recent;
+  // otherwise a long-gone blocked device would block whoever got its old IP.
+  const onlineOwner = new Map(
+    devices.filter((device) => device.isOnline).map((device) => [device.ipAddress, device.id]),
+  );
+  const recentCutoff = now.getTime() - ADDRESS_MAX_AGE_MS;
   const addressesOf = (deviceId: string) => {
     const device = devices.find((d) => d.id === deviceId)!;
-    return [
-      device.ipAddress,
-      ...addresses.filter((a) => a.deviceId === deviceId).map((a) => a.ip),
-    ].filter(isRoutableAddress);
+    const current =
+      device.isOnline || new Date(device.lastSeenAt).getTime() > recentCutoff ? [device.ipAddress] : [];
+    return [...current, ...addresses.filter((a) => a.deviceId === deviceId).map((a) => a.ip)]
+      .filter(isRoutableAddress)
+      .filter((ip) => (onlineOwner.get(ip) ?? deviceId) === deviceId);
   };
   const desiredIps = new Set(blocked.flatMap((device) => addressesOf(device.id)));
   const releasedIps = new Set(

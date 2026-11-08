@@ -14,14 +14,7 @@ import {
 
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { AnimatedLeaderboard } from "@/components/network/animated-leaderboard";
 import { getDeviceInsights } from "@/lib/actions/network-insights";
 import { formatBytes } from "@/lib/network/format";
 import type {
@@ -117,9 +110,12 @@ export function DeviceInsights({ deviceId }: { deviceId: string }) {
                     width={64}
                     tickFormatter={(value) => formatBytes(Number(value))}
                   />
-                  <Tooltip formatter={(value, name) => [formatBytes(Number(value)), name]} />
-                  <Bar dataKey="download" name="Download" stackId="bytes" fill="#0ea5e9" />
-                  <Bar dataKey="upload" name="Upload" stackId="bytes" fill="#14b8a6" />
+                  <Tooltip
+                    cursor={{ fill: "currentColor", fillOpacity: 0.06 }}
+                    formatter={(value, name) => [formatBytes(Number(value)), name]}
+                  />
+                  <Bar dataKey="download" name="Download" stackId="bytes" fill="#0ea5e9" animationDuration={700} animationEasing="ease-out" />
+                  <Bar dataKey="upload" name="Upload" stackId="bytes" fill="#14b8a6" radius={[4, 4, 0, 0]} animationDuration={700} animationEasing="ease-out" />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -164,38 +160,22 @@ export function DeviceInsights({ deviceId }: { deviceId: string }) {
           )}
         </CardHeader>
         <CardContent>
-          {domains.length === 0 ? (
-            <p className="text-muted-foreground text-sm">No DNS queries recorded yet.</p>
-          ) : (
-            <div className="overflow-x-auto rounded-lg border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Domain</TableHead>
-                    <TableHead className="text-right">Queries</TableHead>
-                    <TableHead className="text-right">Blocked</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {domains.map((row) => (
-                    <TableRow key={row.domain}>
-                      <TableCell className="max-w-96 truncate font-mono text-xs">
-                        {row.domain}
-                      </TableCell>
-                      <TableCell className="text-right">{row.queries}</TableCell>
-                      <TableCell className="text-right">
-                        {row.blocked > 0 ? (
-                          <Badge variant="destructive">{row.blocked}</Badge>
-                        ) : (
-                          "0"
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
+          <AnimatedLeaderboard
+            limit={15}
+            items={domains.map((row) => ({
+              id: row.domain,
+              label: row.domain,
+              value: row.queries,
+              extra:
+                row.blocked > 0 ? (
+                  <Badge variant="destructive" className="shrink-0">
+                    {row.blocked} blocked
+                  </Badge>
+                ) : undefined,
+            }))}
+            format={(value) => `${Math.round(value)} queries`}
+            emptyText="No DNS queries recorded yet."
+          />
         </CardContent>
       </Card>
     </div>

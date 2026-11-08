@@ -76,6 +76,8 @@ export async function getRouterControl() {
         mode: settings.controlMode === "mac" ? ("mac" as const) : ("ip" as const),
         quarantineNewDevices: settings.quarantineNewDevices ?? false,
         timeZone: resolveTimeZone(settings.timezone),
+        timeZoneSetting: settings.timezone ?? null,
+        serverTimeZone: resolveTimeZone(null),
         setup,
         enforcement: (state?.enforcement as EnforcementResult | null) ?? null,
       },
@@ -154,6 +156,29 @@ export async function setQuarantineNewDevices(enabled: boolean) {
     return { success: true as const };
   } catch (error) {
     return fail(error, "Failed to update quarantine setting");
+  }
+}
+
+/** Timezone for schedules, quotas and "today"; null = server TZ. */
+export async function setNetworkTimezone(timeZone: string | null) {
+  try {
+    const { userId, email } = await requireManager();
+    if (timeZone !== null && resolveTimeZone(timeZone) !== timeZone) {
+      return { success: false as const, error: `Unknown timezone "${timeZone}"` };
+    }
+    const settings = await db.networkIntegrationSettings.findUnique({ where: { userId } });
+    if (!settings) return { success: false as const, error: NOT_CONFIGURED };
+    await networkAuditService.track(
+      { userId, actorEmail: email, action: "timezone", target: timeZone ?? "server default" },
+      async () => {
+        await db.networkIntegrationSettings.update({ where: { userId }, data: { timezone: timeZone } });
+        // Schedule windows may have just started or ended in the new zone.
+        await reconcileAccess(userId, { actorEmail: email, trigger: "timezone" });
+      },
+    );
+    return { success: true as const, timeZone: resolveTimeZone(timeZone) };
+  } catch (error) {
+    return fail(error, "Failed to set timezone");
   }
 }
 

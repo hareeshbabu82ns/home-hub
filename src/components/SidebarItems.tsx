@@ -11,6 +11,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { NavBadge, type NavBadgeKey } from "@/components/nav/nav-badge";
 import { additionalLinks, defaultLinks } from "@/config/nav";
 import { cn } from "@/lib/utils";
 
@@ -18,6 +19,8 @@ export interface ISidebarLink {
   title: string;
   href: string;
   icon: LucideIcon;
+  /** Live counter shown next to the link. */
+  badge?: NavBadgeKey;
 }
 
 interface SidebarItemsProps {
@@ -117,6 +120,7 @@ const SidebarLink = ({
         />
         {!isCollapsed && <span className="truncate">{link.title}</span>}
       </div>
+      {link.badge && <NavBadge badge={link.badge} collapsed={isCollapsed} />}
     </Link>
   );
 

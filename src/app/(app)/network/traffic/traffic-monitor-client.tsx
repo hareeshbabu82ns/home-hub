@@ -1,21 +1,22 @@
 "use client";
 
 import { Activity, Loader2, TriangleAlert } from "lucide-react";
-import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  Area,
+  AreaChart,
   CartesianGrid,
   Legend,
-  Line,
-  LineChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
 } from "recharts";
 
+import { AnimatedLeaderboard } from "@/components/network/animated-leaderboard";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -23,8 +24,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { getNetworkTrafficTopLan } from "@/lib/actions/network";
 import { getTrafficOverview } from "@/lib/actions/network-insights";
+import { breakGaps } from "@/lib/network/chart-gaps";
 import { formatBytes, formatRateBits } from "@/lib/network/format";
 import type {
   CollectorStatus,
@@ -41,6 +44,10 @@ const WINDOW_OPTIONS = [
 ] as const;
 const MAX_SERIES = 8;
 const POLL_GAP_MS = 1000;
+// While polling directly, check whether the collector came back.
+const COLLECTOR_RECHECK_MS = 30_000;
+// Moving-average width when smoothing is on.
+const SMOOTH_SAMPLES = 3;
 const SERIES_COLORS = [
   "#0ea5e9",
   "#14b8a6",
@@ -53,12 +60,14 @@ const SERIES_COLORS = [
 ] as const;
 
 type Mode = "loading" | "collector" | "direct";
+/** One chart point: time plus bits/s per address. */
+type ChartRow = { timestamp: number } & Record<string, number>;
 
-function formatTimeLabel(timestamp: number): string {
+function formatClock(timestamp: number, withSeconds: boolean): string {
   return new Date(timestamp).toLocaleTimeString([], {
     hour: "2-digit",
     minute: "2-digit",
-    second: "2-digit",
+    ...(withSeconds ? { second: "2-digit" } : {}),
   });
 }
 
@@ -71,6 +80,7 @@ function toPoint(timestamp: number, rows: LiveTrafficRow[]): TrafficHistoryPoint
 
 export function TrafficMonitorClient() {
   const [windowMinutes, setWindowMinutes] = useState(5);
+  const [smooth, setSmooth] = useState(true);
   const [mode, setMode] = useState<Mode>("loading");
   const [status, setStatus] = useState<CollectorStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -141,6 +151,21 @@ export function TrafficMonitorClient() {
     return () => source.close();
   }, [mode, applyRows]);
 
+  // Re-rank "Top consumers today" while live (usage accrues every few seconds).
+  useEffect(() => {
+    if (mode !== "collector") return;
+    let cancelled = false;
+    const timer = setInterval(() => {
+      void getTrafficOverview(1).then((result) => {
+        if (!cancelled && result.success) setTopToday(result.data.topToday);
+      });
+    }, 60_000);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [mode]);
+
   // Direct mode: poll the router from this page (collector not running).
   const fetchDirect = useCallback(async () => {
     if (inFlightRef.current) return;
@@ -178,9 +203,20 @@ export function TrafficMonitorClient() {
       if (!cancelled) timer = setTimeout(loop, POLL_GAP_MS);
     };
     void loop();
+    // Switch back to the live feed once the collector is running again.
+    const recheck = setInterval(() => {
+      void getTrafficOverview(1).then((result) => {
+        if (!cancelled && result.success && result.data.status.running) {
+          setStatus(result.data.status);
+          setTopToday(result.data.topToday);
+          setMode("collector");
+        }
+      });
+    }, COLLECTOR_RECHECK_MS);
     return () => {
       cancelled = true;
       if (timer) clearTimeout(timer);
+      clearInterval(recheck);
     };
   }, [mode, fetchDirect]);
 
@@ -205,25 +241,57 @@ export function TrafficMonitorClient() {
       .map(([address]) => address);
   }, [visibleHistory]);
 
-  const chartData = useMemo(
-    () =>
-      visibleHistory.map((point) => {
-        const row: Record<string, string | number> = {
-          timestamp: point.timestamp,
-          label: formatTimeLabel(point.timestamp),
-        };
+  const chartData = useMemo(() => {
+    const raw = visibleHistory.map((point) => {
+      const row: ChartRow = { timestamp: point.timestamp };
+      for (const address of trackedAddresses) row[address] = point.values[address] ?? 0;
+      return row;
+    });
+    // Samples come every ~4s (longer windows: 10–30s buckets); a minute
+    // without any means nothing was recorded, so break the line there.
+    const withGaps = (rows: ChartRow[]) =>
+      breakGaps(rows, 60_000, (timestamp): ChartRow => ({ timestamp }));
+    if (!smooth) return withGaps(raw);
+    // Trailing moving average: top-talker samples are spiky (~2s windows).
+    return withGaps(
+      raw.map((row, index) => {
+        const window = raw.slice(Math.max(0, index - SMOOTH_SAMPLES + 1), index + 1);
+        const averaged: ChartRow = { timestamp: row.timestamp };
         for (const address of trackedAddresses) {
-          row[address] = point.values[address] ?? 0;
+          averaged[address] = window.reduce((sum, r) => sum + (r[address] ?? 0), 0) / window.length;
         }
-        return row;
+        return averaged;
       }),
-    [visibleHistory, trackedAddresses],
-  );
+    );
+  }, [visibleHistory, trackedAddresses, smooth]);
 
-  const sortedLive = useMemo(
-    () => [...liveRows].sort((a, b) => b.rateBits - a.rateBits),
+  const liveItems = useMemo(
+    () =>
+      liveRows.map((row) => ({
+        id: row.address,
+        label: row.name,
+        href: row.deviceId ? `/network/devices/${row.deviceId}` : undefined,
+        sublabel: row.address,
+        value: row.rateBits,
+        split: [row.rateBitsIn, row.rateBitsOut] as [number, number],
+      })),
     [liveRows],
   );
+
+  const topItems = useMemo(
+    () =>
+      topToday.map((row) => ({
+        id: row.deviceId,
+        label: row.name,
+        href: `/network/devices/${row.deviceId}`,
+        sublabel: row.ipAddress ?? undefined,
+        value: row.bytesIn + row.bytesOut,
+        split: [row.bytesIn, row.bytesOut] as [number, number],
+      })),
+    [topToday],
+  );
+
+  const longWindow = windowMinutes > 5;
 
   return (
     <div className="space-y-6">
@@ -234,7 +302,8 @@ export function TrafficMonitorClient() {
             The background collector isn&apos;t running, so this page polls the
             router directly and keeps no history. Start it with{" "}
             <code className="font-mono">pnpm collector</code> or set{" "}
-            <code className="font-mono">NETWORK_COLLECTOR=embedded</code>.
+            <code className="font-mono">NETWORK_COLLECTOR=embedded</code>. The page
+            switches back to the live feed automatically when it&apos;s running.
           </div>
         </div>
       )}
@@ -245,7 +314,13 @@ export function TrafficMonitorClient() {
             <Activity className="size-5" />
             LAN Traffic
           </CardTitle>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-2">
+              <Switch id="smooth-chart" checked={smooth} onCheckedChange={setSmooth} />
+              <Label htmlFor="smooth-chart" className="text-sm">
+                Smooth
+              </Label>
+            </div>
             <Select
               value={String(windowMinutes)}
               onValueChange={(value) => setWindowMinutes(Number(value))}
@@ -266,7 +341,7 @@ export function TrafficMonitorClient() {
                 <Loader2 className="size-3 animate-spin" />
               ) : mode === "collector" ? (
                 <span
-                  className={`size-2 rounded-full ${status?.running ? "bg-emerald-500" : "bg-amber-500"}`}
+                  className={`size-2 rounded-full ${status?.running ? "animate-pulse bg-emerald-500" : "bg-amber-500"}`}
                 />
               ) : null}
               {mode === "collector"
@@ -297,9 +372,37 @@ export function TrafficMonitorClient() {
           ) : (
             <div className="h-80 w-full">
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={chartData} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="label" tickLine={false} axisLine={false} minTickGap={32} />
+                <AreaChart data={chartData} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
+                  <defs>
+                    {trackedAddresses.map((address, index) => {
+                      const color = SERIES_COLORS[index % SERIES_COLORS.length];
+                      return (
+                        <linearGradient
+                          key={address}
+                          id={`traffic-fill-${index}`}
+                          x1="0"
+                          y1="0"
+                          x2="0"
+                          y2="1"
+                        >
+                          <stop offset="0%" stopColor={color} stopOpacity={0.28} />
+                          <stop offset="100%" stopColor={color} stopOpacity={0} />
+                        </linearGradient>
+                      );
+                    })}
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                  {/* A real time axis: samples arrive ~4s apart, not evenly. */}
+                  <XAxis
+                    dataKey="timestamp"
+                    type="number"
+                    scale="time"
+                    domain={["dataMin", "dataMax"]}
+                    tickLine={false}
+                    axisLine={false}
+                    minTickGap={40}
+                    tickFormatter={(value) => formatClock(Number(value), !longWindow)}
+                  />
                   <YAxis
                     tickLine={false}
                     axisLine={false}
@@ -311,24 +414,25 @@ export function TrafficMonitorClient() {
                       formatRateBits(Number(value)),
                       nameMap[String(address)] || address,
                     ]}
-                    labelFormatter={(_label, payload) => {
-                      const ts = payload?.[0]?.payload?.timestamp;
-                      return typeof ts === "number" ? new Date(ts).toLocaleTimeString() : "";
-                    }}
+                    labelFormatter={(label) => new Date(Number(label)).toLocaleTimeString()}
                   />
                   <Legend formatter={(value) => nameMap[String(value)] || String(value)} />
                   {trackedAddresses.map((address, index) => (
-                    <Line
+                    <Area
                       key={address}
                       type="monotone"
                       dataKey={address}
                       stroke={SERIES_COLORS[index % SERIES_COLORS.length]}
-                      dot={false}
+                      fill={`url(#traffic-fill-${index})`}
                       strokeWidth={2}
-                      isAnimationActive={false}
+                      dot={false}
+                      activeDot={{ r: 3 }}
+                      isAnimationActive
+                      animationDuration={700}
+                      animationEasing="ease-in-out"
                     />
                   ))}
-                </LineChart>
+                </AreaChart>
               </ResponsiveContainer>
             </div>
           )}
@@ -341,42 +445,12 @@ export function TrafficMonitorClient() {
             <CardTitle>Active right now</CardTitle>
           </CardHeader>
           <CardContent>
-            {sortedLive.length === 0 ? (
-              <p className="text-muted-foreground text-sm">No active LAN traffic.</p>
-            ) : (
-              <div className="space-y-2">
-                {sortedLive.map((row) => (
-                  <div
-                    key={row.address}
-                    className="flex flex-col gap-2 rounded-lg border p-3 sm:flex-row sm:items-center sm:justify-between"
-                  >
-                    <div className="min-w-0">
-                      {row.deviceId ? (
-                        <Link
-                          href={`/network/devices/${row.deviceId}`}
-                          className="font-medium hover:underline"
-                        >
-                          {row.name}
-                        </Link>
-                      ) : (
-                        <p className="font-medium">{row.name}</p>
-                      )}
-                      <p className="text-muted-foreground font-mono text-xs">{row.address}</p>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4 text-sm">
-                      <div>
-                        <p className="text-muted-foreground text-xs">Down</p>
-                        <p className="font-medium">{formatRateBits(row.rateBitsIn)}</p>
-                      </div>
-                      <div>
-                        <p className="text-muted-foreground text-xs">Up</p>
-                        <p className="font-medium">{formatRateBits(row.rateBitsOut)}</p>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+            <AnimatedLeaderboard
+              items={liveItems}
+              format={formatRateBits}
+              splitLabels={["↓", "↑"]}
+              emptyText="No active LAN traffic."
+            />
           </CardContent>
         </Card>
 
@@ -384,42 +458,20 @@ export function TrafficMonitorClient() {
           <CardHeader>
             <CardTitle>Top consumers today</CardTitle>
             <p className="text-muted-foreground text-xs">
-              Estimated from sampled traffic since midnight UTC.
+              Estimated from sampled traffic since local midnight.
             </p>
           </CardHeader>
           <CardContent>
-            {topToday.length === 0 ? (
-              <p className="text-muted-foreground text-sm">
-                {mode === "direct"
+            <AnimatedLeaderboard
+              items={topItems}
+              format={formatBytes}
+              splitLabels={["↓", "↑"]}
+              emptyText={
+                mode === "direct"
                   ? "Usage history needs the background collector."
-                  : "No usage recorded yet today."}
-              </p>
-            ) : (
-              <div className="space-y-2">
-                {topToday.map((row) => (
-                  <div
-                    key={row.deviceId}
-                    className="flex items-center justify-between gap-3 rounded-lg border p-3 text-sm"
-                  >
-                    <div className="min-w-0">
-                      <Link
-                        href={`/network/devices/${row.deviceId}`}
-                        className="font-medium hover:underline"
-                      >
-                        {row.name}
-                      </Link>
-                      {row.ipAddress && (
-                        <p className="text-muted-foreground font-mono text-xs">{row.ipAddress}</p>
-                      )}
-                    </div>
-                    <div className="text-right">
-                      <p className="font-medium">↓ {formatBytes(row.bytesIn)}</p>
-                      <p className="text-muted-foreground text-xs">↑ {formatBytes(row.bytesOut)}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+                  : "No usage recorded yet today."
+              }
+            />
           </CardContent>
         </Card>
       </div>

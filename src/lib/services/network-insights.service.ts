@@ -2,6 +2,7 @@ import { ObjectId } from "mongodb";
 
 import { db } from "@/lib/db";
 import { getAppDb } from "@/lib/db/mongo-native";
+import { startOfLocalDay } from "@/lib/network/access-policy";
 import { getDeviceDisplayName } from "@/lib/network/device-display";
 import { COLLECTIONS } from "@/lib/network/collector/collections";
 import type {
@@ -20,6 +21,13 @@ export const COLLECTOR_STALE_MS = 45_000;
 
 const HOUR = 60 * 60 * 1000;
 const DAY = 24 * HOUR;
+
+/** Start of the UTC hour containing local midnight (usage is bucketed hourly). */
+function localDayStartHour(timeZone: string) {
+  const start = startOfLocalDay(new Date(), timeZone);
+  start.setMinutes(0, 0, 0);
+  return start;
+}
 
 function startOfUtcDay(date = new Date()) {
   const day = new Date(date);
@@ -141,7 +149,8 @@ class NetworkInsightsService {
     return Object.fromEntries(rows.map((row) => [row._id.toHexString(), row.bytes]));
   }
 
-  async getDeviceUsage(userId: string, deviceId: string): Promise<DeviceUsage> {
+  /** `timeZone` decides where "today" starts (same as quotas). */
+  async getDeviceUsage(userId: string, deviceId: string, timeZone = "UTC"): Promise<DeviceUsage> {
     const mongo = await getAppDb();
     const match = {
       userId: new ObjectId(userId),
@@ -188,7 +197,7 @@ class NetworkInsightsService {
       hourly,
       daily,
       totals: {
-        today: sum(startOfUtcDay().getTime()),
+        today: sum(localDayStartHour(timeZone).getTime()),
         last7Days: sum(Date.now() - 7 * DAY),
         last30Days: sum(0),
       },

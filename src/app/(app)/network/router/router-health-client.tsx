@@ -26,10 +26,28 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { getRouterHealth } from "@/lib/actions/network-insights";
+import { breakGaps } from "@/lib/network/chart-gaps";
 import { formatRateBits } from "@/lib/network/format";
 import type { CollectorStatus, RouterHealthReport } from "@/types/network-insights";
 
 const REFRESH_MS = 60_000;
+
+// Shared chart settings: real time axis + gentle transitions on refresh.
+const TIME_AXIS = {
+  dataKey: "timestamp",
+  type: "number" as const,
+  scale: "time" as const,
+  domain: ["dataMin", "dataMax"] as [string, string],
+  tickLine: false,
+  axisLine: false,
+  minTickGap: 32,
+  tickFormatter: (value: number) => format(new Date(Number(value)), "HH:mm"),
+};
+const SMOOTH_ANIMATION = {
+  isAnimationActive: true,
+  animationDuration: 800,
+  animationEasing: "ease-in-out" as const,
+};
 
 function pct(value: number | null | undefined) {
   return value === null || value === undefined ? "-" : `${value.toFixed(1)}%`;
@@ -78,18 +96,25 @@ export function RouterHealthClient() {
     };
   }, [load]);
 
-  const series = useMemo(
-    () =>
-      (data?.report.series ?? []).map((row) => ({
-        label: format(new Date(row.timestamp), "HH:mm"),
-        cpu: row.cpuPct,
-        memory: row.memUsedPct,
-        // Interface counters are bytes/s; charts show bits/s like the router.
-        wanDown: row.wanRxBps === null ? null : row.wanRxBps * 8,
-        wanUp: row.wanTxBps === null ? null : row.wanTxBps * 8,
-      })),
-    [data],
-  );
+  const series = useMemo(() => {
+    const rows = (data?.report.series ?? []).map((row) => ({
+      timestamp: row.timestamp,
+      cpu: row.cpuPct as number | null,
+      memory: row.memUsedPct as number | null,
+      // Interface counters are bytes/s; charts show bits/s like the router.
+      wanDown: row.wanRxBps === null ? null : row.wanRxBps * 8,
+      wanUp: row.wanTxBps === null ? null : row.wanTxBps * 8,
+    }));
+    // Buckets are 2 min (6h) or 10 min (24h); a gap of 3 buckets = no data.
+    const bucketMs = (hours > 6 ? 10 : 2) * 60_000;
+    return breakGaps(rows, bucketMs * 3, (timestamp) => ({
+      timestamp,
+      cpu: null,
+      memory: null,
+      wanDown: null,
+      wanUp: null,
+    }));
+  }, [data, hours]);
 
   if (error) {
     return <p className="text-destructive text-sm">{error}</p>;
@@ -248,18 +273,28 @@ export function RouterHealthClient() {
                 <div className="h-56">
                   <ResponsiveContainer width="100%" height="100%">
                     <AreaChart data={series} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                      <defs>
+                        <linearGradient id="wan-down" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#0ea5e9" stopOpacity={0.35} />
+                          <stop offset="100%" stopColor="#0ea5e9" stopOpacity={0} />
+                        </linearGradient>
+                        <linearGradient id="wan-up" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#14b8a6" stopOpacity={0.35} />
+                          <stop offset="100%" stopColor="#14b8a6" stopOpacity={0} />
+                        </linearGradient>
+                      </defs>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                      <XAxis dataKey="label" tickLine={false} axisLine={false} minTickGap={24} />
+                      <XAxis {...TIME_AXIS} />
                       <YAxis
                         tickLine={false}
                         axisLine={false}
                         width={72}
                         tickFormatter={(value) => formatRateBits(Number(value))}
                       />
-                      <Tooltip formatter={(value, name) => [formatRateBits(Number(value)), name]} />
                       <Legend />
-                      <Area type="monotone" dataKey="wanDown" name="Download" stroke="#0ea5e9" fill="#0ea5e9" fillOpacity={0.2} isAnimationActive={false} />
-                      <Area type="monotone" dataKey="wanUp" name="Upload" stroke="#14b8a6" fill="#14b8a6" fillOpacity={0.2} isAnimationActive={false} />
+                      <Tooltip labelFormatter={(label) => format(new Date(Number(label)), "MMM d, HH:mm")} formatter={(value, name) => [formatRateBits(Number(value)), name]} />
+                      <Area type="monotone" dataKey="wanDown" name="Download" stroke="#0ea5e9" strokeWidth={2} fill="url(#wan-down)" {...SMOOTH_ANIMATION} />
+                      <Area type="monotone" dataKey="wanUp" name="Upload" stroke="#14b8a6" strokeWidth={2} fill="url(#wan-up)" {...SMOOTH_ANIMATION} />
                     </AreaChart>
                   </ResponsiveContainer>
                 </div>
@@ -270,12 +305,12 @@ export function RouterHealthClient() {
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={series} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                      <XAxis dataKey="label" tickLine={false} axisLine={false} minTickGap={24} />
+                      <XAxis {...TIME_AXIS} />
                       <YAxis tickLine={false} axisLine={false} width={40} domain={[0, 100]} unit="%" />
-                      <Tooltip formatter={(value, name) => [pct(Number(value)), name]} />
+                      <Tooltip labelFormatter={(label) => format(new Date(Number(label)), "MMM d, HH:mm")} formatter={(value, name) => [pct(Number(value)), name]} />
                       <Legend />
-                      <Line type="monotone" dataKey="cpu" name="CPU" stroke="#f59e0b" dot={false} isAnimationActive={false} />
-                      <Line type="monotone" dataKey="memory" name="Memory" stroke="#6366f1" dot={false} isAnimationActive={false} />
+                      <Line type="monotone" dataKey="cpu" name="CPU" stroke="#f59e0b" strokeWidth={2} dot={false} {...SMOOTH_ANIMATION} />
+                      <Line type="monotone" dataKey="memory" name="Memory" stroke="#6366f1" strokeWidth={2} dot={false} {...SMOOTH_ANIMATION} />
                     </LineChart>
                   </ResponsiveContainer>
                 </div>

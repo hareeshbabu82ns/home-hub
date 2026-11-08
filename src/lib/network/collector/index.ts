@@ -75,6 +75,8 @@ interface UserContext {
   userId: string;
   userOid: ObjectId;
   connection: OpnsenseConnection;
+  /** Same scope as a manual scan (Settings → default subnet). */
+  defaultSubnet?: string;
   /** IPv4/IPv6 → device, refreshed after each discovery. */
   devicesByIp: Map<string, { id: string; name: string }>;
   lastTrafficAt?: number;
@@ -228,6 +230,7 @@ export async function startNetworkCollector(
           userId,
           userOid: new ObjectId(userId),
           connection: conn,
+          defaultSubnet: connection.defaultSubnet ?? undefined,
         });
       } catch (error) {
         log.warn(`[collector] skipping user ${userId}: ${errorText(error)}`);
@@ -306,7 +309,10 @@ export async function startNetworkCollector(
     const before = await networkDeviceService.list(user.userId);
     const wasOnline = new Map(before.map((d) => [d.id, d.isOnline]));
 
-    const result = await networkDeviceService.scanAndSave(user.userId, user.connection);
+    const result = await networkDeviceService.scanAndSave(user.userId, {
+      ...user.connection,
+      subnet: user.defaultSubnet,
+    });
     const now = new Date();
 
     const events = result.devices

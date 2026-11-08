@@ -31,6 +31,8 @@ yarn-error.log*
 # local env files
 .env*.local
 .env
+# deployment secrets (see docker-compose.yaml)
+.env.production
 
 # vercel
 .vercel

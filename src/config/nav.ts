@@ -53,6 +53,7 @@ export const additionalLinks: AdditionalLinks[] = [
         href: "/network/alerts",
         title: "Alerts",
         icon: Bell,
+        badge: "network-alerts",
       },
     ],
   },

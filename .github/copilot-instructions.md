@@ -284,8 +284,8 @@ model Entity {
   name  String
 }
 
-# Run migration
-pnpm prisma migrate dev --name add_entity
+# Sync the schema (MongoDB has no Prisma migrations; run inside the devcontainer)
+pnpm db:push
 ```
 
 ### Step 2: Create Repository Methods

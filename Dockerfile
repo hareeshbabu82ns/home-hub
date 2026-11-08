@@ -45,7 +45,18 @@ RUN \
   else echo "Lockfile not found." && exit 1; \
   fi
 
-# Production image, copy all the files and run next
+# One-shot schema sync (docker compose "schema" service): `prisma db push`
+# creates collections and indexes (e.g. the unique device MAC index). Reuses
+# the deps install (~1.4 GB) but skips the Next.js build and app source.
+FROM base AS schema
+WORKDIR /app
+ENV SKIP_ENV_VALIDATION=true
+COPY --from=deps /app/node_modules ./node_modules
+COPY package.json prisma.config.ts ./
+COPY prisma ./prisma
+CMD ["node_modules/.bin/prisma", "db", "push", "--skip-generate"]
+
+# Production image, copy all the files and run next (default target: last stage)
 FROM base AS runner
 WORKDIR /app
 

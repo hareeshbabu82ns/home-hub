@@ -1,140 +1,118 @@
-name: Build and Push Docker Image
+name: Build and Push Docker Images
+
+# Publishes the two images docker-compose.yaml uses:
+#   ghcr.io/<owner>/<repo>          Dockerfile target "runner"  (the app)
+#   ghcr.io/<owner>/<repo>-schema   Dockerfile target "schema" (prisma db push)
+#
+# Release tags (v1.2.3) push :1.2.3, :1.2, :latest and :sha-<short>.
+# Pull requests build the app image only (no push) to catch build breaks.
+# Manual runs push :sha-<short> and :<branch>; arm64 is opt-in (slow under QEMU).
 
 on:
   push:
-    # branches: ["main"]
     tags: ["v*.*.*"]
   pull_request:
     branches: ["main"]
-  workflow_dispatch: # Allow manual triggers
+  workflow_dispatch:
+    inputs:
+      arm64:
+        description: "Also build linux/arm64 (slow, emulated)"
+        type: boolean
+        default: false
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
+
+concurrency:
+  group: docker-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  build-and-push:
+  build:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      packages: write # Needed for ghcr.io push
-
+      packages: write # push to ghcr.io
+      id-token: write # build provenance attestation
+      attestations: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: runner
+            suffix: ""
+          - target: schema
+            suffix: "-schema"
     steps:
+      - name: Skip schema image on pull requests
+        id: gate
+        run: |
+          if [[ "${{ github.event_name }}" == "pull_request" && "${{ matrix.target }}" == "schema" ]]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Checkout repository
+        if: steps.gate.outputs.skip != 'true'
         uses: actions/checkout@v4
+
+      - name: Image name (lowercase)
+        if: steps.gate.outputs.skip != 'true'
+        id: image
+        run: echo "name=${REGISTRY}/${GITHUB_REPOSITORY,,}${{ matrix.suffix }}" >> "$GITHUB_OUTPUT"
+
+      - name: Docker metadata (tags and OCI labels)
+        if: steps.gate.outputs.skip != 'true'
+        id: meta
+        uses: docker/metadata-action@v5
         with:
-          fetch-depth: 0 # We need full history for versioning
+          images: ${{ steps.image.outputs.name }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') }}
+            type=sha,format=short
+            type=ref,event=branch
+            type=ref,event=pr
 
-      - name: Extract version from Git tag
-        id: tag_version
-        run: |
-          # For tags (releases)
-          if [[ $GITHUB_REF == refs/tags/* ]]; then
-            VERSION=${GITHUB_REF#refs/tags/v}
-            echo "Using version from tag: $VERSION"
-          else
-            # For non-tag pushes, use short commit SHA
-            VERSION=$(git rev-parse --short HEAD)
-            echo "Using commit SHA as version: $VERSION"
-          fi
-          echo "VERSION=$VERSION" >> $GITHUB_ENV
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-
-      - name: Extract branch name
-        id: branch_name
-        run: |
-          # Get branch name
-          BRANCH_NAME=""
-          if [[ $GITHUB_REF == refs/heads/* ]]; then
-            BRANCH_NAME=${GITHUB_REF#refs/heads/}
-          elif [[ $GITHUB_HEAD_REF ]]; then
-            # For pull requests
-            BRANCH_NAME=$GITHUB_HEAD_REF
-          else
-            BRANCH_NAME="unknown"
-          fi
-
-          # Debug information
-          echo "GITHUB_REF: $GITHUB_REF"
-          echo "GITHUB_HEAD_REF: $GITHUB_HEAD_REF"
-
-          # Sanitize branch name for Docker tag compatibility:
-          # 1. Convert to lowercase
-          # 2. Replace invalid characters with dashes
-          # 3. Remove leading and trailing special chars
-          # Docker tags can only contain lowercase letters, digits, underscores, periods, and dashes
-          SAFE_BRANCH_NAME=$(echo "$BRANCH_NAME" | tr '[:upper:]' '[:lower:]' | sed -r 's/[^a-z0-9._-]/-/g' | sed -r 's/^[^a-z0-9]+//g' | sed -r 's/[^a-z0-9]+$//g')
-
-          # If branch name is empty after sanitization, use "unknown"
-          if [ -z "$SAFE_BRANCH_NAME" ]; then
-            SAFE_BRANCH_NAME="unknown"
-          fi
-
-          echo "Original branch name: $BRANCH_NAME"
-          echo "Sanitized branch name for Docker: $SAFE_BRANCH_NAME"
-          echo "BRANCH_NAME=$SAFE_BRANCH_NAME" >> $GITHUB_ENV
-          echo "branch=$SAFE_BRANCH_NAME" >> $GITHUB_OUTPUT
-
-      - name: Set Docker tags
-        id: docker_tags
-        run: |
-          # Initialize tags with the version tag
-          TAGS="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.VERSION }}"
-
-          # Check if this is a tag build
-          if [[ $GITHUB_REF == refs/tags/* ]]; then
-            # For tag builds, add a 'latest' tag as well
-            TAGS="$TAGS\n${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest"
-            echo "Adding latest tag for release tag: ${GITHUB_REF#refs/tags/}"
-          elif [[ "${{ env.BRANCH_NAME }}" != "unknown" && $GITHUB_REF != refs/tags/* ]]; then
-            # For other branches (not tags), add branch suffix
-            TAGS="$TAGS\n${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.VERSION }}-${{ env.BRANCH_NAME }}"
-            echo "Adding branch-specific tag for ${{ env.BRANCH_NAME }}"
-          fi
-
-          # Save tags to output
-          echo "TAGS<<EOF" >> $GITHUB_ENV
-          echo -e "$TAGS" >> $GITHUB_ENV
-          echo "EOF" >> $GITHUB_ENV
+      - name: Set up QEMU
+        if: steps.gate.outputs.skip != 'true' && inputs.arm64
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
 
       - name: Set up Docker Buildx
+        if: steps.gate.outputs.skip != 'true'
         uses: docker/setup-buildx-action@v3
 
-      - name: Login to GitHub Container Registry ${{ env.REGISTRY }}
+      - name: Log in to ${{ env.REGISTRY }}
+        if: steps.gate.outputs.skip != 'true' && github.event_name != 'pull_request'
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and push Docker image
+      - name: Build and push ${{ matrix.target }}
+        if: steps.gate.outputs.skip != 'true'
+        id: build
         uses: docker/build-push-action@v6
         with:
           context: .
+          target: ${{ matrix.target }}
+          platforms: ${{ inputs.arm64 && 'linux/amd64,linux/arm64' || 'linux/amd64' }}
           push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ env.TAGS }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          # Separate cache per target so the two images don't evict each other.
+          cache-from: type=gha,scope=${{ matrix.target }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.target }}
 
-      # Uncomment the following lines if you want to enable multi-platform builds
-      # - name: Set up QEMU
-      #   uses: docker/setup-qemu-action@v3
-      #   with:
-      #     platforms: "arm64,amd64"
-
-      # - name: Login to GitHub Container Registry ${{ env.REGISTRY }}
-      #   uses: docker/login-action@v3
-      #   with:
-      #     registry: ${{ env.REGISTRY }}
-      #     username: ${{ github.actor }}
-      #     password: ${{ secrets.GITHUB_TOKEN }}
-
-      # - name: Build and push Docker image
-      #   uses: docker/build-push-action@v6
-      #   with:
-      #     context: .
-      #     push: ${{ github.event_name != 'pull_request' }}
-      #     platforms: linux/amd64,linux/arm64
-      #     tags: ${{ env.TAGS }}
-      #     cache-from: type=gha
-      #     cache-to: type=gha,mode=max
+      - name: Attest build provenance
+        if: steps.gate.outputs.skip != 'true' && github.event_name != 'pull_request'
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-name: ${{ steps.image.outputs.name }}
+          subject-digest: ${{ steps.build.outputs.digest }}
+          push-to-registry: true

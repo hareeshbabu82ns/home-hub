@@ -127,7 +127,7 @@ Confirmed in OPNsense core/plugins source unless marked _(unconfirmed)_. Paths a
 
 ### 4.2 Data model (Prisma, MongoDB)
 
-Identity moves from IP to MAC. Existing `NetworkDevice` rows migrate by their `macAddress`.
+Identity moves from IP to MAC (no existing data to carry over).
 
 ```prisma
 model NetworkDevice {            // one per physical device (MAC)
@@ -262,7 +262,7 @@ Still open:
 - Blocking is still by IP. A scan moves a block to the device's new IP and releases the old one. MAC aliases come in Phase 3.
 - Router API secrets are AES-256-GCM encrypted (`src/lib/crypto/secret-box.ts`, key `NETWORK_SECRET_KEY` or `NEXTAUTH_SECRET`). Credentials are never sent to the browser.
 - Scan, edit, delete, review, block and router settings require `role = ADMIN`; others get a read-only view.
-- Migration: `pnpm db:migrate:network [--apply]`, then `pnpm db:push`. After any schema change, restart `pnpm dev`: the dev server caches the Prisma client on `global`.
+- Schema changes: `pnpm db:push`. After any schema change, restart `pnpm dev`: the dev server caches the Prisma client on `global`.
 
 ## 8. Phase 2 implementation notes
 
