@@ -1,4 +1,4 @@
-import { Ban, CalendarClock, Fingerprint, Globe, Pause, ShieldAlert, Waypoints } from "lucide-react";
+import { Ban, CalendarClock, Fingerprint, Gauge, Globe, Pause, ShieldAlert, Waypoints } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { describeReason } from "@/lib/network/access-policy";
@@ -9,7 +9,13 @@ type BadgeFields = Pick<
   "isOnline" | "isNew" | "isBlocked" | "role" | "isUpstream" | "isRandomMac" | "access"
 >;
 
-const REASON_ICON = { manual: Ban, paused: Pause, schedule: CalendarClock, quarantine: ShieldAlert } as const;
+const REASON_ICON = {
+  manual: Ban,
+  paused: Pause,
+  schedule: CalendarClock,
+  quarantine: ShieldAlert,
+  quota: Gauge,
+} as const;
 
 export function OnlineDot({ isOnline }: { isOnline: boolean }) {
   return (

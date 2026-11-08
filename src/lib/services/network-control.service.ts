@@ -77,12 +77,14 @@ export interface ControlSetupStatus {
 
 class NetworkControlService {
   async findAlias(connection: OpnsenseConnection, name: string) {
-    const lookup = await opnsenseRequest<{ uuid?: string }>(
+    // A missing alias answers 200 with []; network/HTTP errors must propagate
+    // (treating a timeout as "missing" made enforcement report a false error).
+    const lookup = await opnsenseRequest<{ uuid?: string } | []>(
       connection,
       `firewall/alias/get_alias_u_u_i_d/${encodeURIComponent(name)}`,
       { method: "GET" },
-    ).catch(() => ({}) as { uuid?: string });
-    if (!lookup.uuid) return null;
+    );
+    if (Array.isArray(lookup) || !lookup.uuid) return null;
     const item = await opnsenseRequest<{ alias?: Row }>(
       connection,
       `firewall/alias/get_item/${lookup.uuid}`,

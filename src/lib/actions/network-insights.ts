@@ -3,6 +3,9 @@
 import { ObjectId } from "mongodb";
 
 import { getUserAuth } from "@/lib/auth/utils";
+import { db } from "@/lib/db";
+import { resolveTimeZone } from "@/lib/network/access-policy";
+import { getUsageSinceLocalMidnight } from "@/lib/network/enforcement";
 import { networkDeviceService } from "@/lib/services";
 import { networkInsightsService } from "@/lib/services/network-insights.service";
 
@@ -54,10 +57,12 @@ export async function getDeviceInsights(deviceId: string) {
   });
 }
 
+/** deviceId → estimated bytes since local midnight (same day as quotas). */
 export async function getUsageToday() {
-  return withUser("Failed to load usage", (userId) =>
-    networkInsightsService.getUsageTodayByDevice(userId),
-  );
+  return withUser("Failed to load usage", async (userId) => {
+    const settings = await db.networkIntegrationSettings.findUnique({ where: { userId } });
+    return getUsageSinceLocalMidnight(userId, resolveTimeZone(settings?.timezone));
+  });
 }
 
 export async function getRouterHealth(hours: number) {

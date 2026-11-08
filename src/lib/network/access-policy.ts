@@ -7,7 +7,8 @@ export type AccessReason =
   | { kind: "manual" }
   | { kind: "paused"; until: string }
   | { kind: "schedule"; scheduleId: string; name: string }
-  | { kind: "quarantine" };
+  | { kind: "quarantine" }
+  | { kind: "quota"; usedMB: number; quotaMB: number };
 
 export interface AccessDecision {
   blocked: boolean;
@@ -23,6 +24,8 @@ export interface AccessDevice {
   isNew: boolean;
   blocked?: boolean | null;
   pausedUntil?: Date | string | null;
+  dailyQuotaMB?: number | null;
+  quotaAction?: string | null;
 }
 
 export interface AccessSchedule {
@@ -40,6 +43,8 @@ export interface AccessContext {
   quarantineNewDevices: boolean;
   now: Date;
   timeZone: string;
+  /** deviceId → estimated bytes since local midnight (for quotas). */
+  usageToday?: Record<string, number>;
 }
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -109,6 +114,13 @@ export function decideAccess(device: AccessDevice, context: AccessContext): Acce
 
   if (context.quarantineNewDevices && device.isNew) reasons.push({ kind: "quarantine" });
 
+  if (device.dailyQuotaMB && device.quotaAction === "block") {
+    const usedMB = (context.usageToday?.[device.id] ?? 0) / 1e6;
+    if (usedMB >= device.dailyQuotaMB) {
+      reasons.push({ kind: "quota", usedMB: Math.round(usedMB), quotaMB: device.dailyQuotaMB });
+    }
+  }
+
   return { blocked: reasons.length > 0, reasons, exempt: null };
 }
 
@@ -122,7 +134,17 @@ export function describeReason(reason: AccessReason): string {
       return `Schedule: ${reason.name}`;
     case "quarantine":
       return "Quarantined (new device)";
+    case "quota":
+      return `Daily quota used (${reason.usedMB}/${reason.quotaMB} MB)`;
   }
+}
+
+/** The instant of local midnight (start of today) in `timeZone`. */
+export function startOfLocalDay(now: Date, timeZone: string): Date {
+  const { minute } = localTime(now, timeZone);
+  const start = new Date(now.getTime() - minute * 60_000);
+  start.setSeconds(0, 0);
+  return start;
 }
 
 export function formatMinute(minute: number): string {

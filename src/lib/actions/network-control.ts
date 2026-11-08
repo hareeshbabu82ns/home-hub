@@ -14,7 +14,11 @@ import { resolveTimeZone } from "@/lib/network/access-policy";
 import { getDeviceDisplayName } from "@/lib/network/device-display";
 import { loadAccessDecisions, reconcileAccess, type EnforcementResult } from "@/lib/network/enforcement";
 import { networkAuditService } from "@/lib/services/network-audit.service";
-import { LEGACY_BLOCK_ALIAS, networkControlService } from "@/lib/services/network-control.service";
+import {
+  LEGACY_BLOCK_ALIAS,
+  networkControlService,
+  type ControlSetupStatus,
+} from "@/lib/services/network-control.service";
 import { networkSettingsService } from "@/lib/services/network-settings.service";
 
 /** Phase 3: access control (MAC mode), schedules, router operations, audit. */
@@ -321,8 +325,16 @@ export async function getDeviceControlOptions(id: string) {
     const { userId, canManage } = await getActor();
     const device = await getDeviceOrThrow(userId, id);
     const connection = await requireConnection(userId);
-    const settings = await db.networkIntegrationSettings.findUnique({ where: { userId } });
-    const setup = await networkControlService.getSetupStatus(connection);
+    const [settings, state] = await Promise.all([
+      db.networkIntegrationSettings.findUnique({ where: { userId } }),
+      db.networkCollectorState.findUnique({ where: { userId } }),
+    ]);
+    // The collector refreshes this every 2 minutes; fall back to the router.
+    const cacheFresh =
+      state?.routerControl && state.routerControlAt && Date.now() - state.routerControlAt.getTime() < 10 * 60_000;
+    const setup = cacheFresh
+      ? (state!.routerControl as unknown as ControlSetupStatus)
+      : await networkControlService.getSetupStatus(connection);
     const suggested = (device.name || device.dhcpHostname || device.hostname || "")
       .toLowerCase()
       .replace(/[^a-z0-9-]+/g, "-")
@@ -443,6 +455,48 @@ export async function reserveDeviceIp(values: { id: string; hostname?: string })
     return { success: true as const, ip: device.ipAddress };
   } catch (error) {
     return fail(error, "Failed to reserve IP");
+  }
+}
+
+// --------------------------------------------------------------------- quota
+
+const quotaSchema = z.object({
+  id: z.string().min(1),
+  // null clears the quota
+  dailyQuotaMB: z.number().int().min(1).max(10_000_000).nullable(),
+  quotaAction: z.enum(["alert", "block"]),
+});
+
+export async function setDeviceQuota(values: z.infer<typeof quotaSchema>) {
+  try {
+    const { userId, email } = await requireManager();
+    const parsed = quotaSchema.parse(values);
+    const device = await getDeviceOrThrow(userId, parsed.id);
+    if (parsed.quotaAction === "block" && parsed.dailyQuotaMB) await requireMacMode(userId);
+
+    await networkAuditService.track(
+      {
+        userId,
+        actorEmail: email,
+        action: parsed.dailyQuotaMB ? "quota-set" : "quota-clear",
+        target: getDeviceDisplayName(device),
+        deviceId: device.id,
+        details: parsed.dailyQuotaMB ? { dailyQuotaMB: parsed.dailyQuotaMB, action: parsed.quotaAction } : {},
+      },
+      async () => {
+        await db.networkDevice.update({
+          where: { id: device.id },
+          data: {
+            dailyQuotaMB: parsed.dailyQuotaMB,
+            quotaAction: parsed.dailyQuotaMB ? parsed.quotaAction : null,
+          },
+        });
+        await reconcileAccess(userId, { actorEmail: email, trigger: "quota" });
+      },
+    );
+    return { success: true as const };
+  } catch (error) {
+    return fail(error, "Failed to set quota");
   }
 }
 

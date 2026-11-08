@@ -1,6 +1,7 @@
 import { ShieldCheck } from "lucide-react";
 
 import { AccessClient } from "./access-client";
+import { InternalFlowsCard } from "./internal-flows-card";
 
 export default function NetworkAccessPage() {
   return (
@@ -12,12 +13,14 @@ export default function NetworkAccessPage() {
         <div>
           <h1 className="text-3xl font-bold">Access</h1>
           <p className="text-muted-foreground text-sm">
-            Recurring offline windows for devices, and a log of every network change.
+            Offline schedules, cross-network connections, and a log of every network change.
           </p>
         </div>
       </div>
 
       <AccessClient />
+
+      <InternalFlowsCard />
     </main>
   );
 }

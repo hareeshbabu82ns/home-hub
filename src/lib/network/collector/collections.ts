@@ -12,6 +12,8 @@ export const COLLECTIONS = {
   dnsDaily: "NetworkDnsDaily",
   presence: "NetworkPresenceEvent",
   audit: "NetworkAuditLog",
+  alerts: "NetworkAlert",
+  internalFlows: "NetworkInternalFlowDaily",
   state: "NetworkCollectorState",
 } as const;
 
@@ -23,6 +25,8 @@ export const RETENTION_SECONDS = {
   dnsDaily: 90 * DAY,
   presence: 180 * DAY,
   audit: 365 * DAY,
+  alerts: 180 * DAY,
+  internalFlows: 30 * DAY,
 } as const;
 
 export interface TrafficSampleDoc {
@@ -79,6 +83,8 @@ export async function ensureRetentionIndexes(): Promise<void> {
   await ensureTtl(db, COLLECTIONS.dnsDaily, "day", RETENTION_SECONDS.dnsDaily);
   await ensureTtl(db, COLLECTIONS.presence, "at", RETENTION_SECONDS.presence);
   await ensureTtl(db, COLLECTIONS.audit, "at", RETENTION_SECONDS.audit);
+  await ensureTtl(db, COLLECTIONS.alerts, "createdAt", RETENTION_SECONDS.alerts);
+  await ensureTtl(db, COLLECTIONS.internalFlows, "day", RETENTION_SECONDS.internalFlows);
 }
 
 /** Idempotent; safe to call on every collector start. */

@@ -1,6 +1,7 @@
 import type { ISidebarLink } from "@/components/SidebarItems";
 import {
   Activity,
+  Bell,
   Clock,
   Database,
   Dumbbell,
@@ -47,6 +48,11 @@ export const additionalLinks: AdditionalLinks[] = [
         href: "/network/access",
         title: "Access",
         icon: ShieldCheck,
+      },
+      {
+        href: "/network/alerts",
+        title: "Alerts",
+        icon: Bell,
       },
     ],
   },

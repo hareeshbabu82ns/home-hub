@@ -1,5 +1,14 @@
+import { ObjectId } from "mongodb";
+
 import { db } from "@/lib/db";
-import { decideAccess, resolveTimeZone, type AccessDecision } from "@/lib/network/access-policy";
+import { getAppDb } from "@/lib/db/mongo-native";
+import {
+  decideAccess,
+  resolveTimeZone,
+  startOfLocalDay,
+  type AccessDecision,
+} from "@/lib/network/access-policy";
+import { COLLECTIONS } from "@/lib/network/collector/collections";
 import { networkAuditService } from "@/lib/services/network-audit.service";
 import { BLOCK_ALIAS, networkControlService } from "@/lib/services/network-control.service";
 import { networkSettingsService } from "@/lib/services/network-settings.service";
@@ -36,22 +45,43 @@ function isRoutableAddress(ip: string) {
   return !ip.includes("%") && !ip.toLowerCase().startsWith("fe80:");
 }
 
+/** deviceId → estimated bytes (in + out) since local midnight. */
+export async function getUsageSinceLocalMidnight(userId: string, timeZone: string, now = new Date()) {
+  // Usage is bucketed by UTC hour; include the hour that contains midnight.
+  const since = startOfLocalDay(now, timeZone);
+  since.setMinutes(0, 0, 0);
+  const mongo = await getAppDb();
+  const rows = await mongo
+    .collection(COLLECTIONS.usageHourly)
+    .aggregate<{ _id: ObjectId; bytes: number }>([
+      { $match: { userId: new ObjectId(userId), hour: { $gte: since } } },
+      { $group: { _id: "$deviceId", bytes: { $sum: { $add: ["$bytesIn", "$bytesOut"] } } } },
+    ])
+    .toArray();
+  return Object.fromEntries(rows.map((row) => [row._id.toHexString(), row.bytes]));
+}
+
 export async function loadAccessDecisions(userId: string, now = new Date()) {
   const [settings, devices, schedules] = await Promise.all([
     db.networkIntegrationSettings.findUnique({ where: { userId } }),
     db.networkDevice.findMany({ where: { userId } }),
     db.networkAccessSchedule.findMany({ where: { userId } }),
   ]);
+  const timeZone = resolveTimeZone(settings?.timezone);
+  const usageToday = devices.some((device) => device.dailyQuotaMB)
+    ? await getUsageSinceLocalMidnight(userId, timeZone, now)
+    : {};
   const context = {
     schedules,
     quarantineNewDevices: settings?.quarantineNewDevices ?? false,
     now,
-    timeZone: resolveTimeZone(settings?.timezone),
+    timeZone,
+    usageToday,
   };
   const decisions = new Map<string, AccessDecision>(
     devices.map((device) => [device.id, decideAccess(device, context)]),
   );
-  return { settings, devices, decisions, timeZone: context.timeZone };
+  return { settings, devices, decisions, timeZone, usageToday };
 }
 
 export function reconcileAccess(

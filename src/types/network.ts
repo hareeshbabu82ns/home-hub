@@ -33,6 +33,8 @@ export interface NetworkDevice {
   /** Desired-state fields (MAC control mode). */
   blocked?: boolean | null;
   pausedUntil?: Date | string | null;
+  dailyQuotaMB?: number | null;
+  quotaAction?: string | null;
   /** Why the device is (or would be) blocked; present in MAC control mode. */
   access?: AccessDecision;
   firstSeenAt: Date;

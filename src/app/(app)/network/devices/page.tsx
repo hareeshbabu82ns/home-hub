@@ -278,7 +278,7 @@ export default function NetworkDevicesPage() {
                     <TableHead>Type</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Interface</TableHead>
-                    <TableHead className="text-right" title="Estimated, since midnight UTC">
+                    <TableHead className="text-right" title="Estimated, since local midnight">
                       Today
                     </TableHead>
                     <TableHead>Last seen</TableHead>

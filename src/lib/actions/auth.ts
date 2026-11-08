@@ -144,9 +144,9 @@ export async function requestPasswordReset( email: string ) {
 
     if ( resend ) {
       await resend.emails.send( {
-        from: "onboarding@resend.dev",
+        from: process.env.HOME_HUB_EMAIL_FROM || "Home Hub <onboarding@resend.dev>",
         to: email,
-        subject: "Reset your password",
+        subject: "[Home Hub] Reset your password",
         html: `
           <h1>Password Reset Request</h1>
           <p>Click the link below to reset your password:</p>

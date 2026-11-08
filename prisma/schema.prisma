@@ -130,6 +130,10 @@ model NetworkIntegrationSettings {
   blockRuleUuid        String?
   quarantineNewDevices Boolean?
   timezone             String? // IANA zone for schedules; defaults to TZ / UTC
+  // Phase 4 alerts.
+  alertEmailEnabled    Boolean?
+  alertEmail           String? // defaults to the account email
+  alertMinSeverity     String? // info | warning | critical (default warning)
 
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
@@ -168,6 +172,9 @@ model NetworkDevice {
   // Desired access state (Phase 3, MAC control mode).
   blocked         Boolean?
   pausedUntil     DateTime?
+  // Phase 4 daily data quota (estimated bytes, local day).
+  dailyQuotaMB    Int?
+  quotaAction     String? // "alert" (default) | "block" until midnight
   firstSeenAt     DateTime          @default(now())
   lastSeenAt      DateTime          @default(now())
   notes           String?
@@ -255,6 +262,8 @@ model NetworkCollectorState {
   dnsWatermark    Int       @default(0)
   enforcement     Json? // last reconcile result
   enforcementAt   DateTime?
+  routerControl   Json? // cached control setup status (alias, rule, WoL…)
+  routerControlAt DateTime?
   lastDiscoveryAt DateTime?
   lastError       String?
   lastErrorAt     DateTime?
@@ -291,6 +300,43 @@ model NetworkAuditLog {
 
   @@index([userId, at])
   @@index([deviceId, at])
+}
+
+// Phase 4. One open alert per dedupeKey; resolved when the condition clears.
+model NetworkAlert {
+  id         String    @id @default(auto()) @map("_id") @db.ObjectId
+  userId     String    @db.ObjectId
+  kind       String
+  severity   String // info | warning | critical
+  title      String
+  message    String
+  deviceId   String?   @db.ObjectId
+  dedupeKey  String
+  createdAt  DateTime  @default(now())
+  resolvedAt DateTime?
+  readAt     DateTime?
+  notifiedAt DateTime?
+
+  @@index([userId, createdAt])
+  @@index([userId, dedupeKey, resolvedAt])
+}
+
+// Phase 4. Connections from LAN devices to other private networks, sampled
+// from pf states (same-LAN traffic never reaches the router).
+model NetworkInternalFlowDaily {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId      String   @db.ObjectId
+  day         DateTime
+  srcDeviceId String   @db.ObjectId
+  dstIp       String
+  dstDeviceId String?  @db.ObjectId
+  proto       String
+  dstPort     Int
+  samples     Int      @default(0)
+  lastSeenAt  DateTime
+
+  @@unique([srcDeviceId, day, dstIp, proto, dstPort])
+  @@index([userId, day])
 }
 
 model VerificationToken {

@@ -39,6 +39,7 @@ import type {
 import { DeviceBadges, OnlineDot } from "../../components/device-badges";
 import { DeviceInsights } from "./device-insights";
 import { DeviceAccessCard } from "./device-access-card";
+import { DeviceConnectionsCard } from "./device-connections-card";
 
 interface NetworkDeviceDetailPageProps {
   deviceId: string;
@@ -171,26 +172,35 @@ export function NetworkDeviceDetailPage({
     }
   }, [actionFilter, deviceId]);
 
+  const applyDetails = useCallback(
+    (result: Awaited<ReturnType<typeof getNetworkDeviceDetails>>) => {
+      if (result.success && result.device) {
+        setPageError(null);
+        setDevice(result.device as NetworkDevice);
+      } else {
+        setPageError(result.error || "Failed to load device details");
+        setDevice(null);
+        setDnsQueries(null);
+      }
+      setLoading(false);
+    },
+    [],
+  );
+
+  // Refresh after an action: update in place instead of showing the loader.
   const loadPageData = useCallback(async () => {
-    setLoading(true);
-    setPageError(null);
-
-    const result = await getNetworkDeviceDetails(deviceId);
-
-    if (result.success && result.device) {
-      setDevice(result.device as NetworkDevice);
-    } else {
-      setPageError(result.error || "Failed to load device details");
-      setDevice(null);
-      setDnsQueries(null);
-    }
-
-    setLoading(false);
-  }, [deviceId, loadDnsQueries]);
+    applyDetails(await getNetworkDeviceDetails(deviceId));
+  }, [deviceId, applyDetails]);
 
   useEffect(() => {
-    void loadPageData();
-  }, [loadPageData]);
+    let cancelled = false;
+    void getNetworkDeviceDetails(deviceId).then((result) => {
+      if (!cancelled) applyDetails(result);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [deviceId, applyDetails]);
 
   useEffect(() => {
     if (!device) {
@@ -418,6 +428,8 @@ export function NetworkDeviceDetailPage({
       <DeviceAccessCard device={device} onChanged={loadPageData} />
 
       <DeviceInsights deviceId={device.id} />
+
+      <DeviceConnectionsCard deviceId={device.id} name={getDeviceDisplayName(device)} />
 
       <Card>
         <CardHeader>

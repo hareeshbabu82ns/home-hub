@@ -41,6 +41,8 @@ import { describeReason } from "@/lib/network/access-policy";
 import { getDeviceDisplayName } from "@/lib/network/device-display";
 import type { NetworkDevice } from "@/types/network";
 
+import { DeviceQuotaControl } from "./device-quota-control";
+
 type Options = Extract<Awaited<ReturnType<typeof getDeviceControlOptions>>, { success: true }>["data"];
 type AuditEntry = Extract<Awaited<ReturnType<typeof getNetworkAuditLog>>, { success: true }>["data"][number];
 
@@ -275,6 +277,19 @@ export function DeviceAccessCard({
                 Add DNS name
               </Button>
             </div>
+
+            {device.role === "CLIENT" && !device.isUpstream && (
+              <DeviceQuotaControl
+                deviceId={device.id}
+                dailyQuotaMB={device.dailyQuotaMB}
+                quotaAction={device.quotaAction}
+                macMode={macMode}
+                onChanged={async () => {
+                  await onChanged();
+                  await loadAudit();
+                }}
+              />
+            )}
           </>
         )}
 

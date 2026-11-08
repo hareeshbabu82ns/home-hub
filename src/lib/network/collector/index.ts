@@ -19,6 +19,15 @@ import {
   type TrafficSampleDoc,
 } from "./collections";
 import {
+  alertsAfterDiscovery,
+  alertsFromEnforcement,
+  alertsFromHealth,
+  cacheRouterControl,
+  checkQuotas,
+  routerReachability,
+  sampleInternalFlows,
+} from "./insight-jobs";
+import {
   counterRates,
   parseCpuPct,
   parseGateways,
@@ -38,7 +47,11 @@ import {
  *   discovery  every 60s:  ARP/NDP/DHCP scan → online state, presence events
  *   dns        every 60s:  Unbound query log → hourly/daily DNS aggregates
  *   health     every 60s:  CPU, memory, gateways, interface throughput
- *   enforce    every 60s:  apply block/pause/schedule/quarantine (MAC mode)
+ *   enforce    every 60s:  apply block/pause/schedule/quarantine/quota (MAC
+ *                          mode), then quota and enforcement alerts
+ *   flows      every 5min: LAN → other private network connections (pf states)
+ *   users      every 2min: reload settings, TTL indexes, cached control status
+ * Discovery and health also raise/resolve alerts (src/lib/network/alerts.ts).
  */
 
 const LEASE_ID = "network-collector";
@@ -50,6 +63,7 @@ const INTERVALS = {
   dns: 60_000,
   health: 60_000,
   enforce: 60_000,
+  flows: 5 * 60_000,
   users: 120_000,
 };
 // Longest gap a traffic sample's rate is assumed to have lasted for.
@@ -67,6 +81,8 @@ interface UserContext {
   lastCounters?: { at: number; counters: InterfaceCounters[] };
   /** Keys of DNS rows at the watermark second, to avoid double counting. */
   dnsBoundaryKeys: Set<string>;
+  /** First failed router call since the last success (for alerts). */
+  routerDownSince?: number;
 }
 
 function hourOf(date: Date) {
@@ -128,8 +144,16 @@ export async function startNetworkCollector(
       if (stopped) return;
       try {
         await task(user);
+        if (user.routerDownSince) {
+          user.routerDownSince = undefined;
+          await routerReachability(user.userId, true);
+        }
       } catch (error) {
         const message = `${job}: ${errorText(error)}`;
+        if (/Router unreachable/.test(message)) {
+          user.routerDownSince ??= Date.now();
+          await routerReachability(user.userId, false, user.routerDownSince).catch(() => undefined);
+        }
         log.warn(`[collector] user ${user.userId} ${message}`);
         await db.networkCollectorState.upsert({
           where: { userId: user.userId },
@@ -290,6 +314,7 @@ export async function startNetworkCollector(
       .map((d) => ({ userId: user.userId, deviceId: d.id, online: d.isOnline, at: now }));
     if (events.length) await db.networkPresenceEvent.createMany({ data: events });
 
+    await alertsAfterDiscovery(user.userId, before, result.devices);
     await refreshDeviceMap(user);
     await db.networkCollectorState.upsert({
       where: { userId: user.userId },
@@ -430,6 +455,11 @@ export async function startNetworkCollector(
       gateways: gatewayList.map(({ name, status, delayMs, lossPct }) => ({ name, status, delayMs, lossPct })),
     };
     await mongo.collection<RouterHealthDoc>(COLLECTIONS.routerHealth).insertOne(doc);
+    await alertsFromHealth(user.userId, {
+      gateways: gatewayList,
+      memoryUsedPct: memory?.usedPct,
+      diskUsedPct: parseRootDisk(disk)?.usedPct,
+    });
 
     const infoRow = (info ?? {}) as { name?: string; versions?: string[] };
     await mongo.collection(COLLECTIONS.state).updateOne(
@@ -468,6 +498,7 @@ export async function startNetworkCollector(
   every("users", INTERVALS.users, async () => {
     await loadUsers();
     if (isLeader) await ensureRetentionIndexes();
+    await forEachUser("router-control", (user) => cacheRouterControl(user.userId, user.connection));
   });
   // Give lease/users a moment so the first rounds have something to do.
   const startJobs = setTimeout(() => {
@@ -480,7 +511,14 @@ export async function startNetworkCollector(
     every("enforce", INTERVALS.enforce, () =>
       forEachUser("enforce", async (user) => {
         const result = await reconcileAccess(user.userId, { trigger: "collector" });
+        await alertsFromEnforcement(user.userId, result);
+        await checkQuotas(user.userId);
         if (result?.errors.length) throw new Error(result.errors.join("; "));
+      }),
+    );
+    every("flows", INTERVALS.flows, () =>
+      forEachUser("flows", async (user) => {
+        await sampleInternalFlows(user, user.devicesByIp);
       }),
     );
   }, 2_000);
