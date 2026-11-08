@@ -1,7 +1,7 @@
 "use client";
 
 import { Activity, Loader2 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   CartesianGrid,
   Legend,
@@ -27,6 +27,10 @@ import type { NetworkTrafficRecord } from "@/types/network";
 
 const WINDOW_OPTIONS = [10, 30, 60, 300] as const;
 const MAX_HISTORY_POINTS = 3600;
+// OPNsense's top endpoint samples for ~2-4s per call, so poll back-to-back
+// with a short gap instead of on a fixed timer (which queued requests).
+const POLL_GAP_MS = 1000;
+const MAX_SERIES = 8;
 const SERIES_COLORS = [
   "#0ea5e9",
   "#14b8a6",
@@ -77,12 +81,20 @@ export function TrafficMonitorClient() {
   const [addressNameMap, setAddressNameMap] = useState<Record<string, string>>(
     {},
   );
+  const [lastLatencyMs, setLastLatencyMs] = useState<number | null>(null);
+  const inFlightRef = useRef(false);
 
   const fetchTraffic = useCallback(async () => {
+    if (inFlightRef.current) return;
+    inFlightRef.current = true;
     setPolling(true);
 
-    const result = await getNetworkTrafficTopLan();
+    const startedAt = Date.now();
+    const result = await getNetworkTrafficTopLan().finally(() => {
+      inFlightRef.current = false;
+    });
     const now = Date.now();
+    setLastLatencyMs(now - startedAt);
     const snapshot = result.data;
 
     if (!result.success || !snapshot) {
@@ -125,31 +137,46 @@ export function TrafficMonitorClient() {
   }, []);
 
   useEffect(() => {
-    void fetchTraffic();
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
 
-    const interval = setInterval(() => {
-      void fetchTraffic();
-    }, 1000);
+    const loop = async () => {
+      // Skip router calls while the tab is hidden.
+      if (document.visibilityState === "visible") {
+        await fetchTraffic();
+      }
+      if (!cancelled) {
+        timer = setTimeout(loop, POLL_GAP_MS);
+      }
+    };
+    void loop();
 
     return () => {
-      clearInterval(interval);
+      cancelled = true;
+      if (timer) clearTimeout(timer);
     };
   }, [fetchTraffic]);
 
   const visibleHistory = useMemo(() => {
-    const minTimestamp = Date.now() - windowSeconds * 1000;
+    // Anchor the window to the newest sample (keeps render pure).
+    const latest = history.at(-1)?.timestamp ?? 0;
+    const minTimestamp = latest - windowSeconds * 1000;
     return history.filter((row) => row.timestamp >= minTimestamp);
   }, [history, windowSeconds]);
 
+  // Chart the busiest hosts in the window (by peak rate), not the first seen.
   const trackedAddresses = useMemo(() => {
-    const set = new Set<string>();
+    const peak = new Map<string, number>();
     for (const point of visibleHistory) {
-      for (const address of Object.keys(point.values)) {
-        set.add(address);
+      for (const [address, rate] of Object.entries(point.values)) {
+        peak.set(address, Math.max(peak.get(address) ?? 0, rate));
       }
     }
 
-    return Array.from(set).slice(0, 8);
+    return Array.from(peak.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, MAX_SERIES)
+      .map(([address]) => address);
   }, [visibleHistory]);
 
   const chartData = useMemo(() => {
@@ -193,7 +220,9 @@ export function TrafficMonitorClient() {
             </Select>
             <Badge variant="outline" className="gap-2">
               {polling ? <Loader2 className="size-3 animate-spin" /> : null}
-              1s refresh
+              {lastLatencyMs === null
+                ? "Refreshing"
+                : `~${((lastLatencyMs + POLL_GAP_MS) / 1000).toFixed(1)}s refresh`}
             </Badge>
           </div>
         </CardHeader>

@@ -149,7 +149,7 @@ export function NetworkDeviceDetailPage({
     const result = await getNetworkDeviceDnsQueries({
       id: deviceId,
       current: 1,
-      rowCount: 50,
+      rowCount: 200,
       action: selectedAction,
     });
 
@@ -449,8 +449,8 @@ export function NetworkDeviceDetailPage({
           {dnsQueries && (
             <p className="text-muted-foreground text-xs">
               Showing {filteredDnsRows.length} filtered records out of{" "}
-              {dnsQueries.rows.length} loaded ({dnsQueries.total} total on
-              router) for client {device.ipAddress}.
+              {dnsQueries.rows.length} loaded ({dnsQueries.total} from{" "}
+              {device.ipAddress} in the router&apos;s most recent 1000 queries).
             </p>
           )}
         </CardHeader>

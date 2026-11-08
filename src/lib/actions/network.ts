@@ -70,15 +70,24 @@ export async function getNetworkDevices( search?: string ) {
       };
     }
 
-    const blockedAddresses = await networkDeviceService.getBlockedAddresses( {
-      apiBaseUrl: settings.apiBaseUrl,
-      apiKey: settings.apiKey,
-      apiSecret: settings.apiSecret,
-      verifyTls: settings.verifyTls,
-    } );
+    // The inventory lives in the database; a router outage shouldn't hide it.
+    let blockedAddresses = new Set<string>();
+    let warning: string | undefined;
+    try {
+      blockedAddresses = await networkDeviceService.getBlockedAddresses( {
+        apiBaseUrl: settings.apiBaseUrl,
+        apiKey: settings.apiKey,
+        apiSecret: settings.apiSecret,
+        verifyTls: settings.verifyTls,
+      } );
+    } catch ( error ) {
+      console.error( "Failed to read blocked devices from router", error );
+      warning = "Router unreachable: block status may be out of date";
+    }
 
     return {
       success: true,
+      warning,
       devices: devices.map( ( device ) => ( {
         ...device,
         isBlocked: blockedAddresses.has( device.ipAddress ),
@@ -112,12 +121,17 @@ export async function getNetworkDeviceDetails( id: string ) {
       };
     }
 
-    const blockedAddresses = await networkDeviceService.getBlockedAddresses( {
-      apiBaseUrl: settings.apiBaseUrl,
-      apiKey: settings.apiKey,
-      apiSecret: settings.apiSecret,
-      verifyTls: settings.verifyTls,
-    } );
+    let blockedAddresses = new Set<string>();
+    try {
+      blockedAddresses = await networkDeviceService.getBlockedAddresses( {
+        apiBaseUrl: settings.apiBaseUrl,
+        apiKey: settings.apiKey,
+        apiSecret: settings.apiSecret,
+        verifyTls: settings.verifyTls,
+      } );
+    } catch ( error ) {
+      console.error( "Failed to read blocked devices from router", error );
+    }
 
     return {
       success: true,

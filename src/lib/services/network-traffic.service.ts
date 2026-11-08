@@ -1,3 +1,5 @@
+import { opnsenseRequest, type OpnsenseConnection } from "@/lib/services/opnsense-client";
+
 interface TrafficTopLanDetail {
   address: string;
   rate: string | undefined;
@@ -134,48 +136,19 @@ function mapRecords( payload: unknown ): TrafficTopLanRecord[] {
 }
 
 class NetworkTrafficService {
-  async getTopLan( input: {
-    apiBaseUrl: string;
-    apiKey: string;
-    apiSecret: string;
-    verifyTls: boolean;
-  } ): Promise<TrafficTopLanRecord[]> {
-    const baseUrl = input.apiBaseUrl.replace( /\/$/, "" );
-    const url = `${baseUrl}/api/diagnostics/traffic/top/lan`;
-
-    const credentials = Buffer.from( `${input.apiKey}:${input.apiSecret}` ).toString(
-      "base64",
+  /**
+   * Top talkers per host on the given interface. OPNsense samples traffic
+   * before answering, so this call takes ~2-4s; callers must not poll faster.
+   */
+  async getTopLan(
+    input: OpnsenseConnection & { interfaces?: string },
+  ): Promise<TrafficTopLanRecord[]> {
+    const { interfaces = "lan", ...connection } = input;
+    const payload = await opnsenseRequest(
+      connection,
+      `diagnostics/traffic/top/${encodeURIComponent( interfaces )}`,
+      { method: "GET" },
     );
-
-    const originalTlsSetting = process.env.NODE_TLS_REJECT_UNAUTHORIZED;
-    if ( !input.verifyTls ) {
-      process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
-    }
-
-    let response: Response;
-    try {
-      response = await fetch( url, {
-        method: "GET",
-        headers: {
-          Authorization: `Basic ${credentials}`,
-          Accept: "application/json",
-        },
-      } );
-    } finally {
-      if ( !input.verifyTls ) {
-        if ( typeof originalTlsSetting === "string" ) {
-          process.env.NODE_TLS_REJECT_UNAUTHORIZED = originalTlsSetting;
-        } else {
-          delete process.env.NODE_TLS_REJECT_UNAUTHORIZED;
-        }
-      }
-    }
-
-    if ( !response.ok ) {
-      throw new Error( `Router API responded with ${response.status}` );
-    }
-
-    const payload = ( await response.json() ) as unknown;
     return mapRecords( payload );
   }
 }

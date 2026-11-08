@@ -1,4 +1,9 @@
 import { networkDeviceRepository } from "@/lib/db/repositories";
+import {
+  OpnsenseApiError,
+  opnsenseRequest,
+  type OpnsenseConnection,
+} from "@/lib/services/opnsense-client";
 import type { NetworkDnsQueryResult, NetworkDnsQueryRow } from "@/types/network";
 
 interface ScanResult {
@@ -29,7 +34,6 @@ interface DiscoveredDevice {
   macAddress?: string;
   hostname?: string;
   vendor?: string;
-  deviceType?: string;
   intf?: string;
   intfDescription?: string;
 }
@@ -110,12 +114,6 @@ function mapDiscoveredDevices( payload: unknown ): DiscoveredDevice[] {
     ] );
     const hostname = pickField( rowObject, [ "hostname", "host", "name" ] );
     const vendor = pickField( rowObject, [ "vendor", "manufacturer" ] );
-    const deviceType = pickField( rowObject, [
-      "deviceType",
-      "device_type",
-      "type",
-      "interface",
-    ] );
     const intf = pickField( rowObject, [
       "intf",
       "interface",
@@ -133,7 +131,6 @@ function mapDiscoveredDevices( payload: unknown ): DiscoveredDevice[] {
       macAddress,
       hostname,
       vendor,
-      deviceType,
       intf,
       intfDescription,
     } );
@@ -190,247 +187,150 @@ function mapDnsSearchQueries( payload: unknown ): DnsSearchQueriesPayload {
   };
 }
 
-async function discoverFromRouterApi( input: {
-  apiBaseUrl: string;
-  apiKey: string;
-  apiSecret: string;
-  verifyTls: boolean;
-  subnet?: string;
-} ): Promise<DiscoveredDevice[]> {
-  const baseUrl = input.apiBaseUrl.replace( /\/$/, "" );
-  const url = `${baseUrl}/api/diagnostics/interface/search_arp`;
-
-  const credentials = Buffer.from( `${input.apiKey}:${input.apiSecret}` ).toString(
-    "base64",
-  );
-
-  const body = {
-    current: 1,
-    rowCount: 1000,
-    sort: {},
-    resolve: "no",
-    subnet: input.subnet,
-  };
-
-  const originalTlsSetting = process.env.NODE_TLS_REJECT_UNAUTHORIZED;
-  if ( !input.verifyTls ) {
-    process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
+/** Exact-match IPv4 CIDR test; returns true for non-IPv4 input or no subnet. */
+function ipv4ToInt( ip: string ): number | null {
+  const parts = ip.split( "." );
+  if ( parts.length !== 4 ) return null;
+  let value = 0;
+  for ( const part of parts ) {
+    if ( !/^\d{1,3}$/.test( part ) ) return null;
+    const octet = Number( part );
+    if ( octet > 255 ) return null;
+    value = value * 256 + octet;
   }
-
-  let response: Response;
-  try {
-    response = await fetch( url, {
-      method: "POST",
-      headers: {
-        Authorization: `Basic ${credentials}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify( body ),
-    } );
-  } finally {
-    if ( !input.verifyTls ) {
-      if ( typeof originalTlsSetting === "string" ) {
-        process.env.NODE_TLS_REJECT_UNAUTHORIZED = originalTlsSetting;
-      } else {
-        delete process.env.NODE_TLS_REJECT_UNAUTHORIZED;
-      }
-    }
-  }
-
-  if ( !response.ok ) {
-    throw new Error( `Router API responded with ${response.status}` );
-  }
-
-  const payload = ( await response.json() ) as unknown;
-  return mapDiscoveredDevices( payload );
+  return value;
 }
 
-async function setBlockedStateOnRouter( input: {
-  apiBaseUrl: string;
-  apiKey: string;
-  apiSecret: string;
-  verifyTls: boolean;
-  ipAddress: string;
-  isBlocked: boolean;
-} ): Promise<void> {
-  const baseUrl = input.apiBaseUrl.replace( /\/$/, "" );
-  const action = input.isBlocked ? "add" : "delete";
-  const url = `${baseUrl}/api/firewall/alias_util/${action}/Blocked_Devices`;
+export function isInSubnet( ip: string, subnet?: string ): boolean {
+  if ( !subnet ) return true;
+  const [ base, prefixRaw ] = subnet.trim().split( "/" );
+  const baseInt = ipv4ToInt( base );
+  const ipInt = ipv4ToInt( ip );
+  if ( baseInt === null ) return true; // unparseable subnet: don't drop devices
+  if ( ipInt === null ) return false; // IPv6 entry while filtering an IPv4 subnet
+  const prefix = prefixRaw === undefined ? 32 : Number( prefixRaw );
+  if ( !Number.isInteger( prefix ) || prefix < 0 || prefix > 32 ) return true;
+  const size = 2 ** ( 32 - prefix );
+  return Math.floor( ipInt / size ) === Math.floor( baseInt / size );
+}
 
-  const credentials = Buffer.from( `${input.apiKey}:${input.apiSecret}` ).toString(
-    "base64",
+async function discoverFromRouterApi(
+  connection: OpnsenseConnection,
+  subnet?: string,
+): Promise<DiscoveredDevice[]> {
+  // search_arp has no subnet parameter, so the subnet is applied locally.
+  const payload = await opnsenseRequest( connection, "diagnostics/interface/search_arp", {
+    body: { current: 1, rowCount: 1000, sort: {}, resolve: "no" },
+  } );
+  return mapDiscoveredDevices( payload ).filter( ( device ) =>
+    isInSubnet( device.ipAddress, subnet ),
+  );
+}
+
+export const BLOCKED_DEVICES_ALIAS = "Blocked_Devices";
+
+async function setBlockedStateOnRouter(
+  connection: OpnsenseConnection,
+  ipAddress: string,
+  isBlocked: boolean,
+): Promise<void> {
+  // For a "host" alias OPNsense persists this to config.xml and updates the
+  // live pf table; for an "external" alias it only updates the pf table.
+  const action = isBlocked ? "add" : "delete";
+  const result = await opnsenseRequest<{ status?: string; status_msg?: string }>(
+    connection,
+    `firewall/alias_util/${action}/${BLOCKED_DEVICES_ALIAS}`,
+    { body: { address: ipAddress } },
   );
 
-  const originalTlsSetting = process.env.NODE_TLS_REJECT_UNAUTHORIZED;
-  if ( !input.verifyTls ) {
-    process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
-  }
-
-  let response: Response;
-  try {
-    response = await fetch( url, {
-      method: "POST",
-      headers: {
-        Authorization: `Basic ${credentials}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify( {
-        address: input.ipAddress,
-      } ),
-    } );
-  } finally {
-    if ( !input.verifyTls ) {
-      if ( typeof originalTlsSetting === "string" ) {
-        process.env.NODE_TLS_REJECT_UNAUTHORIZED = originalTlsSetting;
-      } else {
-        delete process.env.NODE_TLS_REJECT_UNAUTHORIZED;
-      }
-    }
-  }
-
-  if ( !response.ok ) {
-    throw new Error( `Router API responded with ${response.status}` );
+  if ( result?.status && result.status !== "done" ) {
+    throw new OpnsenseApiError(
+      result.status_msg || `Router refused to ${action} ${ipAddress}`,
+    );
   }
 }
 
-function parseBlockedAddresses( content: string | undefined ): Set<string> {
-  if ( !content ) {
-    return new Set();
+function collectAddresses( value: unknown, into: Set<string> ) {
+  if ( typeof value === "string" ) {
+    for ( const item of value.split( /[\n,;\s]+/ ) ) {
+      const trimmed = item.trim();
+      if ( trimmed ) into.add( trimmed );
+    }
+    return;
   }
-
-  const items = content
-    .split( /[\n,;\s]+/ )
-    .map( ( item ) => item.trim() )
-    .filter( Boolean );
-
-  return new Set( items );
+  if ( Array.isArray( value ) ) {
+    for ( const item of value ) collectAddresses( item, into );
+    return;
+  }
+  if ( typeof value === "object" && value !== null ) {
+    const row = value as Record<string, unknown>;
+    collectAddresses( row.ip ?? row.address ?? row.item, into );
+  }
 }
 
-async function searchAliasFromRouter( input: {
-  apiBaseUrl: string;
-  apiKey: string;
-  apiSecret: string;
-  verifyTls: boolean;
-} ): Promise<AliasSearchRow[]> {
-  const baseUrl = input.apiBaseUrl.replace( /\/$/, "" );
-  const url = `${baseUrl}/api/firewall/alias/search_item`;
-
-  const credentials = Buffer.from( `${input.apiKey}:${input.apiSecret}` ).toString(
-    "base64",
+/** Addresses currently in the live pf table, i.e. what the firewall enforces. */
+async function listBlockedFromPfTable( connection: OpnsenseConnection ) {
+  const payload = await opnsenseRequest<{ rows?: unknown }>(
+    connection,
+    `firewall/alias_util/list/${BLOCKED_DEVICES_ALIAS}`,
+    { body: { current: 1, rowCount: 1000 } },
   );
-
-  const originalTlsSetting = process.env.NODE_TLS_REJECT_UNAUTHORIZED;
-  if ( !input.verifyTls ) {
-    process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
-  }
-
-  let response: Response;
-  try {
-    response = await fetch( url, {
-      method: "POST",
-      headers: {
-        Authorization: `Basic ${credentials}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify( {
-        current: 1,
-        rowCount: 50,
-        sort: {},
-        searchPhrase: "Blocked_Devices",
-      } ),
-    } );
-  } finally {
-    if ( !input.verifyTls ) {
-      if ( typeof originalTlsSetting === "string" ) {
-        process.env.NODE_TLS_REJECT_UNAUTHORIZED = originalTlsSetting;
-      } else {
-        delete process.env.NODE_TLS_REJECT_UNAUTHORIZED;
-      }
-    }
-  }
-
-  if ( !response.ok ) {
-    throw new Error( `Router API responded with ${response.status}` );
-  }
-
-  const payload = ( await response.json() ) as unknown;
-  if ( typeof payload !== "object" || payload === null ) {
-    return [];
-  }
-
-  const rows = ( payload as Record<string, unknown> ).rows;
-  if ( !Array.isArray( rows ) ) {
-    return [];
-  }
-
-  return rows
-    .filter( ( row ) => typeof row === "object" && row !== null )
-    .map( ( row ) => row as AliasSearchRow );
+  const addresses = new Set<string>();
+  collectAddresses( payload?.rows, addresses );
+  return addresses;
 }
 
-async function searchDnsQueriesFromRouter( input: {
-  apiBaseUrl: string;
-  apiKey: string;
-  apiSecret: string;
-  verifyTls: boolean;
-  clientIp: string;
-  current?: number;
-  rowCount?: number;
-  action?: string;
-} ): Promise<DnsSearchQueriesPayload> {
-  const baseUrl = input.apiBaseUrl.replace( /\/$/, "" );
-  const url = `${baseUrl}/api/unbound/overview/search_queries`;
+/** Addresses saved in the alias definition (config.xml), host-type aliases only. */
+async function listBlockedFromAliasConfig( connection: OpnsenseConnection ) {
+  const payload = await opnsenseRequest<{ rows?: AliasSearchRow[] }>(
+    connection,
+    "firewall/alias/search_item",
+    {
+      body: { current: 1, rowCount: 50, sort: {}, searchPhrase: BLOCKED_DEVICES_ALIAS },
+    },
+  );
+  const alias = ( payload?.rows ?? [] ).find(
+    ( row ) => row?.name === BLOCKED_DEVICES_ALIAS,
+  );
+  const addresses = new Set<string>();
+  collectAddresses( alias?.content, addresses );
+  return addresses;
+}
 
-  const credentials = Buffer.from( `${input.apiKey}:${input.apiSecret}` ).toString(
-    "base64",
+const DNS_LOG_FETCH_LIMIT = 1000;
+
+async function searchDnsQueriesFromRouter(
+  connection: OpnsenseConnection,
+  input: {
+    clientIp: string;
+    current?: number;
+    rowCount?: number;
+    action?: string;
+  },
+): Promise<DnsSearchQueriesPayload> {
+  // Unbound's search_queries ignores `client` unless a time range is also given,
+  // and has no `action` filter, so it used to return every client's queries.
+  // Narrow the router-side result with searchPhrase, then filter exactly here.
+  const payload = await opnsenseRequest( connection, "unbound/overview/search_queries", {
+    body: {
+      current: 1,
+      rowCount: DNS_LOG_FETCH_LIMIT,
+      sort: {},
+      searchPhrase: input.clientIp,
+    },
+  } );
+
+  const matching = mapDnsSearchQueries( payload ).rows.filter(
+    ( row ) =>
+      row.client === input.clientIp &&
+      ( !input.action || row.action === input.action ),
   );
 
-  const originalTlsSetting = process.env.NODE_TLS_REJECT_UNAUTHORIZED;
-  if ( !input.verifyTls ) {
-    process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
-  }
+  const current = Math.max( 1, input.current ?? 1 );
+  const rowCount = Math.max( 1, input.rowCount ?? 50 );
+  const rows = matching.slice( ( current - 1 ) * rowCount, current * rowCount );
 
-  let response: Response;
-  try {
-    const requestBody: {
-      current: number;
-      rowCount: number;
-      client: string;
-      action?: string;
-    } = {
-      current: input.current ?? 1,
-      rowCount: input.rowCount ?? 50,
-      client: input.clientIp,
-    };
-
-    if ( input.action ) {
-      requestBody.action = input.action;
-    }
-
-    response = await fetch( url, {
-      method: "POST",
-      headers: {
-        Authorization: `Basic ${credentials}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify( requestBody ),
-    } );
-  } finally {
-    if ( !input.verifyTls ) {
-      if ( typeof originalTlsSetting === "string" ) {
-        process.env.NODE_TLS_REJECT_UNAUTHORIZED = originalTlsSetting;
-      } else {
-        delete process.env.NODE_TLS_REJECT_UNAUTHORIZED;
-      }
-    }
-  }
-
-  if ( !response.ok ) {
-    throw new Error( `Router API responded with ${response.status}` );
-  }
-
-  const payload = ( await response.json() ) as unknown;
-  return mapDnsSearchQueries( payload );
+  return { total: matching.length, rowCount: rows.length, current, rows };
 }
 
 class NetworkDeviceService {
@@ -455,13 +355,7 @@ class NetworkDeviceService {
     const existing = await networkDeviceRepository.findManyByUser( { userId } );
     const knownIps = new Set( existing.map( ( device ) => device.ipAddress ) );
 
-    const discovered = await discoverFromRouterApi( {
-      apiBaseUrl: config.apiBaseUrl,
-      apiKey: config.apiKey,
-      apiSecret: config.apiSecret,
-      verifyTls: config.verifyTls,
-      subnet: config.subnet,
-    } );
+    const discovered = await discoverFromRouterApi( config, config.subnet );
 
     const now = new Date();
 
@@ -471,7 +365,7 @@ class NetworkDeviceService {
           hostname: device.hostname,
           macAddress: device.macAddress,
           vendor: device.vendor,
-          deviceType: device.deviceType,
+          // deviceType is user-owned; ARP's `type` is the link type ("ethernet").
           intf: device.intf,
           intfDescription: device.intfDescription,
           isNewOnCreate: !knownIps.has( device.ipAddress ),
@@ -529,14 +423,7 @@ class NetworkDeviceService {
       throw new Error( "Device not found" );
     }
 
-    await setBlockedStateOnRouter( {
-      apiBaseUrl: config.apiBaseUrl,
-      apiKey: config.apiKey,
-      apiSecret: config.apiSecret,
-      verifyTls: config.verifyTls,
-      ipAddress: device.ipAddress,
-      isBlocked,
-    } );
+    await setBlockedStateOnRouter( config, device.ipAddress, isBlocked );
   }
 
   async getBlockedAddresses( config: {
@@ -545,15 +432,15 @@ class NetworkDeviceService {
     apiSecret: string;
     verifyTls: boolean;
   } ): Promise<Set<string>> {
-    const rows = await searchAliasFromRouter( {
-      apiBaseUrl: config.apiBaseUrl,
-      apiKey: config.apiKey,
-      apiSecret: config.apiSecret,
-      verifyTls: config.verifyTls,
-    } );
-
-    const blockedAlias = rows.find( ( row ) => row.name === "Blocked_Devices" );
-    return parseBlockedAddresses( blockedAlias?.content );
+    try {
+      return await listBlockedFromPfTable( config );
+    } catch ( error ) {
+      // Older firmware or a missing table: fall back to the saved alias content.
+      if ( error instanceof OpnsenseApiError && error.status !== undefined ) {
+        return listBlockedFromAliasConfig( config );
+      }
+      throw error;
+    }
   }
 
   async getDnsSearchQueries( input: {
@@ -566,7 +453,8 @@ class NetworkDeviceService {
     rowCount?: number;
     action?: string;
   } ): Promise<NetworkDnsQueryResult> {
-    return searchDnsQueriesFromRouter( input );
+    const { clientIp, current, rowCount, action, ...connection } = input;
+    return searchDnsQueriesFromRouter( connection, { clientIp, current, rowCount, action } );
   }
 }
 

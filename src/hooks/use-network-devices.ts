@@ -25,6 +25,9 @@ export function useNetworkDevices() {
 
     if ( result.success && result.devices ) {
       setDevices( result.devices as NetworkDevice[] );
+      if ( "warning" in result && result.warning ) {
+        toast.warning( result.warning );
+      }
     } else {
       toast.error( result.error || "Failed to load devices" );
     }
