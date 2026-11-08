@@ -6,6 +6,7 @@ import {
   Database,
   Dumbbell,
   Gauge,
+  Globe,
   HomeIcon,
   IndianRupee as Loans,
   Router,
@@ -48,6 +49,11 @@ export const additionalLinks: AdditionalLinks[] = [
         href: "/network/access",
         title: "Access",
         icon: ShieldCheck,
+      },
+      {
+        href: "/network/sites",
+        title: "Websites",
+        icon: Globe,
       },
       {
         href: "/network/alerts",

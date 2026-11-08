@@ -344,3 +344,20 @@ Still open:
 ### D3 per-group DNS policies: deferred
 
 Unbound DNSBL policies (`unbound/settings/{add,set,del}_dnsbl`, applied with `unbound/service/dnsbl`) take `source_nets` as literal IPs/CIDRs only, not aliases. Applying a change re-renders templates and re-downloads every blocklist. A per-device or per-group profile would have to rewrite `source_nets` and re-run that heavy reload whenever a member's IP changes, which disrupts DNS for the whole household. The app also has no device groups yet (A4). Recommended path: put groups that need stricter DNS on their own VLAN/subnet and give that subnet a static DNSBL policy on the router; Home Hub would then only need to show which policy applies.
+
+## 11. Website filtering (global and per device)
+
+Pages: `/network/sites` (rules for all devices, overview of per-device rules) and the **Websites** card on each device page. Code: `src/lib/network/site-filter.ts`, `src/lib/actions/network-sites.ts`, model `NetworkSiteRule` (`scope` = `"global"` or a device id, `action` = block | allow).
+
+- **How it works**: Home Hub owns Unbound DNSBL policies on the router, named `home-hub-sites: …`. There's one "all devices" policy per account (`[u:<userId>]`, no source networks) and one per device with rules (`[<deviceId>]`, source networks = the device's current addresses). OPNsense applies the blocks of every policy matching a client, so global, per-device and the router's own lists (AdGuard, Hagezi…) add up. Blocked names resolve to `0.0.0.0`.
+- **Behaviour verified on OPNsense 26.1 in testing**:
+  - A domain must go in both `blocklists` (the exact name) and `wildcards` (subdomains). With wildcards alone, `example.com` itself stayed reachable.
+  - Allow exceptions use `allowlists` with `.*<domain>` and only work for domains the device's own policy also lists, so allowed domains are added there too. The router accepted the pattern; the allow override itself wasn't conclusively tested.
+  - Unbound re-reads the blocklist at most once a minute, and an answer cached before a block stays until its TTL expires. Blocked answers aren't cached.
+- **Apply cost**: every change runs `unbound/service/dnsbl`, which rebuilds the whole blocklist from cached remote lists (45–75 s with ~30 lists) and slows the router API meanwhile. Syncs are serialized across processes by a DB lock (`network_collector_lease`, `site-filter:<userId>`), and changes made during a sync share one follow-up run. The router reports "OK" even when it skips a rebuild because another one is running (`|| true`), so each change is re-applied once on the next collector cycle (`confirmPending`).
+- **Safety**:
+  - A device policy without a current address is **disabled**, never left with empty source networks (which would mean "every client").
+  - Router/gateway and WAN-side devices can't get rules.
+  - Each account only creates, updates or deletes its own policies. Two accounts on one router used to delete each other's policies every minute.
+- **Limits**: DNS-level only. Browsers with secure DNS (DoH), VPNs and iCloud Private Relay bypass it. Per-device rules follow the device's address, so give kids' devices a DHCP reservation.
+- **Known limitation, MAC blocking**: the `HH_Block` alias is shared by name. If two accounts on the same router both enable MAC control, they overwrite each other's blocked devices. Keep one account per router (currently only `test@g.com` uses MAC mode).

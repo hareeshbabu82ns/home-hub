@@ -40,6 +40,8 @@ import { DeviceBadges, OnlineDot } from "../../components/device-badges";
 import { DeviceInsights } from "./device-insights";
 import { DeviceAccessCard } from "./device-access-card";
 import { DeviceConnectionsCard } from "./device-connections-card";
+import { DeviceDnsNames } from "./device-dns-names";
+import { DeviceSitesCard } from "./device-sites-card";
 
 interface NetworkDeviceDetailPageProps {
   deviceId: string;
@@ -418,6 +420,13 @@ export function NetworkDeviceDetailPage({
               <p>{formatDateTime(device.updatedAt)}</p>
             </div>
             <div className="sm:col-span-2 lg:col-span-3">
+              <DeviceDnsNames
+                deviceId={device.id}
+                deviceName={getDeviceDisplayName(device)}
+                ipAddress={device.ipAddress}
+              />
+            </div>
+            <div className="sm:col-span-2 lg:col-span-3">
               <p className="text-muted-foreground text-xs">Notes</p>
               <p>{device.notes || "-"}</p>
             </div>
@@ -426,6 +435,8 @@ export function NetworkDeviceDetailPage({
       </Card>
 
       <DeviceAccessCard device={device} onChanged={loadPageData} />
+
+      <DeviceSitesCard deviceId={device.id} />
 
       <DeviceInsights deviceId={device.id} />
 

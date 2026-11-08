@@ -10,6 +10,7 @@ import { networkSettingsService } from "@/lib/services/network-settings.service"
 import { networkTrafficService } from "@/lib/services/network-traffic.service";
 import { opnsenseRequest, type OpnsenseConnection } from "@/lib/services/opnsense-client";
 import { reconcileAccess } from "@/lib/network/enforcement";
+import { syncSiteFilter } from "@/lib/network/site-filter";
 
 import {
   COLLECTIONS,
@@ -519,6 +520,9 @@ export async function startNetworkCollector(
         const result = await reconcileAccess(user.userId, { trigger: "collector" });
         await alertsFromEnforcement(user.userId, result);
         await checkQuotas(user.userId);
+        // Website rules follow device address changes.
+        const sites = await syncSiteFilter(user.userId, { trigger: "collector", wait: false });
+        if (sites?.errors.length) throw new Error(`websites: ${sites.errors.join("; ")}`);
         if (result?.errors.length) throw new Error(result.errors.join("; "));
       }),
     );

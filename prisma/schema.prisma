@@ -264,6 +264,8 @@ model NetworkCollectorState {
   enforcementAt   DateTime?
   routerControl   Json? // cached control setup status (alias, rule, WoL…)
   routerControlAt DateTime?
+  siteFilter      Json? // last website-filter sync result
+  siteFilterAt    DateTime?
   lastDiscoveryAt DateTime?
   lastError       String?
   lastErrorAt     DateTime?
@@ -337,6 +339,22 @@ model NetworkInternalFlowDaily {
 
   @@unique([srcDeviceId, day, dstIp, proto, dstPort])
   @@index([userId, day])
+}
+
+// Website (domain) rules enforced through Unbound DNSBL policies managed by
+// Home Hub: scope "global" (all devices) or a device id. A domain covers its
+// subdomains. "allow" (device scope only) exempts the device from blocks.
+model NetworkSiteRule {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId     String   @db.ObjectId
+  scope      String // "global" | device id
+  domain     String // lower-case, no scheme/path/trailing dot
+  action     String // "block" | "allow"
+  createdBy  String?
+  createdAt  DateTime @default(now())
+
+  @@unique([userId, scope, domain])
+  @@index([userId])
 }
 
 model VerificationToken {

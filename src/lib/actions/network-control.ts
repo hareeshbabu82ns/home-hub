@@ -18,6 +18,7 @@ import {
   LEGACY_BLOCK_ALIAS,
   networkControlService,
   type ControlSetupStatus,
+  type DnsName,
 } from "@/lib/services/network-control.service";
 import { networkSettingsService } from "@/lib/services/network-settings.service";
 
@@ -413,6 +414,12 @@ const hostnameSchema = z
   .trim()
   .toLowerCase()
   .regex(/^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/, "Use letters, digits and hyphens (max 63)");
+// DNS host overrides may be a wildcard ("*.example.lan"); DHCP hostnames may not.
+const dnsHostnameSchema = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .regex(/^(\*|[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)$/, "Use letters, digits and hyphens (max 63), or * for a wildcard");
 const domainSchema = z
   .string()
   .trim()
@@ -422,10 +429,18 @@ const domainSchema = z
 export async function addDeviceDnsName(values: { id: string; hostname: string; domain: string }) {
   try {
     const { userId, email } = await requireManager();
-    const hostname = hostnameSchema.parse(values.hostname);
+    const hostname = dnsHostnameSchema.parse(values.hostname);
     const domain = domainSchema.parse(values.domain);
     const device = await getDeviceOrThrow(userId, values.id);
     const connection = await requireConnection(userId);
+
+    const taken = await findDnsNameConflict(connection, hostname, domain);
+    if (taken) {
+      return {
+        success: false as const,
+        error: `${hostname}.${domain} already exists (→ ${taken.ip}). Edit that entry instead.`,
+      };
+    }
 
     await networkAuditService.track(
       {
@@ -441,12 +456,151 @@ export async function addDeviceDnsName(values: { id: string; hostname: string; d
           hostname,
           domain,
           ip: device.ipAddress,
-          description: `home-hub: ${getDeviceDisplayName(device)} (${device.macAddress})`,
+          description: dnsDescription(device),
         }),
     );
     return { success: true as const, fqdn: `${hostname}.${domain}` };
   } catch (error) {
     return fail(error, "Failed to add DNS name");
+  }
+}
+
+type DeviceRecord = Awaited<ReturnType<typeof getDeviceOrThrow>>;
+
+/**
+ * DNS names (Unbound host overrides) belonging to a device: pointing at its
+ * current IP, or created by Home Hub for it (its MAC is in the description),
+ * which also finds names left on an old IP after a lease change.
+ */
+function belongsTo(device: DeviceRecord, name: DnsName) {
+  return name.ip === device.ipAddress || name.description.toLowerCase().includes(device.macAddress);
+}
+
+function dnsDescription(device: DeviceRecord) {
+  return `home-hub: ${getDeviceDisplayName(device)} (${device.macAddress})`;
+}
+
+export async function getDeviceDnsNames(id: string) {
+  try {
+    const { userId, canManage } = await getActor();
+    const device = await getDeviceOrThrow(userId, id);
+    const connection = await requireConnection(userId);
+    const [names, state] = await Promise.all([
+      networkControlService.listDnsNames(connection),
+      db.networkCollectorState.findUnique({ where: { userId } }),
+    ]);
+    const suggested = (device.name || device.dhcpHostname || device.hostname || "")
+      .toLowerCase()
+      .replace(/[^a-z0-9-]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 63);
+    return {
+      success: true as const,
+      data: {
+        canManage,
+        routerDomain: (state?.routerControl as ControlSetupStatus | null)?.routerDomain ?? null,
+        suggestedHostname: suggested || null,
+        names: names
+          .filter((name) => belongsTo(device, name))
+          .map((name) => ({
+            ...name,
+            fqdn: `${name.hostname}.${name.domain}`,
+            stale: name.ip !== device.ipAddress,
+            managed: name.description.startsWith("home-hub:"),
+          })),
+      },
+    };
+  } catch (error) {
+    return fail(error, "Failed to load DNS names");
+  }
+}
+
+/** Another host override with the same name (Unbound would serve both). */
+async function findDnsNameConflict(
+  connection: Awaited<ReturnType<typeof requireConnection>>,
+  hostname: string,
+  domain: string,
+  exceptUuid?: string,
+) {
+  const names = await networkControlService.listDnsNames(connection);
+  return names.find(
+    (n) => n.uuid !== exceptUuid && n.hostname.toLowerCase() === hostname && n.domain.toLowerCase() === domain,
+  );
+}
+
+async function requireDeviceDnsName(userId: string, deviceId: string, uuid: string) {
+  const device = await getDeviceOrThrow(userId, deviceId);
+  const connection = await requireConnection(userId);
+  const name = (await networkControlService.listDnsNames(connection)).find((n) => n.uuid === uuid);
+  if (!name || !belongsTo(device, name)) throw new Error("DNS name not found for this device");
+  return { device, connection, name };
+}
+
+/** Renames and/or re-points a DNS name at the device's current IP. */
+export async function updateDeviceDnsName(values: { id: string; uuid: string; hostname: string; domain: string }) {
+  try {
+    const { userId, email } = await requireManager();
+    const hostname = dnsHostnameSchema.parse(values.hostname);
+    const domain = domainSchema.parse(values.domain);
+    const { device, connection, name } = await requireDeviceDnsName(userId, values.id, values.uuid);
+
+    const taken = await findDnsNameConflict(connection, hostname, domain, name.uuid);
+    if (taken) {
+      return {
+        success: false as const,
+        error: `${hostname}.${domain} already exists (→ ${taken.ip}). Remove or edit that entry first.`,
+      };
+    }
+
+    await networkAuditService.track(
+      {
+        userId,
+        actorEmail: email,
+        action: "dns-name-update",
+        target: `${hostname}.${domain}`,
+        deviceId: device.id,
+        details: { from: `${name.hostname}.${name.domain} → ${name.ip}`, ip: device.ipAddress },
+      },
+      () =>
+        networkControlService.updateDnsName(connection, name.uuid, {
+          hostname,
+          domain,
+          ip: device.ipAddress,
+          // Keep descriptions of names created outside Home Hub.
+          description: name.description.startsWith("home-hub:") || !name.description ? dnsDescription(device) : name.description,
+        }),
+    );
+    return { success: true as const, fqdn: `${hostname}.${domain}` };
+  } catch (error) {
+    if (error instanceof Error && error.message === "DNS name not found for this device") {
+      return { success: false as const, error: error.message };
+    }
+    return fail(error, "Failed to update DNS name");
+  }
+}
+
+export async function deleteDeviceDnsName(values: { id: string; uuid: string }) {
+  try {
+    const { userId, email } = await requireManager();
+    const { device, connection, name } = await requireDeviceDnsName(userId, values.id, values.uuid);
+
+    await networkAuditService.track(
+      {
+        userId,
+        actorEmail: email,
+        action: "dns-name-delete",
+        target: `${name.hostname}.${name.domain}`,
+        deviceId: device.id,
+        details: { ip: name.ip },
+      },
+      () => networkControlService.deleteDnsName(connection, name.uuid),
+    );
+    return { success: true as const };
+  } catch (error) {
+    if (error instanceof Error && error.message === "DNS name not found for this device") {
+      return { success: false as const, error: error.message };
+    }
+    return fail(error, "Failed to remove DNS name");
   }
 }
 

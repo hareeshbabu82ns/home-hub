@@ -34,6 +34,12 @@ including `node_modules`, is bind-mounted from the host.
   and must be audited (`networkAuditService.track`). Never call
   `firewall/alias/reconfigure` per change: it reloads the whole firewall and
   stalls the router API for about a minute.
+- Website filtering (`src/lib/network/site-filter.ts`) edits Unbound DNSBL policies
+  named `home-hub-sites: …`. Each sync makes the router rebuild its whole
+  blocklist (~1 min), so keep syncs serialized (`syncSiteFilter`) and never
+  touch policies without that prefix or owned by another account.
+- Scripts that use `getAppDb()` must call `closeAppDb()` before exiting, or
+  Node keeps running.
 - Network control actions require `role = ADMIN` (`requireManager()` in
   `src/lib/network/action-helpers.ts`); reads only need a session.
 

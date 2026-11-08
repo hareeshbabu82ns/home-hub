@@ -67,6 +67,51 @@ function selectedOption(field: unknown): string | undefined {
   return undefined;
 }
 
+export interface DnsName {
+  uuid: string;
+  enabled: boolean;
+  hostname: string;
+  domain: string;
+  ip: string;
+  description: string;
+}
+
+/** Prefix marking DNSBL policies Home Hub owns (others are never touched). */
+export const SITE_POLICY_PREFIX = "home-hub-sites:";
+
+export interface SitePolicy {
+  uuid: string;
+  description: string;
+  enabled: boolean;
+  sourceNets: string[];
+  /** Exact names (the domain itself). */
+  blocklists: string[];
+  /** Subdomains of these (not the domain itself; tested on OPNsense 26.1). */
+  wildcards: string[];
+  allowlists: string[];
+}
+
+export interface SitePolicyInput {
+  description: string;
+  enabled: boolean;
+  sourceNets: string[];
+  blocklists: string[];
+  wildcards: string[];
+  allowlists: string[];
+}
+
+/** Multi-value model fields come back as option maps; flatten to values. */
+function multiValues(field: unknown): string[] {
+  if (typeof field === "string") return field.split(",").map((v) => v.trim()).filter(Boolean);
+  if (field && typeof field === "object") {
+    return Object.entries(field as Record<string, Row>)
+      .filter(([key, option]) => key && (option?.selected === undefined || option.selected === 1 || option.selected === "1"))
+      .map(([key, option]) => (typeof option?.value === "string" && option.value ? option.value : key))
+      .filter(Boolean);
+  }
+  return [];
+}
+
 export interface ControlSetupStatus {
   alias: { uuid: string; type?: string; macCount: number } | null;
   rule: { uuid: string; enabled: boolean; ipprotocol?: string } | null;
@@ -271,6 +316,106 @@ class NetworkControlService {
       },
     });
     await mutate(connection, "unbound/service/reconfigure", {}, RELOAD_TIMEOUT_MS);
+  }
+
+  /** All Unbound host overrides (A/AAAA only; aliases and MX/TXT skipped). */
+  async listDnsNames(connection: OpnsenseConnection): Promise<DnsName[]> {
+    const payload = await opnsenseRequest<{ rows?: Row[] }>(connection, "unbound/settings/search_host_override", {
+      body: { current: 1, rowCount: 2000, sort: {} },
+    });
+    return (payload.rows ?? [])
+      .filter((row) => !row.isAlias && ["A", "AAAA"].includes(String(row.rr ?? "A")))
+      .map((row) => ({
+        uuid: String(row.uuid),
+        enabled: String(row.enabled) === "1",
+        hostname: String(row.hostname ?? ""),
+        domain: String(row.domain ?? ""),
+        ip: String(row.server ?? ""),
+        description: String(row.description ?? ""),
+      }));
+  }
+
+  async updateDnsName(
+    connection: OpnsenseConnection,
+    uuid: string,
+    input: { hostname: string; domain: string; ip: string; description: string },
+  ) {
+    await mutate(connection, `unbound/settings/set_host_override/${encodeURIComponent(uuid)}`, {
+      host: {
+        hostname: input.hostname,
+        domain: input.domain,
+        rr: input.ip.includes(":") ? "AAAA" : "A",
+        server: input.ip,
+        description: input.description,
+      },
+    });
+    await mutate(connection, "unbound/service/reconfigure", {}, RELOAD_TIMEOUT_MS);
+  }
+
+  async deleteDnsName(connection: OpnsenseConnection, uuid: string) {
+    await mutate(connection, `unbound/settings/del_host_override/${encodeURIComponent(uuid)}`);
+    await mutate(connection, "unbound/service/reconfigure", {}, RELOAD_TIMEOUT_MS);
+  }
+
+  // ---------------------------------------------------- website filtering
+  // Unbound DNSBL policies for clients in source_nets (empty = every client):
+  // "blocklists" match the exact name, "wildcards" only its subdomains, so a
+  // site needs both.
+
+  async listSitePolicies(connection: OpnsenseConnection): Promise<SitePolicy[]> {
+    const search = await opnsenseRequest<{ rows?: Row[] }>(connection, "unbound/settings/search_dnsbl", {
+      body: { current: 1, rowCount: 500 },
+    });
+    const ours = (search.rows ?? []).filter((row) => String(row.description ?? "").startsWith(SITE_POLICY_PREFIX));
+    return Promise.all(
+      ours.map(async (row) => {
+        const uuid = String(row.uuid);
+        const item = await opnsenseRequest<{ blocklist?: Row }>(connection, `unbound/settings/get_dnsbl/${uuid}`, {
+          method: "GET",
+        });
+        const policy = item.blocklist ?? {};
+        return {
+          uuid,
+          description: String(policy.description ?? row.description ?? ""),
+          enabled: String(policy.enabled) === "1",
+          sourceNets: multiValues(policy.source_nets),
+          blocklists: multiValues(policy.blocklists),
+          wildcards: multiValues(policy.wildcards),
+          allowlists: multiValues(policy.allowlists),
+        };
+      }),
+    );
+  }
+
+  /** Creates (uuid null) or replaces a Home Hub policy. Call applySitePolicies after. */
+  async saveSitePolicy(connection: OpnsenseConnection, uuid: string | null, input: SitePolicyInput) {
+    const blocklist = {
+      enabled: input.enabled ? "1" : "0",
+      description: input.description,
+      type: "", // no remote lists; those stay in your own policies
+      lists: "",
+      blocklists: input.blocklists.join(","),
+      wildcards: input.wildcards.join(","),
+      allowlists: input.allowlists.join(","),
+      source_nets: input.sourceNets.join(","),
+      address: "",
+      nxdomain: "0",
+    };
+    if (uuid) {
+      await mutate(connection, `unbound/settings/set_dnsbl/${encodeURIComponent(uuid)}`, { blocklist });
+      return uuid;
+    }
+    const result = await mutate<{ uuid?: string }>(connection, "unbound/settings/add_dnsbl", { blocklist });
+    return String(result.uuid);
+  }
+
+  async deleteSitePolicy(connection: OpnsenseConnection, uuid: string) {
+    await mutate(connection, `unbound/settings/del_dnsbl/${encodeURIComponent(uuid)}`);
+  }
+
+  /** Rebuilds Unbound's blocklist from config (remote lists come from cache). */
+  async applySitePolicies(connection: OpnsenseConnection) {
+    await mutate(connection, "unbound/service/dnsbl", {}, RELOAD_TIMEOUT_MS);
   }
 
   async addDhcpReservation(

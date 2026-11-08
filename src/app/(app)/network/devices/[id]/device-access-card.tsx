@@ -1,7 +1,7 @@
 "use client";
 
 import { format } from "date-fns";
-import { Ban, CheckCircle2, Globe2, Loader2, Pause, Pin, Play, Power } from "lucide-react";
+import { Ban, CheckCircle2, Loader2, Pause, Pin, Play, Power } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 
@@ -18,19 +18,8 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { toggleNetworkDeviceBlocked } from "@/lib/actions/network";
 import {
-  addDeviceDnsName,
   getDeviceControlOptions,
   getNetworkAuditLog,
   pauseDevice,
@@ -68,7 +57,6 @@ export function DeviceAccessCard({
   const [audit, setAudit] = useState<AuditEntry[]>([]);
   const [pending, setPending] = useState<Pending | null>(null);
   const [busy, setBusy] = useState(false);
-  const [dnsOpen, setDnsOpen] = useState(false);
   const [dnsForm, setDnsForm] = useState({ hostname: "", domain: "" });
 
   const loadAudit = useCallback(async () => {
@@ -149,13 +137,6 @@ export function DeviceAccessCard({
       const result = await wakeDevice(device.id);
       return finish(result.success, `Wake-on-LAN sent to ${name}`, result.success ? undefined : result.error);
     }
-  }
-
-  async function saveDnsName() {
-    setBusy(true);
-    const result = await addDeviceDnsName({ id: device.id, ...dnsForm });
-    if (result.success) setDnsOpen(false);
-    await finish(result.success, result.success ? `${result.fqdn} now resolves to ${device.ipAddress}` : undefined, result.success ? undefined : result.error);
   }
 
   const dialog = (() => {
@@ -272,10 +253,6 @@ export function DeviceAccessCard({
                   Reserve {device.ipAddress}
                 </Button>
               )}
-              <Button variant="outline" size="sm" disabled={busy} onClick={() => setDnsOpen(true)}>
-                <Globe2 className="mr-1 size-4" />
-                Add DNS name
-              </Button>
             </div>
 
             {device.role === "CLIENT" && !device.isUpstream && (
@@ -332,40 +309,6 @@ export function DeviceAccessCard({
         </AlertDialogContent>
       </AlertDialog>
 
-      <Dialog open={dnsOpen} onOpenChange={setDnsOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Add a DNS name for {name}</DialogTitle>
-            <DialogDescription>
-              Creates an Unbound host override pointing at {device.ipAddress}. Reserve the IP too,
-              so the name keeps working when the lease changes.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="dns-hostname">Hostname</Label>
-              <Input id="dns-hostname" value={dnsForm.hostname} onChange={(e) => setDnsForm((f) => ({ ...f, hostname: e.target.value }))} />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="dns-domain">Domain</Label>
-              <Input id="dns-domain" value={dnsForm.domain} onChange={(e) => setDnsForm((f) => ({ ...f, domain: e.target.value }))} />
-            </div>
-          </div>
-          {dnsForm.hostname && dnsForm.domain && (
-            <p className="text-muted-foreground font-mono text-xs">
-              {dnsForm.hostname}.{dnsForm.domain} → {device.ipAddress}
-            </p>
-          )}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDnsOpen(false)}>
-              Cancel
-            </Button>
-            <Button disabled={busy || !dnsForm.hostname || !dnsForm.domain} onClick={() => void saveDnsName()}>
-              Add name
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </Card>
   );
 }
