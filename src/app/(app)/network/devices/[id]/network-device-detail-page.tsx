@@ -38,6 +38,7 @@ import type {
 
 import { DeviceBadges, OnlineDot } from "../../components/device-badges";
 import { DeviceInsights } from "./device-insights";
+import { DeviceAccessCard } from "./device-access-card";
 
 interface NetworkDeviceDetailPageProps {
   deviceId: string;
@@ -413,6 +414,8 @@ export function NetworkDeviceDetailPage({
           </div>
         </CardContent>
       </Card>
+
+      <DeviceAccessCard device={device} onChanged={loadPageData} />
 
       <DeviceInsights deviceId={device.id} />
 

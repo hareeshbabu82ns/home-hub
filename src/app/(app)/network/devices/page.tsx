@@ -300,6 +300,11 @@ export default function NetworkDevicesPage() {
                   ) : (
                     filtered.map((device) => {
                       const disabledReason = blockDisabledReason(device);
+                      // In MAC mode only a manual block is undone here; pauses,
+                      // schedules and quarantine are managed elsewhere.
+                      const manuallyBlocked = device.access
+                        ? device.access.reasons.some((r) => r.kind === "manual")
+                        : device.isBlocked;
                       return (
                         <TableRow
                           key={device.id}
@@ -388,21 +393,21 @@ export default function NetworkDevicesPage() {
                                   <Button
                                     size="sm"
                                     variant={
-                                      device.isBlocked
+                                      manuallyBlocked
                                         ? "secondary"
                                         : "destructive"
                                     }
                                     onClick={() =>
                                       setPending({
-                                        kind: device.isBlocked
+                                        kind: manuallyBlocked
                                           ? "unblock"
                                           : "block",
                                         device,
                                       })
                                     }
-                                    disabled={actionLoading || !!disabledReason}
+                                    disabled={actionLoading || (!manuallyBlocked && !!disabledReason)}
                                   >
-                                    {device.isBlocked ? "Unblock" : "Block"}
+                                    {manuallyBlocked ? "Unblock" : "Block"}
                                   </Button>
                                 </span>
                               </div>
@@ -436,9 +441,13 @@ export default function NetworkDevicesPage() {
               {pending?.kind === "delete" &&
                 "Removes the device and its IP history from Home Hub. It is added back as a new device if the router still sees it."}
               {pending?.kind === "block" &&
-                `Adds ${pending.device.ipAddress} to the router's Blocked_Devices alias. The device loses network access through the firewall until you unblock it.`}
+                (pending.device.access
+                  ? `Blocks ${pending.device.macAddress} on every address it uses (IPv4 and IPv6) and drops its open connections, until you unblock it.`
+                  : `Adds ${pending.device.ipAddress} to the router's Blocked_Devices alias. The device loses network access through the firewall until you unblock it.`)}
               {pending?.kind === "unblock" &&
-                `Removes ${pending.device.ipAddress} from the router's Blocked_Devices alias.`}
+                (pending.device.access
+                  ? "Removes the manual block. A pause, schedule or quarantine may still apply."
+                  : `Removes ${pending.device.ipAddress} from the router's Blocked_Devices alias.`)}
               {pending?.kind === "block-self" && pending.message}
             </AlertDialogDescription>
           </AlertDialogHeader>

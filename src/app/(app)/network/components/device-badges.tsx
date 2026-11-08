@@ -1,12 +1,15 @@
-import { Ban, Fingerprint, Globe, ShieldAlert, Waypoints } from "lucide-react";
+import { Ban, CalendarClock, Fingerprint, Globe, Pause, ShieldAlert, Waypoints } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
+import { describeReason } from "@/lib/network/access-policy";
 import type { NetworkDevice } from "@/types/network";
 
 type BadgeFields = Pick<
   NetworkDevice,
-  "isOnline" | "isNew" | "isBlocked" | "role" | "isUpstream" | "isRandomMac"
+  "isOnline" | "isNew" | "isBlocked" | "role" | "isUpstream" | "isRandomMac" | "access"
 >;
+
+const REASON_ICON = { manual: Ban, paused: Pause, schedule: CalendarClock, quarantine: ShieldAlert } as const;
 
 export function OnlineDot({ isOnline }: { isOnline: boolean }) {
   return (
@@ -21,13 +24,23 @@ export function OnlineDot({ isOnline }: { isOnline: boolean }) {
 export function DeviceBadges({ device }: { device: BadgeFields }) {
   return (
     <div className="flex flex-wrap gap-1">
-      {device.isBlocked && (
-        <Badge variant="destructive" className="gap-1">
-          <Ban className="size-3" />
-          Blocked
-        </Badge>
-      )}
-      {device.isNew && (
+      {device.access?.reasons.length
+        ? device.access.reasons.map((reason) => {
+            const Icon = REASON_ICON[reason.kind];
+            return (
+              <Badge key={JSON.stringify(reason)} variant="destructive" className="gap-1">
+                <Icon className="size-3" />
+                {describeReason(reason)}
+              </Badge>
+            );
+          })
+        : device.isBlocked && (
+            <Badge variant="destructive" className="gap-1">
+              <Ban className="size-3" />
+              Blocked
+            </Badge>
+          )}
+      {device.isNew && !device.access?.reasons.some((r) => r.kind === "quarantine") && (
         <Badge variant="destructive" className="gap-1">
           <ShieldAlert className="size-3" />
           New

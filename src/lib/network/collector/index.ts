@@ -9,10 +9,12 @@ import { networkDeviceService } from "@/lib/services/network-device.service";
 import { networkSettingsService } from "@/lib/services/network-settings.service";
 import { networkTrafficService } from "@/lib/services/network-traffic.service";
 import { opnsenseRequest, type OpnsenseConnection } from "@/lib/services/opnsense-client";
+import { reconcileAccess } from "@/lib/network/enforcement";
 
 import {
   COLLECTIONS,
   ensureNetworkCollections,
+  ensureRetentionIndexes,
   type RouterHealthDoc,
   type TrafficSampleDoc,
 } from "./collections";
@@ -36,6 +38,7 @@ import {
  *   discovery  every 60s:  ARP/NDP/DHCP scan → online state, presence events
  *   dns        every 60s:  Unbound query log → hourly/daily DNS aggregates
  *   health     every 60s:  CPU, memory, gateways, interface throughput
+ *   enforce    every 60s:  apply block/pause/schedule/quarantine (MAC mode)
  */
 
 const LEASE_ID = "network-collector";
@@ -46,6 +49,7 @@ const INTERVALS = {
   discovery: 60_000,
   dns: 60_000,
   health: 60_000,
+  enforce: 60_000,
   users: 120_000,
 };
 // Longest gap a traffic sample's rate is assumed to have lasted for.
@@ -461,7 +465,10 @@ export async function startNetworkCollector(
 
   // ------------------------------------------------------------------ start
   every("lease", INTERVALS.lease, renewLease);
-  every("users", INTERVALS.users, loadUsers);
+  every("users", INTERVALS.users, async () => {
+    await loadUsers();
+    if (isLeader) await ensureRetentionIndexes();
+  });
   // Give lease/users a moment so the first rounds have something to do.
   const startJobs = setTimeout(() => {
     timers.delete(startJobs);
@@ -469,6 +476,13 @@ export async function startNetworkCollector(
     every("discovery", INTERVALS.discovery, () => forEachUser("discovery", collectDiscovery));
     every("dns", INTERVALS.dns, () => forEachUser("dns", collectDns));
     every("health", INTERVALS.health, () => forEachUser("health", collectHealth));
+    // Pauses expire and schedules start/end on the minute; addresses change.
+    every("enforce", INTERVALS.enforce, () =>
+      forEachUser("enforce", async (user) => {
+        const result = await reconcileAccess(user.userId, { trigger: "collector" });
+        if (result?.errors.length) throw new Error(result.errors.join("; "));
+      }),
+    );
   }, 2_000);
   timers.add(startJobs);
 

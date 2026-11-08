@@ -231,7 +231,7 @@ Traffic rows from `top` are by IP. The collector resolves IP→MAC with the ARP 
 | **0 — done in this change** | OPNsense client, V1–V8 fixes | D1 |
 | **1 — trustworthy inventory** (done 2026-11-08) | MAC identity + migration, DHCP leases for names, NDP, infrastructure classification, random-MAC flag, secret encryption, ADMIN gating | A1–A3, E5, V9–V13 |
 | **2 — collector & history** (done 2026-11-08) | Worker service, time-series collections, presence, hourly traffic/DNS rollups, SSE live views, router health page | B1, C1–C3, D2, F1 |
-| **3 — control** | Setup wizard, MAC block alias, pause/schedule reconciler, quarantine, audit log, WoL, DNS host override, DHCP reservation | E1–E3, A5, D4, F2, F4 |
+| **3 — control** (done 2026-11-08) | Setup wizard, MAC block alias, pause/schedule reconciler, quarantine, audit log, WoL, DNS host override, DHCP reservation | E1–E3, A5, D4, F2, F4 |
 | **4 — alerts & polish** | Alert engine + email/push, quotas, pf-state view/kill, IoT isolation report, per-group DNS policies | B2–B3, C4, D3, E4 |
 
 ## 6. Open questions
@@ -278,3 +278,29 @@ Still open:
 - **Presence**: a device goes offline only after 5 minutes absent from ARP/NDP (ARP entries come and go for quiet devices).
 - **Live views**: `GET /api/network/live` (server-sent events) streams the collector's snapshot every 2 s. The traffic page falls back to direct router polling when the collector's heartbeat is older than 45 s.
 - Gateway latency/loss show "monitoring off" because `WAN_GW` has no monitor IP configured on the router.
+
+## 9. Phase 3 implementation notes
+
+- **Two control modes** (`NetworkIntegrationSettings.controlMode`):
+  - `ip` (legacy): Block adds the IP to `Blocked_Devices`, as in Phase 1.
+  - `mac`: enabled by Settings → Network → Router control → *Prepare router*. That creates the MAC alias `HH_Block` and one floating rule `home-hub:block` (block, quick, `inet46`, logged, sequence 1), moves legacy IP blocks to device blocks, and switches modes. Both objects are inert until a device is added.
+- **Desired state** lives in the database:
+  - per device: `NetworkDevice.blocked`, `pausedUntil`
+  - recurring windows: `NetworkAccessSchedule` (days, start/end minute, crossing midnight; timezone from settings, then `TZ`, then UTC)
+  - quarantine: `quarantineNewDevices` blocks devices still marked New
+  
+  `decideAccess()` (`src/lib/network/access-policy.ts`) combines these. Router/gateway and WAN-side devices are always exempt.
+- **Enforcement** (`src/lib/network/enforcement.ts`) runs after every control action and every minute from the collector:
+  1. Saves the blocked MACs to `HH_Block` with `alias/set_item`. This persists to config.xml but deliberately does **not** call `alias/reconfigure`: that reloads the whole firewall and stalled the router API for about a minute in testing.
+  2. Adds blocked devices' recent routable IPv4/IPv6 addresses to the live pf table (`alias_util/add`), and removes addresses that belong to unblocked devices.
+  3. Drops open connections of newly blocked devices (`diagnostics/firewall/kill_states {filter: ip}`; verified 4 → 0 states).
+- **MAC alias caveat**: OPNsense resolves a MAC alias from its ARP/NDP cache, which keeps addresses up to 12 h. In testing, the soundbar's MAC resolved to five addresses, including old ones (`192.168.86.218`, `10.25.42.155`). If an old address is reassigned, the reconciler removes it from the table within a minute when it belongs to an unblocked device.
+- **No savepoint/rollback API** was found in OPNsense core, so setup relies on the rule being inert until a device is blocked.
+- **Router operations** (device page → Access & actions):
+  - Wake-on-LAN: needs the `os-wol` plugin, which isn't installed on this router.
+  - DNS name: Unbound host override + `unbound/service/reconfigure`.
+  - DHCP reservation: Dnsmasq host + `dnsmasq/service/reconfigure`.
+  
+  Reloads get a 120 s timeout.
+- **Audit**: `NetworkAuditLog` records every control action (who, what, router error) and every enforcement change; 365-day TTL. Shown on `/network/access` and per device.
+- **Retention indexes**: `prisma db push` drops TTL indexes it doesn't know about. The collector re-creates them every 2 minutes (`ensureRetentionIndexes`).

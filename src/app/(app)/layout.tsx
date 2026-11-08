@@ -1,5 +1,4 @@
 import { checkAuth, getUserAuth } from "@/lib/auth/utils";
-import { Toaster } from "@/components/ui/sonner";
 import NextAuthProvider from "@/lib/auth/Provider";
 import { MobileFirstLayout } from "./MobileFirstLayout";
 
@@ -14,7 +13,6 @@ export default async function AppLayout({
   return (
     <NextAuthProvider>
       <MobileFirstLayout session={session}>{children}</MobileFirstLayout>
-      <Toaster richColors />
     </NextAuthProvider>
   );
 }

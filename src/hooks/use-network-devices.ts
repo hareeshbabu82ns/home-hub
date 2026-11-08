@@ -71,8 +71,9 @@ export function useNetworkDevices() {
     if ( result.success && result.device ) {
       setDevices( ( previous ) =>
         previous.map( ( device ) =>
+          // Merge: the server copy lacks computed fields (isBlocked, access).
           device.id === result.device.id
-            ? ( { ...result.device } as NetworkDevice )
+            ? ( { ...device, ...result.device } as NetworkDevice )
             : device,
         ),
       );
@@ -109,8 +110,9 @@ export function useNetworkDevices() {
     if ( result.success && result.device ) {
       setDevices( ( previous ) =>
         previous.map( ( device ) =>
+          // Merge: the server copy lacks computed fields (isBlocked, access).
           device.id === result.device.id
-            ? ( { ...result.device } as NetworkDevice )
+            ? ( { ...device, ...result.device } as NetworkDevice )
             : device,
         ),
       );
@@ -138,6 +140,7 @@ export function useNetworkDevices() {
       if ( result.success && result.devices ) {
         setDevices( result.devices as NetworkDevice[] );
         toast.success( isBlocked ? "Device blocked" : "Device unblocked" );
+        if ( result.notice ) toast.info( result.notice );
         return "ok";
       }
 

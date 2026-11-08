@@ -11,6 +11,7 @@ export const COLLECTIONS = {
   usageHourly: "NetworkUsageHourly",
   dnsDaily: "NetworkDnsDaily",
   presence: "NetworkPresenceEvent",
+  audit: "NetworkAuditLog",
   state: "NetworkCollectorState",
 } as const;
 
@@ -21,6 +22,7 @@ export const RETENTION_SECONDS = {
   usageHourly: 400 * DAY,
   dnsDaily: 90 * DAY,
   presence: 180 * DAY,
+  audit: 365 * DAY,
 } as const;
 
 export interface TrafficSampleDoc {
@@ -67,6 +69,18 @@ async function ensureTtl(db: Db, collection: string, field: string, seconds: num
   await db.collection(collection).createIndex({ [field]: 1 }, { name, expireAfterSeconds: seconds });
 }
 
+/**
+ * TTL indexes on Prisma-managed collections. `prisma db push` drops indexes it
+ * doesn't know about, so the collector re-checks these periodically.
+ */
+export async function ensureRetentionIndexes(): Promise<void> {
+  const db = await getAppDb();
+  await ensureTtl(db, COLLECTIONS.usageHourly, "hour", RETENTION_SECONDS.usageHourly);
+  await ensureTtl(db, COLLECTIONS.dnsDaily, "day", RETENTION_SECONDS.dnsDaily);
+  await ensureTtl(db, COLLECTIONS.presence, "at", RETENTION_SECONDS.presence);
+  await ensureTtl(db, COLLECTIONS.audit, "at", RETENTION_SECONDS.audit);
+}
+
 /** Idempotent; safe to call on every collector start. */
 export function ensureNetworkCollections(): Promise<void> {
   ensured ??= (async () => {
@@ -75,9 +89,7 @@ export function ensureNetworkCollections(): Promise<void> {
     await ensureTimeSeries(db, COLLECTIONS.routerHealth, RETENTION_SECONDS.routerHealth);
     await db.collection(COLLECTIONS.trafficSamples).createIndex({ "meta.userId": 1, ts: -1 });
     await db.collection(COLLECTIONS.routerHealth).createIndex({ "meta.userId": 1, ts: -1 });
-    await ensureTtl(db, COLLECTIONS.usageHourly, "hour", RETENTION_SECONDS.usageHourly);
-    await ensureTtl(db, COLLECTIONS.dnsDaily, "day", RETENTION_SECONDS.dnsDaily);
-    await ensureTtl(db, COLLECTIONS.presence, "at", RETENTION_SECONDS.presence);
+    await ensureRetentionIndexes();
   })().catch((error) => {
     ensured = undefined;
     throw error;

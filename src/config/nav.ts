@@ -9,6 +9,7 @@ import {
   IndianRupee as Loans,
   Router,
   Shield,
+  ShieldCheck,
   Timer as Tracks,
   Users,
 } from "lucide-react";
@@ -41,6 +42,11 @@ export const additionalLinks: AdditionalLinks[] = [
         href: "/network/router",
         title: "Router",
         icon: Gauge,
+      },
+      {
+        href: "/network/access",
+        title: "Access",
+        icon: ShieldCheck,
       },
     ],
   },

@@ -1,17 +1,24 @@
 "use server";
 
-import { headers } from "next/headers";
 import { z } from "zod";
 
-import { getUserAuth } from "@/lib/auth/utils";
+import {
+  errorMessage,
+  getActor,
+  getRequesterIp,
+  NOT_CONFIGURED,
+  requireManager,
+} from "@/lib/network/action-helpers";
+import { db } from "@/lib/db";
+import { describeReason } from "@/lib/network/access-policy";
 import { getDeviceDisplayName } from "@/lib/network/device-display";
+import { loadAccessDecisions, reconcileAccess } from "@/lib/network/enforcement";
+import { networkAuditService } from "@/lib/services/network-audit.service";
 import {
   networkDeviceService,
   networkSettingsService,
   networkTrafficService,
 } from "@/lib/services";
-import { NetworkSafetyError } from "@/lib/services/network-device.service";
-import { OpnsenseApiError } from "@/lib/services/opnsense-client";
 import type {
   NetworkDnsQueryResult,
   NetworkTrafficSnapshot,
@@ -49,55 +56,6 @@ const networkDnsQuerySearchSchema = z.object( {
   rowCount: z.number().int().positive().max( 500 ).optional(),
   action: z.string().min( 1 ).max( 30 ).optional(),
 } );
-
-const NOT_CONFIGURED = "Configure network API credentials in Settings first";
-
-class NetworkPermissionError extends Error {}
-
-async function getActor() {
-  const { session } = await getUserAuth();
-  if ( !session ) {
-    throw new NetworkPermissionError( "Unauthorized" );
-  }
-  return {
-    userId: session.user.id,
-    canManage: session.user.role === "ADMIN",
-  };
-}
-
-/** Network control (scan, block, edit, settings) is limited to admins. */
-async function requireManager() {
-  const actor = await getActor();
-  if ( !actor.canManage ) {
-    throw new NetworkPermissionError( "Only admins can change network settings or devices" );
-  }
-  return actor;
-}
-
-function errorMessage( error: unknown, fallback: string ): string {
-  if ( error instanceof z.ZodError ) {
-    return error.issues[ 0 ]?.message || "Invalid input";
-  }
-  if (
-    error instanceof NetworkPermissionError ||
-    error instanceof NetworkSafetyError ||
-    error instanceof OpnsenseApiError
-  ) {
-    return error.message;
-  }
-  if ( error instanceof Error && /decrypt|NETWORK_SECRET_KEY/.test( error.message ) ) {
-    return error.message;
-  }
-  console.error( fallback, error );
-  return fallback;
-}
-
-async function getRequesterIp(): Promise<string | null> {
-  const headerList = await headers();
-  const forwarded = headerList.get( "x-forwarded-for" )?.split( "," )[ 0 ]?.trim();
-  const ip = forwarded || headerList.get( "x-real-ip" )?.trim() || null;
-  return ip?.replace( /^::ffff:/, "" ) ?? null;
-}
 
 type DeviceRow = Awaited<ReturnType<typeof networkDeviceService.list>>[number];
 
@@ -141,20 +99,33 @@ async function readBlockedAddresses( userId: string ) {
   }
 }
 
+/**
+ * Adds isBlocked (and, in MAC control mode, the access decision with its
+ * reasons). MAC mode reads desired state from the database; legacy IP mode
+ * reads the Blocked_Devices table on the router.
+ */
+async function decorateDevices<T extends DeviceRow>( userId: string, devices: T[] ) {
+  const { settings, decisions } = await loadAccessDecisions( userId );
+  if ( settings?.controlMode === "mac" ) {
+    return {
+      devices: devices.map( ( device ) => {
+        const access = decisions.get( device.id );
+        return { ...device, isBlocked: access?.blocked ?? false, access };
+      } ),
+      warning: undefined as string | undefined,
+    };
+  }
+  const { blocked, warning } = await readBlockedAddresses( userId );
+  return { devices: withBlockState( devices, blocked ), warning };
+}
+
 export async function getNetworkDevices( search?: string ) {
   try {
     const { userId, canManage } = await getActor();
-    const [ devices, { blocked, warning } ] = await Promise.all( [
-      networkDeviceService.list( userId, search ),
-      readBlockedAddresses( userId ),
-    ] );
+    const listed = await networkDeviceService.list( userId, search );
+    const { devices, warning } = await decorateDevices( userId, listed );
 
-    return {
-      success: true,
-      canManage,
-      warning,
-      devices: withBlockState( devices, blocked ),
-    };
+    return { success: true, canManage, warning, devices };
   } catch ( error ) {
     return { success: false, error: errorMessage( error, "Failed to load devices" ) };
   }
@@ -168,15 +139,18 @@ export async function getNetworkDeviceDetails( id: string ) {
       return { success: false, error: "Device not found" };
     }
 
-    const [ devices, { blocked } ] = await Promise.all( [
-      networkDeviceService.list( userId ),
-      readBlockedAddresses( userId ),
-    ] );
-    const isBlocked =
-      withBlockState( devices, blocked ).find( ( row ) => row.id === device.id )?.isBlocked ??
-      false;
+    const { devices } = await decorateDevices( userId, await networkDeviceService.list( userId ) );
+    const decorated = devices.find( ( row ) => row.id === device.id );
 
-    return { success: true, canManage, device: { ...device, isBlocked } };
+    return {
+      success: true,
+      canManage,
+      device: {
+        ...device,
+        isBlocked: decorated?.isBlocked ?? false,
+        access: "access" in ( decorated ?? {} ) ? ( decorated as { access?: unknown } ).access : undefined,
+      },
+    };
   } catch ( error ) {
     return { success: false, error: errorMessage( error, "Failed to load device details" ) };
   }
@@ -213,19 +187,30 @@ export async function getNetworkDeviceDnsQueries(
 
 export async function scanNetworkDevices( subnet?: string ) {
   try {
-    const { userId } = await requireManager();
+    const { userId, email } = await requireManager();
     const connection = await networkSettingsService.getConnection( userId );
     if ( !connection ) return { success: false, error: NOT_CONFIGURED };
 
+    await networkAuditService.record( {
+      userId,
+      actorEmail: email,
+      action: "scan",
+      success: true,
+      details: { subnet: subnet || connection.defaultSubnet || null },
+    } );
     const result = await networkDeviceService.scanAndSave( userId, {
       ...connection,
       subnet: subnet || connection.defaultSubnet || undefined,
     } );
-    const { blocked } = await readBlockedAddresses( userId );
+    // New addresses of blocked devices must be enforced right away.
+    await reconcileAccess( userId, { trigger: "scan" } ).catch( ( error ) =>
+      console.error( "reconcile after scan failed", error ),
+    );
+    const { devices } = await decorateDevices( userId, result.devices );
 
     return {
       success: true,
-      devices: withBlockState( result.devices, blocked ),
+      devices,
       scannedCount: result.scannedCount,
       newCount: result.newCount,
       blocksMoved: result.blocksMoved,
@@ -240,9 +225,12 @@ export async function updateNetworkDevice(
   values: z.infer<typeof updateNetworkDeviceSchema>,
 ) {
   try {
-    const { userId } = await requireManager();
+    const { userId, email } = await requireManager();
     const { id, ...input } = updateNetworkDeviceSchema.parse( values );
-    const device = await networkDeviceService.update( userId, id, input );
+    const device = await networkAuditService.track(
+      { userId, actorEmail: email, action: "edit", deviceId: id, details: input },
+      () => networkDeviceService.update( userId, id, input ),
+    );
     return { success: true, device };
   } catch ( error ) {
     return { success: false, error: errorMessage( error, "Failed to update device" ) };
@@ -251,8 +239,11 @@ export async function updateNetworkDevice(
 
 export async function deleteNetworkDevice( id: string ) {
   try {
-    const { userId } = await requireManager();
-    await networkDeviceService.delete( userId, id );
+    const { userId, email } = await requireManager();
+    await networkAuditService.track(
+      { userId, actorEmail: email, action: "delete", deviceId: id },
+      () => networkDeviceService.delete( userId, id ),
+    );
     return { success: true };
   } catch ( error ) {
     return { success: false, error: errorMessage( error, "Failed to delete device" ) };
@@ -261,8 +252,15 @@ export async function deleteNetworkDevice( id: string ) {
 
 export async function reviewNetworkDevice( id: string ) {
   try {
-    const { userId } = await requireManager();
-    const device = await networkDeviceService.markReviewed( userId, id );
+    const { userId, email } = await requireManager();
+    const device = await networkAuditService.track(
+      { userId, actorEmail: email, action: "review", deviceId: id },
+      () => networkDeviceService.markReviewed( userId, id ),
+    );
+    // Reviewing releases a quarantined device.
+    await reconcileAccess( userId, { actorEmail: email, trigger: "review" } ).catch( ( error ) =>
+      console.error( "reconcile after review failed", error ),
+    );
     return { success: true, device };
   } catch ( error ) {
     return { success: false, error: errorMessage( error, "Failed to update device" ) };
@@ -290,13 +288,48 @@ export async function toggleNetworkDeviceBlocked(
       }
     }
 
-    await networkDeviceService.setBlockedState( userId, parsed.id, connection, parsed.isBlocked );
+    const { email } = await getActor();
+    const settings = await db.networkIntegrationSettings.findUnique( { where: { userId } } );
+    const device = await networkDeviceService.getById( userId, parsed.id );
+    if ( !device ) return { success: false, error: "Device not found" };
+    const audit = {
+      userId,
+      actorEmail: email,
+      action: parsed.isBlocked ? "block" : "unblock",
+      target: getDeviceDisplayName( device ),
+      deviceId: device.id,
+    };
 
-    const [ devices, { blocked } ] = await Promise.all( [
-      networkDeviceService.list( userId ),
-      readBlockedAddresses( userId ),
-    ] );
-    return { success: true, devices: withBlockState( devices, blocked ) };
+    let notice: string | undefined;
+    if ( settings?.controlMode === "mac" ) {
+      // MAC mode: record desired state, then let the reconciler apply it.
+      const { decisions } = await loadAccessDecisions( userId );
+      const exempt = decisions.get( device.id )?.exempt;
+      if ( parsed.isBlocked && exempt ) return { success: false, error: exempt };
+
+      await networkAuditService.track( { ...audit, details: { mode: "mac", mac: device.macAddress } }, async () => {
+        await db.networkDevice.update( {
+          where: { id: device.id },
+          data: parsed.isBlocked ? { blocked: true } : { blocked: false, pausedUntil: null },
+        } );
+        const result = await reconcileAccess( userId, { actorEmail: email, trigger: audit.action } );
+        if ( result?.errors.length ) throw new Error( result.errors.join( "; " ) );
+      } );
+
+      if ( !parsed.isBlocked ) {
+        const still = ( await loadAccessDecisions( userId ) ).decisions.get( device.id );
+        if ( still?.blocked ) {
+          notice = `Still blocked: ${still.reasons.map( describeReason ).join( ", " )}`;
+        }
+      }
+    } else {
+      await networkAuditService.track( { ...audit, details: { mode: "ip", ip: device.ipAddress } }, () =>
+        networkDeviceService.setBlockedState( userId, parsed.id, connection, parsed.isBlocked ),
+      );
+    }
+
+    const { devices } = await decorateDevices( userId, await networkDeviceService.list( userId ) );
+    return { success: true, devices, notice };
   } catch ( error ) {
     return { success: false, error: errorMessage( error, "Failed to update block status" ) };
   }

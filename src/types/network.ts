@@ -1,3 +1,5 @@
+import type { AccessDecision } from "@/lib/network/access-policy";
+
 export type NetworkDeviceRole = "CLIENT" | "INFRASTRUCTURE";
 
 export interface NetworkDeviceAddress {
@@ -28,6 +30,11 @@ export interface NetworkDevice {
   isOnline: boolean;
   isNew: boolean;
   isBlocked: boolean;
+  /** Desired-state fields (MAC control mode). */
+  blocked?: boolean | null;
+  pausedUntil?: Date | string | null;
+  /** Why the device is (or would be) blocked; present in MAC control mode. */
+  access?: AccessDecision;
   firstSeenAt: Date;
   lastSeenAt: Date;
   notes: string | null;

@@ -124,6 +124,12 @@ model NetworkIntegrationSettings {
   apiSecret        String
   defaultSubnet    String?
   verifyTls        Boolean  @default(false)
+  // Phase 3 control. Optional so pre-existing documents stay readable.
+  controlMode          String? // "ip" (legacy Blocked_Devices) | "mac" (HH_Block alias)
+  blockAliasUuid       String?
+  blockRuleUuid        String?
+  quarantineNewDevices Boolean?
+  timezone             String? // IANA zone for schedules; defaults to TZ / UTC
 
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
@@ -159,6 +165,9 @@ model NetworkDevice {
   isRandomMac     Boolean           @default(false)
   isOnline        Boolean           @default(false)
   isNew           Boolean           @default(true)
+  // Desired access state (Phase 3, MAC control mode).
+  blocked         Boolean?
+  pausedUntil     DateTime?
   firstSeenAt     DateTime          @default(now())
   lastSeenAt      DateTime          @default(now())
   notes           String?
@@ -244,9 +253,44 @@ model NetworkCollectorState {
   routerInfo      Json?
   routerInfoAt    DateTime?
   dnsWatermark    Int       @default(0)
+  enforcement     Json? // last reconcile result
+  enforcementAt   DateTime?
   lastDiscoveryAt DateTime?
   lastError       String?
   lastErrorAt     DateTime?
+}
+
+// Recurring "no internet" windows for selected devices (Phase 3).
+model NetworkAccessSchedule {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId      String   @db.ObjectId
+  name        String
+  enabled     Boolean  @default(true)
+  days        Int[] // 0 = Sunday … 6 = Saturday (day the window starts)
+  startMinute Int // minutes after local midnight
+  endMinute   Int // may be < startMinute: window crosses midnight
+  deviceIds   String[] @db.ObjectId
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId])
+}
+
+// Every control action and enforcement change (Phase 3).
+model NetworkAuditLog {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId     String   @db.ObjectId
+  actorEmail String? // null for the collector/reconciler
+  action     String
+  target     String?
+  deviceId   String?  @db.ObjectId
+  success    Boolean
+  error      String?
+  details    Json?
+  at         DateTime @default(now())
+
+  @@index([userId, at])
+  @@index([deviceId, at])
 }
 
 model VerificationToken {

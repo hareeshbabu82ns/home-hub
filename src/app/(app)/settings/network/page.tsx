@@ -17,6 +17,8 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { getNetworkSettings, saveNetworkSettings } from "@/lib/actions/network";
 
+import { RouterControlCard } from "./router-control-card";
+
 function toRouterHostInput(apiBaseUrl: string): string {
   try {
     const parsed = new URL(apiBaseUrl);
@@ -239,6 +241,8 @@ export default function NetworkSettingsPage() {
           </Button>
         </CardContent>
       </Card>
+
+      {saved && <RouterControlCard />}
     </div>
   );
 }
