@@ -78,7 +78,9 @@ export const networkDeviceRepository = {
       role: data.role,
       isUpstream: data.isUpstream,
       isRandomMac: data.isRandomMac,
-      isOnline: data.isOnline,
+      // Going offline is decided by markOffline (with a grace period), so an
+      // observation only ever switches a device online.
+      ...( data.isOnline ? { isOnline: true } : {} ),
       // Only overwrite names when the router actually reported one.
       ...( data.hostname ? { hostname: data.hostname } : {} ),
       ...( data.dhcpHostname ? { dhcpHostname: data.dhcpHostname } : {} ),
@@ -92,6 +94,7 @@ export const networkDeviceRepository = {
         ...observed,
         // Infrastructure is expected; don't flag it for review.
         isNew: data.role !== "INFRASTRUCTURE",
+        isOnline: data.isOnline,
         firstSeenAt: data.seenAt,
         lastSeenAt: data.seenAt,
       },
@@ -131,10 +134,11 @@ export const networkDeviceRepository = {
     );
   },
 
-  markOffline: async ( userId: string, deviceIds: string[] ) => {
+  /** Marks devices offline unless they were seen after `seenBefore`. */
+  markOffline: async ( userId: string, deviceIds: string[], seenBefore: Date ) => {
     if ( deviceIds.length === 0 ) return;
     await db.networkDevice.updateMany( {
-      where: { userId, id: { in: deviceIds } },
+      where: { userId, id: { in: deviceIds }, lastSeenAt: { lt: seenBefore } },
       data: { isOnline: false },
     } );
   },

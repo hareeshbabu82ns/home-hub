@@ -49,6 +49,7 @@ export const env = createEnv({
     ADMIN_EMAILS: z.string().optional(),
     // Encrypts router API secrets at rest; falls back to NEXTAUTH_SECRET.
     NETWORK_SECRET_KEY: z.string().min(16).optional(),
+    NETWORK_COLLECTOR: z.enum(["embedded"]).optional(),
   },
   client: {
     // NEXT_PUBLIC_PUBLISHABLE_KEY: z.string().min(1),

@@ -38,6 +38,8 @@ import {
 } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { useNetworkDevices } from "@/hooks/use-network-devices";
+import { getUsageToday } from "@/lib/actions/network-insights";
+import { formatBytes } from "@/lib/network/format";
 import {
   getDeviceDisplayName,
   hasRealDeviceName,
@@ -85,9 +87,13 @@ export default function NetworkDevicesPage() {
   const [editDevice, setEditDevice] = useState<NetworkDevice | null>(null);
   const [editState, setEditState] = useState(defaultEditState);
   const [pending, setPending] = useState<PendingAction | null>(null);
+  const [usageToday, setUsageToday] = useState<Record<string, number>>({});
 
   useEffect(() => {
     void loadDevices();
+    void getUsageToday().then((result) => {
+      if (result.success) setUsageToday(result.data);
+    });
   }, [loadDevices]);
 
   const infrastructureCount = useMemo(
@@ -272,6 +278,9 @@ export default function NetworkDevicesPage() {
                     <TableHead>Type</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Interface</TableHead>
+                    <TableHead className="text-right" title="Estimated, since midnight UTC">
+                      Today
+                    </TableHead>
                     <TableHead>Last seen</TableHead>
                     {canManage && (
                       <TableHead className="text-right">Actions</TableHead>
@@ -282,7 +291,7 @@ export default function NetworkDevicesPage() {
                   {filtered.length === 0 ? (
                     <TableRow>
                       <TableCell
-                        colSpan={canManage ? 8 : 7}
+                        colSpan={canManage ? 9 : 8}
                         className="text-muted-foreground py-8 text-center"
                       >
                         No devices found.
@@ -324,6 +333,9 @@ export default function NetworkDevicesPage() {
                             <DeviceBadges device={device} />
                           </TableCell>
                           <TableCell>{device.intfDescription || "-"}</TableCell>
+                          <TableCell className="text-right text-xs whitespace-nowrap">
+                            {usageToday[device.id] ? formatBytes(usageToday[device.id]) : "-"}
+                          </TableCell>
                           <TableCell className="text-xs whitespace-nowrap">
                             <div>
                               {device.isOnline

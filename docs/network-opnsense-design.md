@@ -230,7 +230,7 @@ Traffic rows from `top` are by IP. The collector resolves IP→MAC with the ARP 
 |---|---|---|
 | **0 — done in this change** | OPNsense client, V1–V8 fixes | D1 |
 | **1 — trustworthy inventory** (done 2026-11-08) | MAC identity + migration, DHCP leases for names, NDP, infrastructure classification, random-MAC flag, secret encryption, ADMIN gating | A1–A3, E5, V9–V13 |
-| **2 — collector & history** | Worker service, time-series collections, presence, hourly traffic/DNS rollups, SSE live views, router health page | B1, C1–C3, D2, F1 |
+| **2 — collector & history** (done 2026-11-08) | Worker service, time-series collections, presence, hourly traffic/DNS rollups, SSE live views, router health page | B1, C1–C3, D2, F1 |
 | **3 — control** | Setup wizard, MAC block alias, pause/schedule reconciler, quarantine, audit log, WoL, DNS host override, DHCP reservation | E1–E3, A5, D4, F2, F4 |
 | **4 — alerts & polish** | Alert engine + email/push, quotas, pf-state view/kill, IoT isolation report, per-group DNS policies | B2–B3, C4, D3, E4 |
 
@@ -255,3 +255,26 @@ Still open:
 - Router API secrets are AES-256-GCM encrypted (`src/lib/crypto/secret-box.ts`, key `NETWORK_SECRET_KEY` or `NEXTAUTH_SECRET`). Credentials are never sent to the browser.
 - Scan, edit, delete, review, block and router settings require `role = ADMIN`; others get a read-only view.
 - Migration: `pnpm db:migrate:network [--apply]`, then `pnpm db:push`. After any schema change, restart `pnpm dev`: the dev server caches the Prisma client on `global`.
+
+## 8. Phase 2 implementation notes
+
+- **Collector** (`src/lib/network/collector/`): one process per database holds a lease (`network_collector_lease`, 90 s TTL), so embedded and standalone instances can't double-write. Runs it:
+  - embedded: `NETWORK_COLLECTOR=embedded` → `src/instrumentation.ts` (use in production; the Docker image only runs `server.js`)
+  - standalone: `pnpm collector` (sets `PRISMA_LOG_QUERIES=false`)
+- **Jobs** (per configured user): traffic top talkers back-to-back (~4 s); discovery, DNS and health every 60 s.
+- **Storage**:
+
+  | Data | Where | Retention |
+  |---|---|---|
+  | Per-host rate samples | `network_traffic_samples` (time-series) | 2 days |
+  | CPU, memory, interface rates, gateways | `network_router_health` (time-series) | 30 days |
+  | Bytes and DNS counts per device per hour | `NetworkUsageHourly` | 400 days |
+  | Domains per device per day | `NetworkDnsDaily` | 90 days |
+  | Online/offline changes | `NetworkPresenceEvent` | 180 days |
+  | Live snapshot, router info, DNS watermark, heartbeat | `NetworkCollectorState` | — |
+
+- **Accuracy**: per-device bytes are *estimated* (sampled top-talker rate × time since the previous sample, capped at 15 s), so short bursts between samples are missed. Interface throughput on the router page is exact (byte-counter deltas).
+- **DNS**: Unbound keeps only the last 1000 queries (~7 min here). The collector ingests incrementally by timestamp and warns about gaps when it was stopped longer than that.
+- **Presence**: a device goes offline only after 5 minutes absent from ARP/NDP (ARP entries come and go for quiet devices).
+- **Live views**: `GET /api/network/live` (server-sent events) streams the collector's snapshot every 2 s. The traffic page falls back to direct router polling when the collector's heartbeat is older than 45 s.
+- Gateway latency/loss show "monitoring off" because `WAN_GW` has no monitor IP configured on the router.

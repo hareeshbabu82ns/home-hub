@@ -37,6 +37,7 @@ import type {
 } from "@/types/network";
 
 import { DeviceBadges, OnlineDot } from "../../components/device-badges";
+import { DeviceInsights } from "./device-insights";
 
 interface NetworkDeviceDetailPageProps {
   deviceId: string;
@@ -412,6 +413,8 @@ export function NetworkDeviceDetailPage({
           </div>
         </CardContent>
       </Card>
+
+      <DeviceInsights deviceId={device.id} />
 
       <Card>
         <CardHeader>

@@ -8,6 +8,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "collector": "tsx scripts/network-collector.ts",
     "lint": "eslint",
     "lint:fix": "eslint --fix",
     "lint:strict": "eslint . --ext .ts,.tsx,.js,.jsx --max-warnings 0",

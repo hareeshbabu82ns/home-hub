@@ -107,6 +107,8 @@ function mapDnsSearchQueries( payload: unknown ): DnsSearchQueriesPayload {
   };
 }
 
+const OFFLINE_GRACE_MS = 5 * 60 * 1000;
+
 export const BLOCKED_DEVICES_ALIAS = "Blocked_Devices";
 
 async function setBlockedStateOnRouter(
@@ -266,15 +268,17 @@ class NetworkDeviceService {
           seenAt: now,
         },
       );
-      seenIds.add( device.id );
+      if ( observation.isOnline ) seenIds.add( device.id );
       await networkDeviceRepository.recordAddresses( device.id, observation.addresses, now );
     }
 
+    // A device briefly missing from ARP isn't offline; wait out a grace period.
     await networkDeviceRepository.markOffline(
       userId,
       existing
         .filter( ( device ) => !seenIds.has( device.id ) && isInSubnet( device.ipAddress, subnet ) )
         .map( ( device ) => device.id ),
+      new Date( now.getTime() - OFFLINE_GRACE_MS ),
     );
 
     const blocksMoved = blockedIps

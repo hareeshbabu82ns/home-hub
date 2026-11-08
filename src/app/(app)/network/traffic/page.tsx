@@ -11,7 +11,7 @@ export default function NetworkTrafficPage() {
         <div>
           <h1 className="text-3xl font-bold">Network Traffic</h1>
           <p className="text-muted-foreground text-sm">
-            Live LAN traffic over time from your router diagnostics API.
+            Live LAN traffic per device, and today&apos;s top consumers.
           </p>
         </div>
       </div>
