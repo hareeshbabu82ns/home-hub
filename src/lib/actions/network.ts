@@ -1,19 +1,27 @@
 "use server";
 
+import { headers } from "next/headers";
 import { z } from "zod";
 
 import { getUserAuth } from "@/lib/auth/utils";
+import { getDeviceDisplayName } from "@/lib/network/device-display";
 import {
   networkDeviceService,
   networkSettingsService,
   networkTrafficService,
 } from "@/lib/services";
-import type { NetworkDnsQueryResult, NetworkTrafficSnapshot } from "@/types/network";
+import { NetworkSafetyError } from "@/lib/services/network-device.service";
+import { OpnsenseApiError } from "@/lib/services/opnsense-client";
+import type {
+  NetworkDnsQueryResult,
+  NetworkTrafficSnapshot,
+} from "@/types/network";
 
 const networkSettingsSchema = z.object( {
   apiBaseUrl: z.string().url( "Valid API base URL is required" ),
-  apiKey: z.string().min( 1, "API key is required" ),
-  apiSecret: z.string().min( 1, "API secret is required" ),
+  // Blank keeps the stored value.
+  apiKey: z.string().optional(),
+  apiSecret: z.string().optional(),
   defaultSubnet: z.string().optional(),
   verifyTls: z.boolean().optional(),
 } );
@@ -22,11 +30,8 @@ const updateNetworkDeviceSchema = z.object( {
   id: z.string().min( 1 ),
   name: z.string().max( 80 ).optional(),
   hostname: z.string().max( 120 ).optional(),
-  macAddress: z.string().max( 50 ).optional(),
   vendor: z.string().max( 80 ).optional(),
   deviceType: z.string().max( 80 ).optional(),
-  intf: z.string().max( 80 ).optional(),
-  intfDescription: z.string().max( 160 ).optional(),
   notes: z.string().max( 500 ).optional(),
   isNew: z.boolean().optional(),
 } );
@@ -34,6 +39,8 @@ const updateNetworkDeviceSchema = z.object( {
 const toggleNetworkDeviceBlockSchema = z.object( {
   id: z.string().min( 1 ),
   isBlocked: z.boolean(),
+  // Required to block the device the request is coming from.
+  confirmSelf: z.boolean().optional(),
 } );
 
 const networkDnsQuerySearchSchema = z.object( {
@@ -43,105 +50,135 @@ const networkDnsQuerySearchSchema = z.object( {
   action: z.string().min( 1 ).max( 30 ).optional(),
 } );
 
-async function getUserIdOrThrow() {
+const NOT_CONFIGURED = "Configure network API credentials in Settings first";
+
+class NetworkPermissionError extends Error {}
+
+async function getActor() {
   const { session } = await getUserAuth();
   if ( !session ) {
-    throw new Error( "Unauthorized" );
+    throw new NetworkPermissionError( "Unauthorized" );
   }
+  return {
+    userId: session.user.id,
+    canManage: session.user.role === "ADMIN",
+  };
+}
 
-  return session.user.id;
+/** Network control (scan, block, edit, settings) is limited to admins. */
+async function requireManager() {
+  const actor = await getActor();
+  if ( !actor.canManage ) {
+    throw new NetworkPermissionError( "Only admins can change network settings or devices" );
+  }
+  return actor;
+}
+
+function errorMessage( error: unknown, fallback: string ): string {
+  if ( error instanceof z.ZodError ) {
+    return error.issues[ 0 ]?.message || "Invalid input";
+  }
+  if (
+    error instanceof NetworkPermissionError ||
+    error instanceof NetworkSafetyError ||
+    error instanceof OpnsenseApiError
+  ) {
+    return error.message;
+  }
+  if ( error instanceof Error && /decrypt|NETWORK_SECRET_KEY/.test( error.message ) ) {
+    return error.message;
+  }
+  console.error( fallback, error );
+  return fallback;
+}
+
+async function getRequesterIp(): Promise<string | null> {
+  const headerList = await headers();
+  const forwarded = headerList.get( "x-forwarded-for" )?.split( "," )[ 0 ]?.trim();
+  const ip = forwarded || headerList.get( "x-real-ip" )?.trim() || null;
+  return ip?.replace( /^::ffff:/, "" ) ?? null;
+}
+
+type DeviceRow = Awaited<ReturnType<typeof networkDeviceService.list>>[number];
+
+/**
+ * Blocking is per IP. Only the device currently holding an IP (online, else
+ * most recently seen) is shown as blocked; stale records with the same
+ * last-known IP are not.
+ */
+function withBlockState<T extends DeviceRow>( devices: T[], blocked: Set<string> ) {
+  const holder = new Map<string, T>();
+  for ( const device of devices ) {
+    const current = holder.get( device.ipAddress );
+    if (
+      !current ||
+      ( device.isOnline && !current.isOnline ) ||
+      ( device.isOnline === current.isOnline &&
+        new Date( device.lastSeenAt ) > new Date( current.lastSeenAt ) )
+    ) {
+      holder.set( device.ipAddress, device );
+    }
+  }
+  return devices.map( ( device ) => ( {
+    ...device,
+    isBlocked:
+      blocked.has( device.ipAddress ) && holder.get( device.ipAddress )?.id === device.id,
+  } ) );
+}
+
+async function readBlockedAddresses( userId: string ) {
+  const connection = await networkSettingsService.getConnection( userId );
+  if ( !connection ) return { blocked: new Set<string>() };
+  try {
+    return { blocked: await networkDeviceService.getBlockedAddresses( connection ) };
+  } catch ( error ) {
+    console.error( "Failed to read blocked devices from router", error );
+    // The inventory lives in the database; a router outage shouldn't hide it.
+    return {
+      blocked: new Set<string>(),
+      warning: "Router unreachable: block status may be out of date",
+    };
+  }
 }
 
 export async function getNetworkDevices( search?: string ) {
   try {
-    const userId = await getUserIdOrThrow();
-    const [ devices, settings ] = await Promise.all( [
+    const { userId, canManage } = await getActor();
+    const [ devices, { blocked, warning } ] = await Promise.all( [
       networkDeviceService.list( userId, search ),
-      networkSettingsService.getByUserId( userId ),
+      readBlockedAddresses( userId ),
     ] );
-
-    if ( !settings ) {
-      return {
-        success: true,
-        devices: devices.map( ( device ) => ( {
-          ...device,
-          isBlocked: false,
-        } ) ),
-      };
-    }
-
-    // The inventory lives in the database; a router outage shouldn't hide it.
-    let blockedAddresses = new Set<string>();
-    let warning: string | undefined;
-    try {
-      blockedAddresses = await networkDeviceService.getBlockedAddresses( {
-        apiBaseUrl: settings.apiBaseUrl,
-        apiKey: settings.apiKey,
-        apiSecret: settings.apiSecret,
-        verifyTls: settings.verifyTls,
-      } );
-    } catch ( error ) {
-      console.error( "Failed to read blocked devices from router", error );
-      warning = "Router unreachable: block status may be out of date";
-    }
 
     return {
       success: true,
+      canManage,
       warning,
-      devices: devices.map( ( device ) => ( {
-        ...device,
-        isBlocked: blockedAddresses.has( device.ipAddress ),
-      } ) ),
+      devices: withBlockState( devices, blocked ),
     };
-  } catch {
-    return { success: false, error: "Failed to load devices" };
+  } catch ( error ) {
+    return { success: false, error: errorMessage( error, "Failed to load devices" ) };
   }
 }
 
 export async function getNetworkDeviceDetails( id: string ) {
   try {
-    const userId = await getUserIdOrThrow();
-
-    const [ device, settings ] = await Promise.all( [
-      networkDeviceService.getById( userId, id ),
-      networkSettingsService.getByUserId( userId ),
-    ] );
-
+    const { userId, canManage } = await getActor();
+    const device = await networkDeviceService.getById( userId, id );
     if ( !device ) {
       return { success: false, error: "Device not found" };
     }
 
-    if ( !settings ) {
-      return {
-        success: true,
-        device: {
-          ...device,
-          isBlocked: false,
-        },
-      };
-    }
+    const [ devices, { blocked } ] = await Promise.all( [
+      networkDeviceService.list( userId ),
+      readBlockedAddresses( userId ),
+    ] );
+    const isBlocked =
+      withBlockState( devices, blocked ).find( ( row ) => row.id === device.id )?.isBlocked ??
+      false;
 
-    let blockedAddresses = new Set<string>();
-    try {
-      blockedAddresses = await networkDeviceService.getBlockedAddresses( {
-        apiBaseUrl: settings.apiBaseUrl,
-        apiKey: settings.apiKey,
-        apiSecret: settings.apiSecret,
-        verifyTls: settings.verifyTls,
-      } );
-    } catch ( error ) {
-      console.error( "Failed to read blocked devices from router", error );
-    }
-
-    return {
-      success: true,
-      device: {
-        ...device,
-        isBlocked: blockedAddresses.has( device.ipAddress ),
-      },
-    };
-  } catch {
-    return { success: false, error: "Failed to load device details" };
+    return { success: true, canManage, device: { ...device, isBlocked } };
+  } catch ( error ) {
+    return { success: false, error: errorMessage( error, "Failed to load device details" ) };
   }
 }
 
@@ -149,95 +186,53 @@ export async function getNetworkDeviceDnsQueries(
   values: z.infer<typeof networkDnsQuerySearchSchema>,
 ): Promise<{ success: boolean; data?: NetworkDnsQueryResult; error?: string }> {
   try {
-    const userId = await getUserIdOrThrow();
+    const { userId } = await getActor();
     const parsed = networkDnsQuerySearchSchema.parse( values );
 
-    const [ device, settings ] = await Promise.all( [
+    const [ device, connection ] = await Promise.all( [
       networkDeviceService.getById( userId, parsed.id ),
-      networkSettingsService.getByUserId( userId ),
+      networkSettingsService.getConnection( userId ),
     ] );
 
-    if ( !device ) {
-      return {
-        success: false,
-        error: "Device not found",
-      };
-    }
-
-    if ( !settings ) {
-      return {
-        success: false,
-        error: "Configure network API credentials in Settings first",
-      };
-    }
+    if ( !device ) return { success: false, error: "Device not found" };
+    if ( !connection ) return { success: false, error: NOT_CONFIGURED };
 
     const data = await networkDeviceService.getDnsSearchQueries( {
-      apiBaseUrl: settings.apiBaseUrl,
-      apiKey: settings.apiKey,
-      apiSecret: settings.apiSecret,
-      verifyTls: settings.verifyTls,
+      ...connection,
       clientIp: device.ipAddress,
       current: parsed.current,
       rowCount: parsed.rowCount,
       action: parsed.action,
     } );
 
-    return {
-      success: true,
-      data,
-    };
+    return { success: true, data };
   } catch ( error ) {
-    if ( error instanceof z.ZodError ) {
-      return {
-        success: false,
-        error: error.issues[ 0 ]?.message || "Invalid input",
-      };
-    }
-
-    return {
-      success: false,
-      error: "Failed to load DNS queries",
-    };
+    return { success: false, error: errorMessage( error, "Failed to load DNS queries" ) };
   }
 }
 
 export async function scanNetworkDevices( subnet?: string ) {
   try {
-    const userId = await getUserIdOrThrow();
-    const settings = await networkSettingsService.getByUserId( userId );
-    if ( !settings ) {
-      return {
-        success: false,
-        error: "Configure network API credentials in Settings first",
-      };
-    }
+    const { userId } = await requireManager();
+    const connection = await networkSettingsService.getConnection( userId );
+    if ( !connection ) return { success: false, error: NOT_CONFIGURED };
 
     const result = await networkDeviceService.scanAndSave( userId, {
-      apiBaseUrl: settings.apiBaseUrl,
-      apiKey: settings.apiKey,
-      apiSecret: settings.apiSecret,
-      verifyTls: settings.verifyTls,
-      subnet: subnet || settings.defaultSubnet || undefined,
+      ...connection,
+      subnet: subnet || connection.defaultSubnet || undefined,
     } );
-
-    const blockedAddresses = await networkDeviceService.getBlockedAddresses( {
-      apiBaseUrl: settings.apiBaseUrl,
-      apiKey: settings.apiKey,
-      apiSecret: settings.apiSecret,
-      verifyTls: settings.verifyTls,
-    } );
+    const { blocked } = await readBlockedAddresses( userId );
 
     return {
       success: true,
-      devices: result.devices.map( ( device ) => ( {
-        ...device,
-        isBlocked: blockedAddresses.has( device.ipAddress ),
-      } ) ),
+      devices: withBlockState( result.devices, blocked ),
       scannedCount: result.scannedCount,
       newCount: result.newCount,
+      blocksMoved: result.blocksMoved,
+      sources: result.sources,
     };
-  } catch {
-    return { success: false, error: "Failed to scan network" };
+  } catch ( error ) {
+    return { success: false, error: errorMessage( error, "Failed to scan network" ) };
   }
 }
 
@@ -245,39 +240,32 @@ export async function updateNetworkDevice(
   values: z.infer<typeof updateNetworkDeviceSchema>,
 ) {
   try {
-    const userId = await getUserIdOrThrow();
-    const parsed = updateNetworkDeviceSchema.parse( values );
-
-    const { id, ...input } = parsed;
+    const { userId } = await requireManager();
+    const { id, ...input } = updateNetworkDeviceSchema.parse( values );
     const device = await networkDeviceService.update( userId, id, input );
-
     return { success: true, device };
   } catch ( error ) {
-    if ( error instanceof z.ZodError ) {
-      return { success: false, error: error.issues[ 0 ]?.message || "Invalid input" };
-    }
-
-    return { success: false, error: "Failed to update device" };
+    return { success: false, error: errorMessage( error, "Failed to update device" ) };
   }
 }
 
 export async function deleteNetworkDevice( id: string ) {
   try {
-    const userId = await getUserIdOrThrow();
+    const { userId } = await requireManager();
     await networkDeviceService.delete( userId, id );
     return { success: true };
-  } catch {
-    return { success: false, error: "Failed to delete device" };
+  } catch ( error ) {
+    return { success: false, error: errorMessage( error, "Failed to delete device" ) };
   }
 }
 
 export async function reviewNetworkDevice( id: string ) {
   try {
-    const userId = await getUserIdOrThrow();
+    const { userId } = await requireManager();
     const device = await networkDeviceService.markReviewed( userId, id );
     return { success: true, device };
-  } catch {
-    return { success: false, error: "Failed to update device" };
+  } catch ( error ) {
+    return { success: false, error: errorMessage( error, "Failed to update device" ) };
   }
 }
 
@@ -285,85 +273,42 @@ export async function toggleNetworkDeviceBlocked(
   values: z.infer<typeof toggleNetworkDeviceBlockSchema>,
 ) {
   try {
-    const userId = await getUserIdOrThrow();
+    const { userId } = await requireManager();
     const parsed = toggleNetworkDeviceBlockSchema.parse( values );
-    const settings = await networkSettingsService.getByUserId( userId );
+    const connection = await networkSettingsService.getConnection( userId );
+    if ( !connection ) return { success: false, error: NOT_CONFIGURED };
 
-    if ( !settings ) {
-      return {
-        success: false,
-        error: "Configure network API credentials in Settings first",
-      };
+    if ( parsed.isBlocked && !parsed.confirmSelf ) {
+      const device = await networkDeviceService.getById( userId, parsed.id );
+      const requesterIp = await getRequesterIp();
+      if ( device && requesterIp && device.ipAddress === requesterIp ) {
+        return {
+          success: false,
+          requiresConfirmation: true,
+          error: "This looks like the device you're using right now. Blocking it will cut off your access.",
+        };
+      }
     }
 
-    await networkDeviceService.setBlockedState(
-      userId,
-      parsed.id,
-      {
-        apiBaseUrl: settings.apiBaseUrl,
-        apiKey: settings.apiKey,
-        apiSecret: settings.apiSecret,
-        verifyTls: settings.verifyTls,
-      },
-      parsed.isBlocked,
-    );
+    await networkDeviceService.setBlockedState( userId, parsed.id, connection, parsed.isBlocked );
 
-    const [ devices, blockedAddresses ] = await Promise.all( [
+    const [ devices, { blocked } ] = await Promise.all( [
       networkDeviceService.list( userId ),
-      networkDeviceService.getBlockedAddresses( {
-        apiBaseUrl: settings.apiBaseUrl,
-        apiKey: settings.apiKey,
-        apiSecret: settings.apiSecret,
-        verifyTls: settings.verifyTls,
-      } ),
+      readBlockedAddresses( userId ),
     ] );
-
-    return {
-      success: true,
-      devices: devices.map( ( device ) => ( {
-        ...device,
-        isBlocked: blockedAddresses.has( device.ipAddress ),
-      } ) ),
-    };
+    return { success: true, devices: withBlockState( devices, blocked ) };
   } catch ( error ) {
-    if ( error instanceof z.ZodError ) {
-      return {
-        success: false,
-        error: error.issues[ 0 ]?.message || "Invalid input",
-      };
-    }
-
-    return {
-      success: false,
-      error: "Failed to update block status",
-    };
+    return { success: false, error: errorMessage( error, "Failed to update block status" ) };
   }
 }
 
 export async function getNetworkSettings() {
   try {
-    const userId = await getUserIdOrThrow();
-    const settings = await networkSettingsService.getByUserId( userId );
-
-    if ( !settings ) {
-      return {
-        success: true,
-        settings: null,
-      };
-    }
-
-    return {
-      success: true,
-      settings: {
-        apiBaseUrl: settings.apiBaseUrl,
-        apiKey: settings.apiKey,
-        defaultSubnet: settings.defaultSubnet,
-        verifyTls: settings.verifyTls,
-        hasApiSecret: settings.apiSecret.length > 0,
-      },
-    };
-  } catch {
-    return { success: false, error: "Failed to load network settings" };
+    const { userId, canManage } = await getActor();
+    const settings = await networkSettingsService.getSummary( userId );
+    return { success: true, canManage, settings };
+  } catch ( error ) {
+    return { success: false, error: errorMessage( error, "Failed to load network settings" ) };
   }
 }
 
@@ -371,38 +316,18 @@ export async function saveNetworkSettings(
   values: z.infer<typeof networkSettingsSchema>,
 ) {
   try {
-    const userId = await getUserIdOrThrow();
+    const { userId } = await requireManager();
     const parsed = networkSettingsSchema.parse( values );
-
-    const existing = await networkSettingsService.getByUserId( userId );
-
-    const saved = await networkSettingsService.saveByUserId( userId, {
+    const settings = await networkSettingsService.save( userId, {
       apiBaseUrl: parsed.apiBaseUrl,
       apiKey: parsed.apiKey,
-      apiSecret:
-        parsed.apiSecret === "********" && existing
-          ? existing.apiSecret
-          : parsed.apiSecret,
+      apiSecret: parsed.apiSecret,
       defaultSubnet: parsed.defaultSubnet?.trim() || undefined,
       verifyTls: parsed.verifyTls ?? false,
     } );
-
-    return {
-      success: true,
-      settings: {
-        apiBaseUrl: saved.apiBaseUrl,
-        apiKey: saved.apiKey,
-        defaultSubnet: saved.defaultSubnet,
-        verifyTls: saved.verifyTls,
-        hasApiSecret: true,
-      },
-    };
+    return { success: true, settings };
   } catch ( error ) {
-    if ( error instanceof z.ZodError ) {
-      return { success: false, error: error.issues[ 0 ]?.message || "Invalid input" };
-    }
-
-    return { success: false, error: "Failed to save network settings" };
+    return { success: false, error: errorMessage( error, "Failed to save network settings" ) };
   }
 }
 
@@ -412,56 +337,35 @@ export async function getNetworkTrafficTopLan(): Promise<{
   error?: string;
 }> {
   try {
-    const userId = await getUserIdOrThrow();
-    const settings = await networkSettingsService.getByUserId( userId );
-
-    if ( !settings ) {
-      return {
-        success: false,
-        error: "Configure network API credentials in Settings first",
-      };
-    }
+    const { userId } = await getActor();
+    const connection = await networkSettingsService.getConnection( userId );
+    if ( !connection ) return { success: false, error: NOT_CONFIGURED };
 
     const [ trafficRecords, devices ] = await Promise.all( [
-      networkTrafficService.getTopLan( {
-        apiBaseUrl: settings.apiBaseUrl,
-        apiKey: settings.apiKey,
-        apiSecret: settings.apiSecret,
-        verifyTls: settings.verifyTls,
-      } ),
+      networkTrafficService.getTopLan( connection ),
       networkDeviceService.list( userId ),
     ] );
 
-    const deviceNameByIp = new Map<string, string>();
-    for ( const device of devices ) {
-      const preferredName = device.name?.trim() || device.hostname?.trim() || "";
-      if ( preferredName ) {
-        deviceNameByIp.set( device.ipAddress, preferredName );
-      }
+    // Prefer the device currently holding each IP.
+    const nameByIp = new Map<string, string>();
+    for ( const device of [ ...devices ].sort( ( a, b ) => Number( a.isOnline ) - Number( b.isOnline ) ) ) {
+      nameByIp.set( device.ipAddress, getDeviceDisplayName( device ) );
     }
 
     const records = trafficRecords.map( ( record ) => {
-      const savedName = deviceNameByIp.get( record.address );
-      const displayName = savedName || record.rname || record.address;
-
+      const savedName = nameByIp.get( record.address );
       return {
         ...record,
         rname: savedName || record.rname,
-        displayName,
+        displayName: savedName || record.rname || record.address,
       };
     } );
 
     return {
       success: true,
-      data: {
-        records,
-        fetchedAt: new Date().toISOString(),
-      },
+      data: { records, fetchedAt: new Date().toISOString() },
     };
-  } catch {
-    return {
-      success: false,
-      error: "Failed to load network traffic",
-    };
+  } catch ( error ) {
+    return { success: false, error: errorMessage( error, "Failed to load network traffic" ) };
   }
 }

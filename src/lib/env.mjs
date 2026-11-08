@@ -47,6 +47,8 @@ export const env = createEnv({
     RESEND_API_KEY: z.string().min(1).optional(),
     BYPASS_AUTH: z.string().optional(),
     ADMIN_EMAILS: z.string().optional(),
+    // Encrypts router API secrets at rest; falls back to NEXTAUTH_SECRET.
+    NETWORK_SECRET_KEY: z.string().min(16).optional(),
   },
   client: {
     // NEXT_PUBLIC_PUBLISHABLE_KEY: z.string().min(1),

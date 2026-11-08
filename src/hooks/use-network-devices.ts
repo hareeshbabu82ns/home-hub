@@ -18,6 +18,8 @@ export function useNetworkDevices() {
   const [ loading, setLoading ] = useState( true );
   const [ actionLoading, setActionLoading ] = useState( false );
   const [ search, setSearch ] = useState( "" );
+  // Server decides; read-only until the first load says otherwise.
+  const [ canManage, setCanManage ] = useState( false );
 
   const loadDevices = useCallback( async ( searchValue?: string ) => {
     setLoading( true );
@@ -25,7 +27,8 @@ export function useNetworkDevices() {
 
     if ( result.success && result.devices ) {
       setDevices( result.devices as NetworkDevice[] );
-      if ( "warning" in result && result.warning ) {
+      setCanManage( !!result.canManage );
+      if ( result.warning ) {
         toast.warning( result.warning );
       }
     } else {
@@ -41,9 +44,17 @@ export function useNetworkDevices() {
 
     if ( result.success && result.devices ) {
       setDevices( result.devices as NetworkDevice[] );
+      const sources = result.sources
+        ? ` (ARP ${result.sources.arp}, DHCP ${result.sources.leases}, IPv6 ${result.sources.ndp})`
+        : "";
       toast.success(
-        `Scan complete: ${result.scannedCount || 0} scanned, ${result.newCount || 0} flagged new`,
+        `Scan complete: ${result.scannedCount || 0} devices${sources}, ${result.newCount || 0} new`,
       );
+      if ( result.blocksMoved ) {
+        toast.info(
+          `${result.blocksMoved} blocked device(s) changed IP; the block moved with them`,
+        );
+      }
       setActionLoading( false );
       return true;
     }
@@ -113,24 +124,36 @@ export function useNetworkDevices() {
     return false;
   }, [] );
 
-  const toggleBlocked = useCallback( async ( id: string, isBlocked: boolean ) => {
-    setActionLoading( true );
-    const result = await toggleNetworkDeviceBlocked( { id, isBlocked } );
-
-    if ( result.success && result.devices ) {
-      setDevices( result.devices as NetworkDevice[] );
-      toast.success( isBlocked ? "Device blocked" : "Device unblocked" );
+  /** "confirm" means the server wants explicit confirmation (blocking yourself). */
+  const toggleBlocked = useCallback(
+    async (
+      id: string,
+      isBlocked: boolean,
+      confirmSelf = false,
+    ): Promise<"ok" | "failed" | { confirm: string }> => {
+      setActionLoading( true );
+      const result = await toggleNetworkDeviceBlocked( { id, isBlocked, confirmSelf } );
       setActionLoading( false );
-      return true;
-    }
 
-    toast.error( result.error || "Failed to update block status" );
-    setActionLoading( false );
-    return false;
-  }, [] );
+      if ( result.success && result.devices ) {
+        setDevices( result.devices as NetworkDevice[] );
+        toast.success( isBlocked ? "Device blocked" : "Device unblocked" );
+        return "ok";
+      }
+
+      if ( "requiresConfirmation" in result && result.requiresConfirmation ) {
+        return { confirm: result.error || "Confirm blocking this device" };
+      }
+
+      toast.error( result.error || "Failed to update block status" );
+      return "failed";
+    },
+    [],
+  );
 
   return {
     devices,
+    canManage,
     loading,
     actionLoading,
     search,

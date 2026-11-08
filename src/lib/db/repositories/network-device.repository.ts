@@ -1,9 +1,33 @@
 import { db } from "@/lib/db";
+import type { NetworkDeviceRole } from "@/app/generated/prisma";
 
 interface DeviceListFilters {
   userId: string;
   search?: string;
 }
+
+export interface ObservedDeviceData {
+  ipAddress: string;
+  hostname?: string;
+  dhcpHostname?: string;
+  vendor?: string;
+  intf?: string;
+  intfDescription?: string;
+  role: NetworkDeviceRole;
+  isUpstream: boolean;
+  isRandomMac: boolean;
+  isOnline: boolean;
+  seenAt: Date;
+}
+
+export interface ObservedAddress {
+  ip: string;
+  family: "ip4" | "ip6";
+  source: "arp" | "ndp" | "dhcp";
+  intf?: string;
+}
+
+const ADDRESS_HISTORY_LIMIT = 25;
 
 export const networkDeviceRepository = {
   findManyByUser: async ( { userId, search }: DeviceListFilters ) => {
@@ -15,6 +39,8 @@ export const networkDeviceRepository = {
             OR: [
               { name: { contains: search, mode: "insensitive" } },
               { hostname: { contains: search, mode: "insensitive" } },
+              { dhcpHostname: { contains: search, mode: "insensitive" } },
+              { vendor: { contains: search, mode: "insensitive" } },
               { ipAddress: { contains: search, mode: "insensitive" } },
               { macAddress: { contains: search, mode: "insensitive" } },
               { deviceType: { contains: search, mode: "insensitive" } },
@@ -22,100 +48,121 @@ export const networkDeviceRepository = {
           }
           : {} ),
       },
-      orderBy: [ { isNew: "desc" }, { lastSeenAt: "desc" } ],
+      orderBy: [ { isNew: "desc" }, { isOnline: "desc" }, { lastSeenAt: "desc" } ],
     } );
   },
 
   findById: async ( id: string, userId: string ) => {
     return db.networkDevice.findFirst( {
-      where: {
-        id,
-        userId,
+      where: { id, userId },
+      include: {
+        addresses: {
+          orderBy: { lastSeenAt: "desc" },
+          take: ADDRESS_HISTORY_LIMIT,
+        },
       },
     } );
   },
 
-  upsertByUserAndIp: async (
+  /** Upserts by (userId, MAC); never touches user-owned fields (name, deviceType, notes). */
+  upsertObserved: async (
     userId: string,
-    ipAddress: string,
-    data: {
-      name?: string;
-      hostname?: string;
-      macAddress?: string;
-      vendor?: string;
-      deviceType?: string;
-      intf?: string;
-      intfDescription?: string;
-      notes?: string;
-      isNewOnCreate: boolean;
-      firstSeenAt: Date;
-      lastSeenAt: Date;
-    },
+    macAddress: string,
+    data: ObservedDeviceData,
   ) => {
+    const observed = {
+      ipAddress: data.ipAddress,
+      vendor: data.vendor,
+      intf: data.intf,
+      intfDescription: data.intfDescription,
+      role: data.role,
+      isUpstream: data.isUpstream,
+      isRandomMac: data.isRandomMac,
+      isOnline: data.isOnline,
+      // Only overwrite names when the router actually reported one.
+      ...( data.hostname ? { hostname: data.hostname } : {} ),
+      ...( data.dhcpHostname ? { dhcpHostname: data.dhcpHostname } : {} ),
+    };
+
     return db.networkDevice.upsert( {
-      where: {
-        userId_ipAddress: {
-          userId,
-          ipAddress,
-        },
-      },
+      where: { userId_macAddress: { userId, macAddress } },
       create: {
         userId,
-        ipAddress,
-        name: data.name,
-        hostname: data.hostname,
-        macAddress: data.macAddress,
-        vendor: data.vendor,
-        deviceType: data.deviceType,
-        intf: data.intf,
-        intfDescription: data.intfDescription,
-        notes: data.notes,
-        isNew: data.isNewOnCreate,
-        firstSeenAt: data.firstSeenAt,
-        lastSeenAt: data.lastSeenAt,
+        macAddress,
+        ...observed,
+        // Infrastructure is expected; don't flag it for review.
+        isNew: data.role !== "INFRASTRUCTURE",
+        firstSeenAt: data.seenAt,
+        lastSeenAt: data.seenAt,
       },
       update: {
-        name: data.name,
-        hostname: data.hostname,
-        macAddress: data.macAddress,
-        vendor: data.vendor,
-        deviceType: data.deviceType,
-        intf: data.intf,
-        intfDescription: data.intfDescription,
-        notes: data.notes,
-        lastSeenAt: data.lastSeenAt,
+        ...observed,
+        ...( data.isOnline ? { lastSeenAt: data.seenAt } : {} ),
+        ...( data.role === "INFRASTRUCTURE" ? { isNew: false } : {} ),
       },
+    } );
+  },
+
+  recordAddresses: async (
+    deviceId: string,
+    addresses: ObservedAddress[],
+    seenAt: Date,
+  ) => {
+    await Promise.all(
+      addresses.map( ( address ) =>
+        db.networkDeviceAddress.upsert( {
+          where: { deviceId_ip: { deviceId, ip: address.ip } },
+          create: {
+            deviceId,
+            ip: address.ip,
+            family: address.family,
+            source: address.source,
+            intf: address.intf,
+            firstSeenAt: seenAt,
+            lastSeenAt: seenAt,
+          },
+          update: {
+            source: address.source,
+            intf: address.intf,
+            lastSeenAt: seenAt,
+          },
+        } ),
+      ),
+    );
+  },
+
+  markOffline: async ( userId: string, deviceIds: string[] ) => {
+    if ( deviceIds.length === 0 ) return;
+    await db.networkDevice.updateMany( {
+      where: { userId, id: { in: deviceIds } },
+      data: { isOnline: false },
     } );
   },
 
   update: async (
     id: string,
-    _userId: string,
+    userId: string,
     data: {
       name?: string;
       hostname?: string;
-      macAddress?: string;
       vendor?: string;
       deviceType?: string;
-      intf?: string;
-      intfDescription?: string;
       notes?: string;
       isNew?: boolean;
     },
   ) => {
-    return db.networkDevice.update( {
-      where: {
-        id,
-      },
+    const { count } = await db.networkDevice.updateMany( {
+      where: { id, userId },
       data,
     } );
+    if ( count === 0 ) return null;
+    return db.networkDevice.findFirst( { where: { id, userId } } );
   },
 
-  delete: async ( id: string, _userId: string ) => {
-    return db.networkDevice.delete( {
-      where: {
-        id,
-      },
-    } );
+  delete: async ( id: string, userId: string ) => {
+    // Address history is removed by the relation's onDelete: Cascade.
+    const device = await db.networkDevice.findFirst( { where: { id, userId } } );
+    if ( !device ) return null;
+    return db.networkDevice.delete( { where: { id: device.id } } );
   },
 };

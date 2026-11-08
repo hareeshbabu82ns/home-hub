@@ -29,11 +29,14 @@ import {
   getNetworkDeviceDetails,
   getNetworkDeviceDnsQueries,
 } from "@/lib/actions/network";
+import { getDeviceDisplayName } from "@/lib/network/device-display";
 import type {
   NetworkDevice,
   NetworkDnsQueryResult,
   NetworkDnsQueryRow,
 } from "@/types/network";
+
+import { DeviceBadges, OnlineDot } from "../../components/device-badges";
 
 interface NetworkDeviceDetailPageProps {
   deviceId: string;
@@ -292,17 +295,21 @@ export function NetworkDeviceDetailPage({
         </div>
 
         <div>
-          <h1 className="text-2xl font-bold">
-            {device.name || device.hostname || "Unknown Device"}
+          <h1 className="flex items-center gap-2 text-2xl font-bold">
+            <OnlineDot isOnline={device.isOnline} />
+            {getDeviceDisplayName(device)}
           </h1>
-          <p className="text-muted-foreground text-sm">{device.ipAddress}</p>
+          <div className="text-muted-foreground flex flex-wrap items-center gap-2 text-sm">
+            <span className="font-mono">{device.ipAddress}</span>
+            <DeviceBadges device={device} />
+          </div>
         </div>
       </div>
 
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center justify-between">
-            <span>Device Details (Database)</span>
+            <span>Device Details</span>
             {device.isBlocked ? (
               <Badge variant="destructive" className="gap-1">
                 <Ban className="size-3" />
@@ -327,8 +334,22 @@ export function NetworkDeviceDetailPage({
               <p>{device.name || "-"}</p>
             </div>
             <div>
+              <p className="text-muted-foreground text-xs">DHCP Hostname</p>
+              <p>{device.dhcpHostname || "-"}</p>
+            </div>
+            <div>
               <p className="text-muted-foreground text-xs">Hostname</p>
               <p>{device.hostname || "-"}</p>
+            </div>
+            <div>
+              <p className="text-muted-foreground text-xs">Role</p>
+              <p>
+                {device.role === "INFRASTRUCTURE"
+                  ? "Router / gateway"
+                  : device.isUpstream
+                    ? "Client (WAN side)"
+                    : "Client"}
+              </p>
             </div>
             <div>
               <p className="text-muted-foreground text-xs">IP Address</p>
@@ -336,7 +357,15 @@ export function NetworkDeviceDetailPage({
             </div>
             <div>
               <p className="text-muted-foreground text-xs">MAC Address</p>
-              <p className="font-mono text-xs">{device.macAddress || "-"}</p>
+              <p className="font-mono text-xs">
+                {device.macAddress}
+                {device.isRandomMac && (
+                  <span className="text-muted-foreground font-sans">
+                    {" "}
+                    (private, may rotate)
+                  </span>
+                )}
+              </p>
             </div>
             <div>
               <p className="text-muted-foreground text-xs">Vendor</p>
@@ -381,6 +410,56 @@ export function NetworkDeviceDetailPage({
               <p>{device.notes || "-"}</p>
             </div>
           </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>IP Address History</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {!device.addresses || device.addresses.length === 0 ? (
+            <p className="text-muted-foreground text-sm">
+              No addresses recorded yet. Run a scan.
+            </p>
+          ) : (
+            <div className="overflow-x-auto rounded-lg border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Address</TableHead>
+                    <TableHead>Family</TableHead>
+                    <TableHead>Source</TableHead>
+                    <TableHead>Interface</TableHead>
+                    <TableHead>First seen</TableHead>
+                    <TableHead>Last seen</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {device.addresses.map((address) => (
+                    <TableRow key={address.id}>
+                      <TableCell className="font-mono text-xs">
+                        {address.ip}
+                      </TableCell>
+                      <TableCell>
+                        {address.family === "ip6" ? "IPv6" : "IPv4"}
+                      </TableCell>
+                      <TableCell className="uppercase">
+                        {address.source}
+                      </TableCell>
+                      <TableCell>{address.intf || "-"}</TableCell>
+                      <TableCell className="text-xs whitespace-nowrap">
+                        {formatDateTime(address.firstSeenAt)}
+                      </TableCell>
+                      <TableCell className="text-xs whitespace-nowrap">
+                        {formatDateTime(address.lastSeenAt)}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
         </CardContent>
       </Card>
 

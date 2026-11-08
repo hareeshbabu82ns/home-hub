@@ -38,6 +38,13 @@ function toApiBaseUrl(routerHost: string): string {
 export default function NetworkSettingsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [canManage, setCanManage] = useState(false);
+  // Saved credentials are never sent to the browser; blank inputs keep them.
+  const [saved, setSaved] = useState<{
+    apiKeyHint: string | null;
+    hasApiKey: boolean;
+    hasApiSecret: boolean;
+  } | null>(null);
   const [form, setForm] = useState({
     routerHostIp: "192.168.86.1",
     apiKey: "",
@@ -49,14 +56,18 @@ export default function NetworkSettingsPage() {
   useEffect(() => {
     async function load() {
       const result = await getNetworkSettings();
+      if (result.success) {
+        setCanManage(!!result.canManage);
+      }
       if (result.success && result.settings) {
         setForm({
           routerHostIp: toRouterHostInput(result.settings.apiBaseUrl),
-          apiKey: result.settings.apiKey,
-          apiSecret: result.settings.hasApiSecret ? "********" : "",
+          apiKey: "",
+          apiSecret: "",
           defaultSubnet: result.settings.defaultSubnet || "",
           verifyTls: result.settings.verifyTls,
         });
+        setSaved(result.settings);
       }
 
       if (!result.success) {
@@ -74,20 +85,18 @@ export default function NetworkSettingsPage() {
 
     const result = await saveNetworkSettings({
       apiBaseUrl: toApiBaseUrl(form.routerHostIp),
-      apiKey: form.apiKey,
-      apiSecret: form.apiSecret,
+      apiKey: form.apiKey || undefined,
+      apiSecret: form.apiSecret || undefined,
       defaultSubnet: form.defaultSubnet || undefined,
       verifyTls: form.verifyTls,
     });
 
     setSaving(false);
 
-    if (result.success) {
+    if (result.success && result.settings) {
       toast.success("Network settings saved");
-      setForm((previous) => ({
-        ...previous,
-        apiSecret: "********",
-      }));
+      setSaved(result.settings);
+      setForm((previous) => ({ ...previous, apiKey: "", apiSecret: "" }));
       return;
     }
 
@@ -112,6 +121,7 @@ export default function NetworkSettingsPage() {
           </CardTitle>
           <CardDescription>
             Configure router API credentials used for device discovery.
+            {!canManage && " Only admins can change these settings."}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -119,6 +129,7 @@ export default function NetworkSettingsPage() {
             <Label htmlFor="routerHostIp">Router Host IP</Label>
             <Input
               id="routerHostIp"
+              disabled={!canManage}
               placeholder="192.168.86.1"
               value={form.routerHostIp}
               onChange={(event) =>
@@ -141,6 +152,13 @@ export default function NetworkSettingsPage() {
             <Label htmlFor="apiKey">API Key</Label>
             <Input
               id="apiKey"
+              autoComplete="off"
+              disabled={!canManage}
+              placeholder={
+                saved?.hasApiKey
+                  ? `Saved${saved.apiKeyHint ? ` (ends in ${saved.apiKeyHint})` : ""}. Leave blank to keep`
+                  : "OPNsense API key"
+              }
               value={form.apiKey}
               onChange={(event) =>
                 setForm((previous) => ({
@@ -156,6 +174,13 @@ export default function NetworkSettingsPage() {
             <Input
               id="apiSecret"
               type="password"
+              autoComplete="new-password"
+              disabled={!canManage}
+              placeholder={
+                saved?.hasApiSecret
+                  ? "Saved (encrypted). Leave blank to keep"
+                  : "OPNsense API secret"
+              }
               value={form.apiSecret}
               onChange={(event) =>
                 setForm((previous) => ({
@@ -165,8 +190,8 @@ export default function NetworkSettingsPage() {
               }
             />
             <p className="text-muted-foreground text-xs">
-              Basic auth is generated as API_KEY:API_SECRET and encoded
-              automatically.
+              Stored encrypted on the server and never sent back to the
+              browser.
             </p>
           </div>
 
@@ -174,6 +199,7 @@ export default function NetworkSettingsPage() {
             <Label htmlFor="defaultSubnet">Default Subnet (optional)</Label>
             <Input
               id="defaultSubnet"
+              disabled={!canManage}
               placeholder="192.168.86.0/24"
               value={form.defaultSubnet}
               onChange={(event) =>
@@ -193,6 +219,7 @@ export default function NetworkSettingsPage() {
               </p>
             </div>
             <Switch
+              disabled={!canManage}
               checked={form.verifyTls}
               onCheckedChange={(checked) =>
                 setForm((previous) => ({ ...previous, verifyTls: checked }))
@@ -200,7 +227,7 @@ export default function NetworkSettingsPage() {
             />
           </div>
 
-          <Button onClick={() => void onSave()} disabled={saving}>
+          <Button onClick={() => void onSave()} disabled={saving || !canManage}>
             {saving ? (
               <>
                 <Loader2 className="mr-2 size-4 animate-spin" />

@@ -130,30 +130,65 @@ model NetworkIntegrationSettings {
   updatedAt DateTime @updatedAt
 }
 
+enum NetworkDeviceRole {
+  CLIENT
+  // The router's own interfaces and its upstream gateways. Never blockable.
+  INFRASTRUCTURE
+}
+
+// One document per physical device, identified by MAC address. The IP is the
+// last-known IPv4 address; every address seen is kept in NetworkDeviceAddress.
 model NetworkDevice {
-  id      String @id @default(auto()) @map("_id") @db.ObjectId
-  userId  String @db.ObjectId
+  id     String @id @default(auto()) @map("_id") @db.ObjectId
+  userId String @db.ObjectId
 
-  name       String?
-  hostname   String?
-  ipAddress  String
-  macAddress String?
-  vendor     String?
-  deviceType String?
-  intf       String?
+  macAddress      String // lower-case, colon separated
+  ipAddress       String // last-known IPv4 address
+  name            String? // user label
+  hostname        String?
+  dhcpHostname    String? // from DHCP leases
+  vendor          String?
+  deviceType      String? // user-owned category
+  intf            String?
   intfDescription String?
-  isNew      Boolean  @default(true)
-  firstSeenAt DateTime @default(now())
-  lastSeenAt  DateTime @default(now())
-  notes      String?
+  role            NetworkDeviceRole @default(CLIENT)
+  // Seen on an interface with an upstream gateway (WAN): this firewall's
+  // LAN rules don't filter it.
+  isUpstream      Boolean           @default(false)
+  // Locally administered MAC (phone/laptop privacy address); may rotate.
+  isRandomMac     Boolean           @default(false)
+  isOnline        Boolean           @default(false)
+  isNew           Boolean           @default(true)
+  firstSeenAt     DateTime          @default(now())
+  lastSeenAt      DateTime          @default(now())
+  notes           String?
 
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  user      User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  addresses NetworkDeviceAddress[]
+  createdAt DateTime               @default(now())
+  updatedAt DateTime               @updatedAt
 
-  @@unique([userId, ipAddress])
+  @@unique([userId, macAddress])
+  @@index([userId, ipAddress])
   @@index([userId, isNew])
   @@index([userId, lastSeenAt])
+}
+
+model NetworkDeviceAddress {
+  id       String @id @default(auto()) @map("_id") @db.ObjectId
+  deviceId String @db.ObjectId
+
+  ip          String
+  family      String // ip4 | ip6
+  source      String // arp | ndp | dhcp
+  intf        String?
+  firstSeenAt DateTime @default(now())
+  lastSeenAt  DateTime @default(now())
+
+  device NetworkDevice @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  @@unique([deviceId, ip])
+  @@index([deviceId, lastSeenAt])
 }
 
 model VerificationToken {

@@ -1,14 +1,31 @@
+export type NetworkDeviceRole = "CLIENT" | "INFRASTRUCTURE";
+
+export interface NetworkDeviceAddress {
+  id: string;
+  ip: string;
+  family: string;
+  source: string;
+  intf: string | null;
+  firstSeenAt: Date;
+  lastSeenAt: Date;
+}
+
 export interface NetworkDevice {
   id: string;
   userId: string;
+  macAddress: string;
+  ipAddress: string;
   name: string | null;
   hostname: string | null;
-  ipAddress: string;
-  macAddress: string | null;
+  dhcpHostname: string | null;
   vendor: string | null;
   deviceType: string | null;
   intf: string | null;
   intfDescription: string | null;
+  role: NetworkDeviceRole;
+  isUpstream: boolean;
+  isRandomMac: boolean;
+  isOnline: boolean;
   isNew: boolean;
   isBlocked: boolean;
   firstSeenAt: Date;
@@ -16,17 +33,16 @@ export interface NetworkDevice {
   notes: string | null;
   createdAt: Date;
   updatedAt: Date;
+  addresses?: NetworkDeviceAddress[];
 }
 
+/** Router-owned fields (MAC, IP, interface) are not editable. */
 export interface UpdateNetworkDeviceInput {
   id: string;
   name?: string;
   hostname?: string;
-  macAddress?: string;
   vendor?: string;
   deviceType?: string;
-  intf?: string;
-  intfDescription?: string;
   notes?: string;
   isNew?: boolean;
 }

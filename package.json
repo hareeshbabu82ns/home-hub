@@ -19,6 +19,7 @@
     "code-quality:fix": "pnpm typecheck && pnpm lint:fix && pnpm format",
     "db:gen": "prisma generate",
     "db:push": "prisma db push",
+    "db:migrate:network": "tsx scripts/migrate-network-devices.ts",
     "db:studio": "prisma studio",
     "download-exercises": "tsx scripts/download-exercises.ts",
     "upload-exercises": "tsx scripts/upload-exercises.ts",

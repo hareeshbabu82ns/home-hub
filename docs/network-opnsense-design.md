@@ -229,15 +229,29 @@ Traffic rows from `top` are by IP. The collector resolves IP→MAC with the ARP 
 | Phase | Deliverables | Use cases |
 |---|---|---|
 | **0 — done in this change** | OPNsense client, V1–V8 fixes | D1 |
-| **1 — trustworthy inventory** | MAC identity + migration, DHCP leases for names, NDP, infrastructure classification, random-MAC flag, secret encryption, ADMIN gating | A1–A3, E5, V9–V13 |
+| **1 — trustworthy inventory** (done 2026-11-08) | MAC identity + migration, DHCP leases for names, NDP, infrastructure classification, random-MAC flag, secret encryption, ADMIN gating | A1–A3, E5, V9–V13 |
 | **2 — collector & history** | Worker service, time-series collections, presence, hourly traffic/DNS rollups, SSE live views, router health page | B1, C1–C3, D2, F1 |
 | **3 — control** | Setup wizard, MAC block alias, pause/schedule reconciler, quarantine, audit log, WoL, DNS host override, DHCP reservation | E1–E3, A5, D4, F2, F4 |
 | **4 — alerts & polish** | Alert engine + email/push, quotas, pf-state view/kill, IoT isolation report, per-group DNS policies | B2–B3, C4, D3, E4 |
 
 ## 6. Open questions
 
-1. Which DHCP server does the router run: Kea, Dnsmasq or ISC (legacy)? This decides the leases/reservations API.
-2. Are there VLANs (IoT/Guest) beyond `lan`? Traffic and rules must then cover each interface key.
-3. Is `Blocked_Devices` currently a **host** or **external** alias, and is a LAN block rule already referencing it?
+Answered by probing the router (OPNsense 26.1.11) during Phase 1:
+
+1. ~~DHCP server~~ **Dnsmasq** (`dnsmasq/leases/search`; Kea and ISC are present but empty). Discovery queries all three and merges.
+2. ~~VLANs~~ Interfaces are `lan`, `wan` and WireGuard only; no VLANs yet.
+3. ~~Alias type~~ `Blocked_Devices` is a **host** alias (persisted by `alias_util`), and an enabled floating rule (direction in, IPv4) blocks source `Blocked_Devices`. IPv6 is not covered by that rule.
+
+Still open:
+
 4. Single router per installation, or should the model be multi-site (`siteId`) from the start?
 5. Should non-admin household members get a read-only view (for example, their own devices only)?
+
+## 7. Phase 1 implementation notes
+
+- Identity: `NetworkDevice` is unique on `(userId, macAddress)`. `ipAddress` is the last-known IPv4 address; all addresses live in `NetworkDeviceAddress` (source `arp` / `ndp` / `dhcp`).
+- Discovery (`src/lib/services/network-discovery.ts`): ARP + NDP + DHCP leases + gateway status + interface config, merged by MAC. The router's own interfaces (permanent ARP entries, interface MACs) and gateway addresses are `INFRASTRUCTURE`. Devices on interfaces with a gateway (WAN) are `isUpstream`.
+- Blocking is still by IP. A scan moves a block to the device's new IP and releases the old one. MAC aliases come in Phase 3.
+- Router API secrets are AES-256-GCM encrypted (`src/lib/crypto/secret-box.ts`, key `NETWORK_SECRET_KEY` or `NEXTAUTH_SECRET`). Credentials are never sent to the browser.
+- Scan, edit, delete, review, block and router settings require `role = ADMIN`; others get a read-only view.
+- Migration: `pnpm db:migrate:network [--apply]`, then `pnpm db:push`. After any schema change, restart `pnpm dev`: the dev server caches the Prisma client on `global`.
