@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 
 interface BeforeInstallPromptEvent extends Event {
   readonly platforms: string[];
@@ -12,13 +12,26 @@ interface BeforeInstallPromptEvent extends Event {
 interface UseInstallPWAReturn {
   isInstallable: boolean;
   isInstalled: boolean;
+  /** iPhone/iPad Safari: no install prompt, installed via Share → Add to Home Screen. */
+  isIos: boolean;
   install: () => Promise<void>;
+}
+
+const subscribeNever = () => () => {};
+
+// iPadOS reports itself as a Mac; touch points give it away.
+function detectIos() {
+  return (
+    /iPhone|iPad|iPod/.test(navigator.userAgent) ||
+    (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1)
+  );
 }
 
 export function useInstallPWA(): UseInstallPWAReturn {
   const [installPrompt, setInstallPrompt] =
     useState<BeforeInstallPromptEvent | null>(null);
   const [isInstalled, setIsInstalled] = useState(false);
+  const isIos = useSyncExternalStore(subscribeNever, detectIos, () => false);
 
   useEffect(() => {
     // Check if the app is already installed
@@ -86,11 +99,7 @@ export function useInstallPWA(): UseInstallPWAReturn {
       // Wait for the user to respond to the prompt
       const result = await installPrompt.userChoice;
 
-      if (result.outcome === "accepted") {
-        console.error("User accepted the PWA installation");
-      } else {
-        console.error("User dismissed the PWA installation");
-      }
+      if (result.outcome === "accepted") setIsInstalled(true);
 
       // Clear the prompt as it can only be used once
       setInstallPrompt(null);
@@ -102,6 +111,7 @@ export function useInstallPWA(): UseInstallPWAReturn {
   return {
     isInstallable: !!installPrompt && !isInstalled,
     isInstalled,
+    isIos,
     install,
   };
 }

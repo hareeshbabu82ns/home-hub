@@ -259,48 +259,7 @@ export function AccessClient() {
           </p>
         </CardHeader>
         <CardContent>
-          {audit.length === 0 ? (
-            <p className="text-muted-foreground text-sm">Nothing recorded yet.</p>
-          ) : (
-            <div className="overflow-x-auto rounded-lg border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>When</TableHead>
-                    <TableHead>Who</TableHead>
-                    <TableHead>Action</TableHead>
-                    <TableHead>Target</TableHead>
-                    <TableHead>Result</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {audit.map((entry) => (
-                    <TableRow key={entry.id}>
-                      <TableCell className="text-xs whitespace-nowrap">{format(new Date(entry.at), "MMM d, HH:mm:ss")}</TableCell>
-                      <TableCell className="text-xs">{entry.actor}</TableCell>
-                      <TableCell className="font-mono text-xs">{entry.action}</TableCell>
-                      <TableCell className="text-xs">
-                        {entry.deviceId ? (
-                          <Link href={`/network/devices/${entry.deviceId}`} className="hover:underline">
-                            {entry.target ?? "device"}
-                          </Link>
-                        ) : (
-                          (entry.target ?? "-")
-                        )}
-                      </TableCell>
-                      <TableCell className="max-w-80 text-xs">
-                        {entry.success ? (
-                          <Badge variant="secondary">ok</Badge>
-                        ) : (
-                          <span className="text-destructive">{entry.error}</span>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
+          <AuditLog entries={audit} />
         </CardContent>
       </Card>
 
@@ -409,6 +368,95 @@ export function AccessClient() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+    </div>
+  );
+}
+
+const AUDIT_PAGE = 25;
+
+/**
+ * Phones: stacked entries. iPad and up: a table whose secondary column
+ * (who) folds under the time until there's room. Long errors wrap.
+ */
+function AuditLog({ entries }: { entries: AuditEntry[] }) {
+  const [visible, setVisible] = useState(AUDIT_PAGE);
+  if (entries.length === 0) {
+    return <p className="text-muted-foreground text-sm">Nothing recorded yet.</p>;
+  }
+  const shown = entries.slice(0, visible);
+
+  const target = (entry: AuditEntry) =>
+    entry.deviceId ? (
+      <Link href={`/network/devices/${entry.deviceId}`} className="hover:underline">
+        {entry.target ?? "device"}
+      </Link>
+    ) : (
+      (entry.target ?? "-")
+    );
+
+  return (
+    <div className="space-y-3">
+      <ul className="divide-border -mx-2 divide-y md:hidden">
+        {shown.map((entry) => (
+          <li key={entry.id} className="space-y-1 px-2 py-2.5 text-xs">
+            <div className="flex items-center justify-between gap-2">
+              <span className="font-mono text-sm">{entry.action}</span>
+              {entry.success ? (
+                <Badge variant="secondary">ok</Badge>
+              ) : (
+                <Badge variant="destructive">failed</Badge>
+              )}
+            </div>
+            {entry.target && <div className="break-words">{target(entry)}</div>}
+            {!entry.success && entry.error && (
+              <div className="text-destructive break-words">{entry.error}</div>
+            )}
+            <div className="text-muted-foreground">
+              {format(new Date(entry.at), "MMM d, HH:mm:ss")} · {entry.actor}
+            </div>
+          </li>
+        ))}
+      </ul>
+
+      <div className="hidden overflow-x-auto rounded-lg border md:block">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>When</TableHead>
+              <TableHead className="hidden lg:table-cell">Who</TableHead>
+              <TableHead>Action</TableHead>
+              <TableHead>Target</TableHead>
+              <TableHead>Result</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {shown.map((entry) => (
+              <TableRow key={entry.id}>
+                <TableCell className="text-xs whitespace-nowrap">
+                  {format(new Date(entry.at), "MMM d, HH:mm:ss")}
+                  <div className="text-muted-foreground max-w-40 truncate lg:hidden">{entry.actor}</div>
+                </TableCell>
+                <TableCell className="hidden text-xs lg:table-cell">{entry.actor}</TableCell>
+                <TableCell className="font-mono text-xs">{entry.action}</TableCell>
+                <TableCell className="max-w-60 text-xs break-words whitespace-normal">{target(entry)}</TableCell>
+                <TableCell className="max-w-72 text-xs break-words whitespace-normal">
+                  {entry.success ? (
+                    <Badge variant="secondary">ok</Badge>
+                  ) : (
+                    <span className="text-destructive">{entry.error}</span>
+                  )}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+
+      {entries.length > visible && (
+        <Button variant="outline" size="sm" className="w-full sm:w-auto" onClick={() => setVisible(visible + AUDIT_PAGE)}>
+          Show more ({entries.length - visible} older)
+        </Button>
+      )}
     </div>
   );
 }

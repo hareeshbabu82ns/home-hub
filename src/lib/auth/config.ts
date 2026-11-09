@@ -7,6 +7,7 @@ import GithubProvider from "next-auth/providers/github";
 import { compare } from "bcryptjs";
 import { env } from "@/lib/env.mjs";
 import { z } from "zod";
+import { verifyMfaProof } from "@/lib/auth/mfa/service";
 
 declare module "next-auth" {
   interface Session {
@@ -16,14 +17,9 @@ declare module "next-auth" {
       email?: string | null;
       image?: string | null;
       role?: string;
+      /** Signed in, but the second factor hasn't been entered yet. */
+      mfaPending?: boolean;
     };
-  }
-}
-
-declare module "next-auth" {
-  interface JWT {
-    id: string;
-    role?: string;
   }
 }
 
@@ -95,14 +91,24 @@ export const authConfig = {
     async signIn() {
       return true;
     },
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger, session }) {
       if (user) {
         token.id = user.id;
         const dbUser = await db.user.findUnique({
           where: { id: user.id },
-          select: { role: true },
+          select: { role: true, mfaEnabled: true },
         });
         token.role = dbUser?.role || undefined;
+        // Every sign-in (password or OAuth) of an account with 2FA starts
+        // half-authenticated until /verify-mfa clears this.
+        token.mfaPending = !!dbUser?.mfaEnabled;
+      }
+      if (
+        trigger === "update" &&
+        token.mfaPending &&
+        verifyMfaProof((session as { mfaProof?: unknown } | undefined)?.mfaProof, token.id as string)
+      ) {
+        token.mfaPending = false;
       }
       return token;
     },
@@ -110,6 +116,7 @@ export const authConfig = {
       if (session.user) {
         session.user.id = token.id as string;
         session.user.role = token.role as string | undefined;
+        session.user.mfaPending = token.mfaPending === true;
       }
       return session;
     },

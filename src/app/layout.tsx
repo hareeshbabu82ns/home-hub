@@ -1,17 +1,31 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter as FontSans } from "next/font/google";
 import "./globals.css";
 
 import { cn } from "@/lib/utils";
 import { ThemeProvider } from "@/components/providers";
+import { ServiceWorkerRegistrar } from "@/components/pwa/service-worker-registrar";
 
 const fontSans = FontSans({
   subsets: ["latin"],
   variable: "--font-sans",
 });
 
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  // Lets the standalone app draw under the notch / home indicator; the
+  // layout pads itself with env(safe-area-inset-*).
+  viewportFit: "cover",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#e9f2f0" },
+    { media: "(prefers-color-scheme: dark)", color: "#13201d" },
+  ],
+};
+
 export const metadata: Metadata = {
-  title: "HomeHub",
+  title: { default: "HomeHub", template: "%s · HomeHub" },
+  applicationName: "HomeHub",
   description: "A home for your home - Smart home management and automation",
   manifest: "/manifest.json",
   keywords: ["home", "smart home", "automation", "dashboard", "hub"],
@@ -74,7 +88,7 @@ export const metadata: Metadata = {
   },
   appleWebApp: {
     capable: true,
-    statusBarStyle: "default",
+    statusBarStyle: "black-translucent",
     title: "HomeHub",
   },
 };
@@ -87,28 +101,15 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        <meta
-          name="viewport"
-          content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"
-        />
-        <meta name="theme-color" content="#0ea5e9" />
-        <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-        <meta name="apple-mobile-web-app-title" content="HomeHub" />
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="msapplication-TileColor" content="#0ea5e9" />
         <meta name="msapplication-config" content="/browserconfig.xml" />
         <link rel="icon" href="/favicon.ico" sizes="16x16 32x32 48x48" />
-        <link rel="icon" type="image/png" href="/icon-192.png" />
-        <link rel="icon" type="image/svg+xml" href="/logo.svg" />
-        <link rel="apple-touch-icon" href="/icon-180.png" />
-        <link rel="apple-touch-icon" sizes="180x180" href="/icon-180.png" />
-        <link rel="apple-touch-icon" sizes="192x192" href="/icon-192.png" />
         <link rel="mask-icon" href="/logo.svg" color="#0ea5e9" />
       </head>
       <body
         className={cn(
-          "bg-background min-h-screen font-sans antialiased",
+          "bg-background min-h-dvh font-sans antialiased",
           fontSans.variable,
         )}
         suppressHydrationWarning
@@ -122,6 +123,7 @@ export default function RootLayout({
         >
           {children}
         </ThemeProvider>
+        <ServiceWorkerRegistrar />
       </body>
     </html>
   );

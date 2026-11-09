@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Shield, Eye, Database, Download } from "lucide-react";
+import { TwoFactorCard } from "@/components/account/TwoFactorCard";
 
 export default function PrivacyPage() {
   return (
@@ -25,6 +26,8 @@ export default function PrivacyPage() {
           </p>
         </div>
       </div>
+
+      <TwoFactorCard />
 
       {/* Privacy Settings */}
       <Card>

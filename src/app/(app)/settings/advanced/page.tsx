@@ -1,5 +1,7 @@
 "use client";
 
+import { formatDistanceToNow } from "date-fns";
+import { APP_VERSION, BUILD_TIME, NODE_VERSION } from "@/lib/app-info";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -339,29 +341,23 @@ export default function AdvancedPage() {
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
             <div>
               <p className="text-sm font-medium">App Version</p>
-              <Badge variant="secondary">v1.0.0</Badge>
+              <Badge variant="secondary">v{APP_VERSION}</Badge>
             </div>
             <div>
               <p className="text-sm font-medium">Node Version</p>
-              <Badge variant="secondary">v20.11.0</Badge>
+              <Badge variant="secondary">{NODE_VERSION ?? "unknown"}</Badge>
             </div>
             <div>
               <p className="text-sm font-medium">Build</p>
-              <Badge variant="secondary">Production</Badge>
+              <Badge variant="secondary">
+                {process.env.NODE_ENV === "production" ? "Production" : "Development"}
+              </Badge>
             </div>
             <div>
-              <p className="text-sm font-medium">Last Updated</p>
-              <Badge variant="secondary">2 days ago</Badge>
-            </div>
-          </div>
-          <Separator />
-          <div className="space-y-2">
-            <p className="text-sm font-medium">Environment Variables</p>
-            <div className="bg-muted rounded-md p-3 font-mono text-xs">
-              <div>NODE_ENV=production</div>
-              <div>API_URL=https://api.home-hub.com</div>
-              <div>DATABASE_URL=***hidden***</div>
-              <div>NEXTAUTH_URL=https://home-hub.com</div>
+              <p className="text-sm font-medium">Built</p>
+              <Badge variant="secondary">
+                {BUILD_TIME ? formatDistanceToNow(new Date(BUILD_TIME), { addSuffix: true }) : "unknown"}
+              </Badge>
             </div>
           </div>
         </CardContent>

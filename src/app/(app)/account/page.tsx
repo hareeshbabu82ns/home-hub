@@ -1,8 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import UserSettings from "./UserSettings";
+import { TwoFactorCard } from "@/components/account/TwoFactorCard";
 import { ChangePasswordDialog } from "@/components/account/ChangePasswordDialog";
 import {
   Card,
@@ -28,7 +30,6 @@ import {
   CreditCard,
   Key,
   Mail,
-  Smartphone,
   Palette,
   Globe,
   Receipt,
@@ -36,13 +37,15 @@ import {
 import { Badge } from "@/components/ui/badge";
 
 export default function AccountPage() {
-  const [activeTab, setActiveTab] = useState("profile");
+  // Deep link: /account?tab=security
+  const searchParams = useSearchParams();
+  const [activeTab, setActiveTab] = useState(searchParams.get("tab") ?? "profile");
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-semibold">Account Settings</h1>
+        <h1 className="text-2xl font-semibold sm:text-3xl">Account Settings</h1>
         <p className="text-muted-foreground">
           Manage your account, security, and preferences
         </p>
@@ -98,41 +101,7 @@ export default function AccountPage() {
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Smartphone className="h-5 w-5" />
-                Two-Factor Authentication
-              </CardTitle>
-              <CardDescription>
-                Add an extra layer of security to your account
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium">SMS Authentication</p>
-                  <p className="text-muted-foreground text-xs">
-                    Receive codes via text message
-                  </p>
-                </div>
-                <Button variant="outline" size="sm">
-                  Enable
-                </Button>
-              </div>
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium">Authenticator App</p>
-                  <p className="text-muted-foreground text-xs">
-                    Use an authenticator app for codes
-                  </p>
-                </div>
-                <Button variant="outline" size="sm">
-                  Setup
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+          <TwoFactorCard />
         </TabsContent>
 
         {/* Notifications Tab */}

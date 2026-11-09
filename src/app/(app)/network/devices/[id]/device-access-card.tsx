@@ -275,8 +275,8 @@ export function DeviceAccessCard({
             <p className="mb-2 text-sm font-medium">History</p>
             <ul className="space-y-1 text-xs">
               {audit.map((entry) => (
-                <li key={entry.id} className="flex justify-between gap-2">
-                  <span className={entry.success ? undefined : "text-destructive"}>
+                <li key={entry.id} className="flex flex-col gap-0.5 sm:flex-row sm:justify-between sm:gap-2">
+                  <span className={`break-words ${entry.success ? "" : "text-destructive"}`}>
                     {entry.action}
                     {entry.target ? ` · ${entry.target}` : ""}
                     {entry.success ? "" : ` (failed: ${entry.error})`}

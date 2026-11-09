@@ -26,6 +26,8 @@ export function ThemeProvider({ children, ...props }: ThemeProviderProps) {
               <ShadcnToaster />
               <Toaster
                 position="top-center"
+                // Below the notch in the installed (standalone) app.
+                mobileOffset={{ top: "calc(env(safe-area-inset-top) + 12px)" }}
                 className="toast border-border bg-background text-foreground group w-full max-w-xl shadow-lg"
                 toastOptions={{
                   unstyled: true,

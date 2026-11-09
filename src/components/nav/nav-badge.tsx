@@ -1,7 +1,8 @@
 "use client";
 
+import { useQuery } from "@tanstack/react-query";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 
 import { getOpenAlertCount } from "@/lib/actions/network-monitoring";
 import { cn } from "@/lib/utils";
@@ -10,28 +11,33 @@ export type NavBadgeKey = "network-alerts";
 
 const REFRESH_MS = 60_000;
 
+/**
+ * Unread network alert count, shared by every badge on screen (sidebar, rail,
+ * tab bar) through one react-query cache entry.
+ */
+export function useOpenAlertCount() {
+  const pathname = usePathname();
+  const query = useQuery({
+    queryKey: ["network-alerts", "open-count"],
+    queryFn: async () => (await getOpenAlertCount()).count,
+    refetchInterval: REFRESH_MS,
+    staleTime: 10_000,
+  });
+  const { refetch } = query;
+
+  // Refresh on navigation too (e.g. after "Mark all read").
+  useEffect(() => {
+    void refetch();
+  }, [pathname, refetch]);
+
+  return query.data ?? 0;
+}
+
 /** Live count next to a sidebar link; hidden when zero. */
 export function NavBadge({ badge, collapsed }: { badge: NavBadgeKey; collapsed?: boolean }) {
-  const pathname = usePathname();
-  const [count, setCount] = useState(0);
+  const count = useOpenAlertCount();
 
-  useEffect(() => {
-    if (badge !== "network-alerts") return;
-    let cancelled = false;
-    const load = () =>
-      void getOpenAlertCount().then((result) => {
-        if (!cancelled) setCount(result.count);
-      });
-    load();
-    const timer = setInterval(load, REFRESH_MS);
-    return () => {
-      cancelled = true;
-      clearInterval(timer);
-    };
-    // Refresh on navigation too (e.g. after "Mark all read").
-  }, [badge, pathname]);
-
-  if (count === 0) return null;
+  if (badge !== "network-alerts" || count === 0) return null;
   return (
     <span
       aria-label={`${count} unread alerts`}

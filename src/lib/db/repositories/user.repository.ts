@@ -33,6 +33,7 @@ export const userRepository = {
         isActive: true,
         createdAt: true,
         emailVerified: true,
+        mfaEnabled: true,
       },
       orderBy: { createdAt: "desc" },
     });

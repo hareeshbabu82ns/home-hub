@@ -101,6 +101,16 @@ model User {
   password        String?           // For credentials-based auth
   role            UserRole          @default(USER)
   isActive        Boolean           @default(true)
+  // Two-factor authentication (TOTP). Optional so existing documents stay
+  // readable; secrets are encrypted with src/lib/crypto/secret-box.ts.
+  mfaEnabled        Boolean?
+  mfaSecret         String?
+  mfaPendingSecret  String? // enrolment in progress, not yet confirmed
+  mfaRecoveryCodes  String[] // sha256 of each unused recovery code
+  mfaLastStep       Int? // last accepted TOTP time step (no code reuse)
+  mfaEnabledAt      DateTime?
+  mfaFailedAttempts Int?
+  mfaLockedUntil    DateTime?
   createdAt       DateTime          @default(now())
   updatedAt       DateTime          @updatedAt
   

@@ -8,6 +8,7 @@ import {
   makeAdmin,
   removeAdmin,
   toggleUserStatus,
+  adminResetMfa,
 } from "@/lib/actions/admin";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,7 +23,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Loader2, Trash2, Shield, UserX, Lock } from "lucide-react";
+import { Loader2, Trash2, Shield, UserX, Lock, ShieldOff } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 
@@ -34,6 +35,7 @@ interface User {
   isActive: boolean;
   createdAt: Date;
   emailVerified: Date | null;
+  mfaEnabled: boolean | null;
 }
 
 export default function UsersPage() {
@@ -121,6 +123,18 @@ export default function UsersPage() {
     }
   }
 
+  async function handleResetMfa(userId: string) {
+    setActionLoading(userId);
+    const result = await adminResetMfa(userId);
+    setActionLoading(null);
+    if (result.success) {
+      setUsers(users.map((u) => (u.id === userId ? { ...u, mfaEnabled: false } : u)));
+      toast.success("Two-factor authentication turned off for this user");
+    } else {
+      toast.error(result.error || "Failed to reset two-factor authentication");
+    }
+  }
+
   async function handleToggleStatus(userId: string, isActive: boolean) {
     setActionLoading(userId);
     const result = await toggleUserStatus(userId, !isActive);
@@ -191,6 +205,11 @@ export default function UsersPage() {
                       >
                         {user.isActive ? "Active" : "Inactive"}
                       </Badge>
+                      {user.mfaEnabled && (
+                        <Badge variant="outline" className="ml-1">
+                          2FA
+                        </Badge>
+                      )}
                     </td>
                     <td className="text-muted-foreground py-3 text-sm">
                       {format(new Date(user.createdAt), "MMM d, yyyy")}
@@ -234,6 +253,21 @@ export default function UsersPage() {
                         >
                           <UserX className="h-4 w-4" />
                         </Button>
+                        {user.mfaEnabled && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => {
+                              if (confirm(`Turn off two-factor authentication for ${user.email ?? "this user"}?`)) {
+                                void handleResetMfa(user.id);
+                              }
+                            }}
+                            disabled={actionLoading === user.id}
+                            title="Reset two-factor authentication"
+                          >
+                            <ShieldOff className="h-4 w-4" />
+                          </Button>
+                        )}
                         <Button
                           size="sm"
                           variant="ghost"

@@ -24,7 +24,7 @@ export default function ForgotPasswordPage() {
 
   if (submitted) {
     return (
-      <main className="bg-popover mx-auto my-4 max-w-lg rounded-lg p-10">
+      <main className="bg-popover w-full rounded-xl p-6 shadow-sm sm:p-10">
         <div className="text-center">
           <CheckCircle className="mx-auto h-12 w-12 text-green-600" />
           <h1 className="mt-4 text-2xl font-bold">Check your email</h1>
@@ -46,7 +46,7 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    <main className="bg-popover mx-auto my-4 max-w-lg rounded-lg p-10">
+    <main className="bg-popover w-full rounded-xl p-6 shadow-sm sm:p-10">
       <h1 className="text-center text-2xl font-bold">Reset your password</h1>
       <p className="text-muted-foreground mt-2 text-center">
         Enter your email and we will send you a link to reset your password.

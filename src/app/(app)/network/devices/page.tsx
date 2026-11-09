@@ -1,7 +1,16 @@
 "use client";
 
 import { format } from "date-fns";
-import { Lock, Pencil, Router, Search, Trash2, Wifi } from "lucide-react";
+import {
+  Check,
+  Lock,
+  MoreHorizontal,
+  Pencil,
+  Router,
+  Search,
+  Trash2,
+  Wifi,
+} from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
@@ -25,6 +34,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
@@ -181,13 +197,13 @@ export default function NetworkDevicesPage() {
   const pendingName = pending ? getDeviceDisplayName(pending.device) : "";
 
   return (
-    <main className="space-y-6 p-4">
+    <main className="space-y-4 p-4 sm:space-y-6">
       <div className="flex items-center gap-3">
-        <div className="flex size-10 items-center justify-center rounded-xl bg-linear-to-br from-emerald-500 to-cyan-500">
+        <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-linear-to-br from-emerald-500 to-cyan-500">
           <Router className="size-5 text-white" />
         </div>
         <div>
-          <h1 className="text-3xl font-bold">Network Devices</h1>
+          <h1 className="text-2xl font-bold sm:text-3xl">Network Devices</h1>
           <p className="text-muted-foreground text-sm">
             {devices.length > 0
               ? `${onlineCount} online of ${devices.length} known devices`
@@ -254,6 +270,7 @@ export default function NetworkDevicesPage() {
                 </Label>
               </div>
               <Input
+                type="search"
                 className="sm:w-72"
                 placeholder="Search name, IP, MAC, vendor"
                 value={search}
@@ -267,159 +284,156 @@ export default function NetworkDevicesPage() {
             <p className="text-muted-foreground py-8 text-center">
               Loading devices...
             </p>
+          ) : filtered.length === 0 ? (
+            <p className="text-muted-foreground rounded-lg border py-8 text-center">
+              No devices found.
+            </p>
           ) : (
-            <div className="overflow-x-auto rounded-lg border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Device</TableHead>
-                    <TableHead>IP</TableHead>
-                    <TableHead>MAC</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Interface</TableHead>
-                    <TableHead className="text-right" title="Estimated, since local midnight">
-                      Today
-                    </TableHead>
-                    <TableHead>Last seen</TableHead>
-                    {canManage && (
-                      <TableHead className="text-right">Actions</TableHead>
-                    )}
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filtered.length === 0 ? (
+            <>
+              {/* Phones: one card per device */}
+              <ul className="divide-border -mx-2 divide-y md:hidden">
+                {filtered.map((device) => (
+                  <li
+                    key={device.id}
+                    className={`px-2 py-3 ${device.isOnline ? "" : "opacity-70"}`}
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className="min-w-0 flex-1 space-y-1">
+                        <div className="flex items-center gap-2">
+                          <OnlineDot isOnline={device.isOnline} />
+                          <DeviceLink device={device} />
+                        </div>
+                        <p className="text-muted-foreground truncate pl-4 text-xs">
+                          <span className="font-mono">{device.ipAddress}</span>
+                          {device.deviceType && ` · ${device.deviceType}`}
+                          {device.vendor && ` · ${device.vendor}`}
+                        </p>
+                        <div className="pl-4">
+                          <DeviceBadges device={device} />
+                        </div>
+                        <p className="text-muted-foreground pl-4 text-xs">
+                          {lastSeenLabel(device)}
+                          {usageToday[device.id]
+                            ? ` · ${formatBytes(usageToday[device.id])} today`
+                            : ""}
+                        </p>
+                      </div>
+                      {canManage && (
+                        <DeviceActions
+                          device={device}
+                          disabled={actionLoading}
+                          onEdit={openEdit}
+                          onReview={(id) => void markReviewed(id)}
+                          onPending={setPending}
+                        />
+                      )}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+
+              {/* iPad and up: table; secondary columns fold into the
+                  device cell until there is room (xl). */}
+              <div className="hidden overflow-x-auto rounded-lg border md:block">
+                <Table>
+                  <TableHeader>
                     <TableRow>
-                      <TableCell
-                        colSpan={canManage ? 9 : 8}
-                        className="text-muted-foreground py-8 text-center"
+                      <TableHead>Device</TableHead>
+                      <TableHead>IP</TableHead>
+                      <TableHead className="hidden 2xl:table-cell">MAC</TableHead>
+                      <TableHead className="hidden xl:table-cell">Type</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="hidden xl:table-cell">Interface</TableHead>
+                      <TableHead
+                        className="hidden text-right xl:table-cell"
+                        title="Estimated, since local midnight"
                       >
-                        No devices found.
-                      </TableCell>
+                        Today
+                      </TableHead>
+                      <TableHead className="hidden xl:table-cell">Last seen</TableHead>
+                      {canManage && (
+                        <TableHead className="text-right">
+                          <span className="sr-only">Actions</span>
+                        </TableHead>
+                      )}
                     </TableRow>
-                  ) : (
-                    filtered.map((device) => {
-                      const disabledReason = blockDisabledReason(device);
-                      // In MAC mode only a manual block is undone here; pauses,
-                      // schedules and quarantine are managed elsewhere.
-                      const manuallyBlocked = device.access
-                        ? device.access.reasons.some((r) => r.kind === "manual")
-                        : device.isBlocked;
-                      return (
-                        <TableRow
-                          key={device.id}
-                          className={device.isOnline ? undefined : "opacity-70"}
-                        >
-                          <TableCell>
-                            <div className="flex items-center gap-2">
-                              <OnlineDot isOnline={device.isOnline} />
-                              <Link
-                                href={`/network/devices/${device.id}`}
-                                className={`font-medium hover:underline ${hasRealDeviceName(device) ? "" : "text-muted-foreground italic"}`}
-                              >
-                                {getDeviceDisplayName(device)}
-                              </Link>
-                            </div>
-                            {(device.name || device.dhcpHostname) &&
-                              device.vendor && (
-                                <div className="text-muted-foreground pl-4 text-xs">
-                                  {device.vendor}
-                                </div>
-                              )}
-                          </TableCell>
-                          <TableCell className="font-mono text-xs">
-                            {device.ipAddress}
-                          </TableCell>
-                          <TableCell className="font-mono text-xs">
+                  </TableHeader>
+                  <TableBody>
+                    {filtered.map((device) => (
+                      <TableRow
+                        key={device.id}
+                        className={device.isOnline ? undefined : "opacity-70"}
+                      >
+                        <TableCell className="max-w-56 lg:max-w-64">
+                          <div className="flex items-center gap-2">
+                            <OnlineDot isOnline={device.isOnline} />
+                            <DeviceLink device={device} />
+                          </div>
+                          <div className="text-muted-foreground truncate pl-4 text-xs">
+                            {[
+                              device.name || device.dhcpHostname
+                                ? device.vendor
+                                : null,
+                              device.deviceType,
+                            ]
+                              .filter(Boolean)
+                              .join(" · ")}
+                          </div>
+                          <div className="text-muted-foreground pl-4 font-mono text-[11px] 2xl:hidden">
                             {device.macAddress}
-                          </TableCell>
-                          <TableCell>{device.deviceType || "-"}</TableCell>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-xs">
+                          <div className="font-mono">{device.ipAddress}</div>
+                          <div className="text-muted-foreground whitespace-nowrap xl:hidden">
+                            {device.isOnline
+                              ? "Online now"
+                              : format(new Date(device.lastSeenAt), "MMM d, HH:mm")}
+                            {usageToday[device.id]
+                              ? ` · ${formatBytes(usageToday[device.id])}`
+                              : ""}
+                          </div>
+                        </TableCell>
+                        <TableCell className="hidden font-mono text-xs 2xl:table-cell">
+                          {device.macAddress}
+                        </TableCell>
+                        <TableCell className="hidden xl:table-cell">
+                          {device.deviceType || "-"}
+                        </TableCell>
+                        <TableCell className="max-w-56 whitespace-normal">
+                          <DeviceBadges device={device} />
+                        </TableCell>
+                        <TableCell className="hidden max-w-28 whitespace-normal xl:table-cell">
+                          {device.intfDescription || "-"}
+                        </TableCell>
+                        <TableCell className="hidden text-right text-xs whitespace-nowrap xl:table-cell">
+                          {usageToday[device.id]
+                            ? formatBytes(usageToday[device.id])
+                            : "-"}
+                        </TableCell>
+                        <TableCell className="hidden text-xs whitespace-nowrap xl:table-cell">
+                          <div>{lastSeenLabel(device)}</div>
+                          <div className="text-muted-foreground">
+                            first {format(new Date(device.firstSeenAt), "MMM d")}
+                          </div>
+                        </TableCell>
+                        {canManage && (
                           <TableCell>
-                            <DeviceBadges device={device} />
+                            <DeviceActions
+                              device={device}
+                              disabled={actionLoading}
+                              onEdit={openEdit}
+                              onReview={(id) => void markReviewed(id)}
+                              onPending={setPending}
+                            />
                           </TableCell>
-                          <TableCell>{device.intfDescription || "-"}</TableCell>
-                          <TableCell className="text-right text-xs whitespace-nowrap">
-                            {usageToday[device.id] ? formatBytes(usageToday[device.id]) : "-"}
-                          </TableCell>
-                          <TableCell className="text-xs whitespace-nowrap">
-                            <div>
-                              {device.isOnline
-                                ? "Now"
-                                : format(
-                                    new Date(device.lastSeenAt),
-                                    "MMM d, HH:mm",
-                                  )}
-                            </div>
-                            <div className="text-muted-foreground">
-                              first{" "}
-                              {format(new Date(device.firstSeenAt), "MMM d")}
-                            </div>
-                          </TableCell>
-                          {canManage && (
-                            <TableCell>
-                              <div className="flex justify-end gap-2">
-                                {device.isNew && (
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() => void markReviewed(device.id)}
-                                    disabled={actionLoading}
-                                  >
-                                    Review
-                                  </Button>
-                                )}
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  aria-label="Edit device"
-                                  onClick={() => openEdit(device)}
-                                  disabled={actionLoading}
-                                >
-                                  <Pencil className="size-4" />
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  aria-label="Delete device"
-                                  className="text-destructive"
-                                  onClick={() =>
-                                    setPending({ kind: "delete", device })
-                                  }
-                                  disabled={actionLoading}
-                                >
-                                  <Trash2 className="size-4" />
-                                </Button>
-                                <span title={disabledReason ?? undefined}>
-                                  <Button
-                                    size="sm"
-                                    variant={
-                                      manuallyBlocked
-                                        ? "secondary"
-                                        : "destructive"
-                                    }
-                                    onClick={() =>
-                                      setPending({
-                                        kind: manuallyBlocked
-                                          ? "unblock"
-                                          : "block",
-                                        device,
-                                      })
-                                    }
-                                    disabled={actionLoading || (!manuallyBlocked && !!disabledReason)}
-                                  >
-                                    {manuallyBlocked ? "Unblock" : "Block"}
-                                  </Button>
-                                </span>
-                              </div>
-                            </TableCell>
-                          )}
-                        </TableRow>
-                      );
-                    })
-                  )}
-                </TableBody>
-              </Table>
-            </div>
+                        )}
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </>
           )}
         </CardContent>
       </Card>
@@ -540,5 +554,95 @@ export default function NetworkDevicesPage() {
         </DialogContent>
       </Dialog>
     </main>
+  );
+}
+
+function lastSeenLabel(device: NetworkDevice) {
+  return device.isOnline
+    ? "Online now"
+    : `Seen ${format(new Date(device.lastSeenAt), "MMM d, HH:mm")}`;
+}
+
+function DeviceLink({ device }: { device: NetworkDevice }) {
+  return (
+    <Link
+      href={`/network/devices/${device.id}`}
+      className={`truncate font-medium hover:underline ${hasRealDeviceName(device) ? "" : "text-muted-foreground italic"}`}
+    >
+      {getDeviceDisplayName(device)}
+    </Link>
+  );
+}
+
+/** Block/unblock stays one tap away; the rest lives in the "⋯" menu. */
+function DeviceActions({
+  device,
+  disabled,
+  onEdit,
+  onReview,
+  onPending,
+}: {
+  device: NetworkDevice;
+  disabled: boolean;
+  onEdit: (device: NetworkDevice) => void;
+  onReview: (id: string) => void;
+  onPending: (action: PendingAction) => void;
+}) {
+  const disabledReason = blockDisabledReason(device);
+  // In MAC mode only a manual block is undone here; pauses, schedules and
+  // quarantine are managed elsewhere.
+  const manuallyBlocked = device.access
+    ? device.access.reasons.some((r) => r.kind === "manual")
+    : device.isBlocked;
+
+  return (
+    <div className="flex shrink-0 items-center justify-end gap-1">
+      <span title={disabledReason ?? undefined}>
+        <Button
+          size="sm"
+          className="h-9 min-w-20"
+          variant={manuallyBlocked ? "secondary" : "destructive"}
+          onClick={() =>
+            onPending({ kind: manuallyBlocked ? "unblock" : "block", device })
+          }
+          disabled={disabled || (!manuallyBlocked && !!disabledReason)}
+        >
+          {manuallyBlocked ? "Unblock" : "Block"}
+        </Button>
+      </span>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            size="icon"
+            variant="ghost"
+            className="size-9"
+            aria-label={`More actions for ${getDeviceDisplayName(device)}`}
+            disabled={disabled}
+          >
+            <MoreHorizontal className="size-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          {device.isNew && (
+            <DropdownMenuItem onSelect={() => onReview(device.id)}>
+              <Check className="size-4" />
+              Mark reviewed
+            </DropdownMenuItem>
+          )}
+          <DropdownMenuItem onSelect={() => onEdit(device)}>
+            <Pencil className="size-4" />
+            Edit
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            className="text-destructive"
+            onSelect={() => onPending({ kind: "delete", device })}
+          >
+            <Trash2 className="size-4" />
+            Delete
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
   );
 }

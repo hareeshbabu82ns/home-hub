@@ -24,7 +24,7 @@ export default function ResetPasswordPage() {
 
   if (!token) {
     return (
-      <main className="bg-popover mx-auto my-4 max-w-lg rounded-lg p-10">
+      <main className="bg-popover w-full rounded-xl p-6 shadow-sm sm:p-10">
         <div className="text-center">
           <AlertTriangle className="text-destructive mx-auto h-12 w-12" />
           <h1 className="mt-4 text-2xl font-bold">Invalid link</h1>
@@ -76,7 +76,7 @@ export default function ResetPasswordPage() {
   }
 
   return (
-    <main className="bg-popover mx-auto my-4 max-w-lg rounded-lg p-10">
+    <main className="bg-popover w-full rounded-xl p-6 shadow-sm sm:p-10">
       <h1 className="text-center text-2xl font-bold">Reset your password</h1>
 
       <form onSubmit={handleSubmit} className="mt-6 space-y-4">

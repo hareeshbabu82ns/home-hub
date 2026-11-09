@@ -93,13 +93,32 @@ export async function signIn( values: z.infer<typeof signInSchema> ) {
       redirect: false,
     } );
 
-    return { success: true };
+    // The session starts with mfaPending; the client continues at /verify-mfa.
+    return { success: true, mfaRequired: !!user.mfaEnabled };
   } catch ( error ) {
     if ( error instanceof z.ZodError ) {
       return { error: error.issues[ 0 ]?.message || "Validation failed" };
     }
     return { error: "An error occurred during sign in" };
   }
+}
+
+/** OAuth providers that are configured (shown as buttons on sign-in). */
+export async function getOAuthProviders() {
+  return {
+    google: !!( env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET ),
+    github: !!( env.GITHUB_CLIENT_ID && env.GITHUB_CLIENT_SECRET ),
+  };
+}
+
+/** Form action: starts an OAuth sign-in (redirects to the provider). */
+export async function signInWithProvider( formData: FormData ) {
+  const provider = formData.get( "provider" );
+  const providers = await getOAuthProviders();
+  if ( provider !== "google" && provider !== "github" ) return;
+  if ( !providers[ provider ] ) return;
+  // Accounts with 2FA land on /verify-mfa via the (app) layout.
+  await nextAuthSignIn( provider, { redirectTo: "/dashboard" } );
 }
 
 /**

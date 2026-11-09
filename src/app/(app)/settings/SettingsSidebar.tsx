@@ -1,5 +1,6 @@
 "use client";
 
+import { APP_VERSION } from "@/lib/app-info";
 import { cn } from "@/lib/utils";
 import {
   Bell,
@@ -14,6 +15,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useRef } from "react";
 
 const settingsNavItems = [
   {
@@ -72,13 +74,47 @@ const settingsNavItems = [
   },
 ];
 
+/** Phone layout: the sections as a swipeable row of chips. */
+export function SettingsTabs() {
+  const pathname = usePathname();
+  const activeRef = useRef<HTMLAnchorElement>(null);
+
+  useEffect(() => {
+    activeRef.current?.scrollIntoView({ block: "nearest", inline: "center" });
+  }, [pathname]);
+
+  return (
+    <nav aria-label="Settings sections" className="flex gap-2 overflow-x-auto px-4 py-2 [scrollbar-width:none]">
+      {settingsNavItems.map((item) => {
+        const Icon = item.icon;
+        const isActive = pathname === item.href;
+        return (
+          <Link
+            key={item.href}
+            href={item.href}
+            ref={isActive ? activeRef : undefined}
+            aria-current={isActive ? "page" : undefined}
+            className={cn(
+              "border-border flex min-h-9 shrink-0 items-center gap-1.5 rounded-full border px-3 text-sm whitespace-nowrap transition-colors",
+              isActive ? "bg-primary text-primary-foreground border-transparent" : "text-muted-foreground",
+            )}
+          >
+            <Icon className="size-4" />
+            {item.title}
+          </Link>
+        );
+      })}
+    </nav>
+  );
+}
+
 export default function SettingsSidebar() {
   const pathname = usePathname();
 
   return (
     <div className="flex h-full flex-col">
       {/* Header */}
-      <div className="border-border border-b p-6">
+      <div className="border-border border-b p-4 lg:p-6">
         <h2 className="text-lg font-semibold">Settings</h2>
         <p className="text-muted-foreground text-sm">
           Configure your app preferences
@@ -117,8 +153,7 @@ export default function SettingsSidebar() {
       {/* Footer Info */}
       <div className="border-border border-t p-4">
         <div className="text-muted-foreground text-xs">
-          <p>Home Hub v1.0.0</p>
-          <p>© 2025 Home Hub</p>
+          <p>Home Hub v{APP_VERSION}</p>
         </div>
       </div>
     </div>

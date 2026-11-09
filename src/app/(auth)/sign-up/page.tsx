@@ -50,7 +50,7 @@ export default function SignUpPage() {
   }
 
   return (
-    <main className="bg-popover mx-auto my-4 max-w-lg rounded-lg p-10">
+    <main className="bg-popover w-full rounded-xl p-6 shadow-sm sm:p-10">
       <h1 className="text-center text-2xl font-bold">Create your account</h1>
 
       <form onSubmit={handleSubmit} className="mt-6 space-y-4">

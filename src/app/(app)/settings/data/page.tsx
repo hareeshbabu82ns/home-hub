@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -28,6 +29,23 @@ export default function DataManagementPage() {
           </p>
         </div>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Download className="h-5 w-5" />
+            Network devices &amp; access settings
+          </CardTitle>
+          <CardDescription>
+            Export or import device names, blocks, quotas, schedules and website rules.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button asChild variant="outline">
+            <Link href="/settings/network">Open backup &amp; restore</Link>
+          </Button>
+        </CardContent>
+      </Card>
 
       {/* Storage Overview */}
       <Card>

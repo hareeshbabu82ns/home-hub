@@ -1,21 +1,30 @@
 "use client";
 
 import { useEffect } from "react";
-import Navbar from "@/components/Navbar";
-import Sidebar from "@/components/Sidebar";
-import { cn } from "@/lib/utils";
+import Image from "next/image";
 import { type ClassValue } from "clsx";
+
 import AppTitleLogo from "@/components/AppTitleLogo";
-import { Sheet, SheetContent } from "@/components/ui/sheet";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import Navbar from "@/components/Navbar";
+import { BottomNav } from "@/components/nav/bottom-nav";
+import Sidebar from "@/components/Sidebar";
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useSidebar } from "@/hooks/use-sidebar";
 import { type AuthSession } from "@/lib/auth/utils";
-import Image from "next/image";
+import { cn } from "@/lib/utils";
 
+/**
+ * App shell, phone/tablet first:
+ *
+ * - phone (< md):      top bar + bottom tab bar; full menu in a sheet
+ * - iPad portrait (md): icon rail on the left
+ * - iPad landscape / desktop (lg+): full sidebar, collapsible (Ctrl/Cmd+B)
+ *
+ * Breakpoints are pure CSS so the first (server) render already has the
+ * right layout. Safe-area insets keep content clear of the notch and home
+ * indicator in the installed app (viewport-fit=cover).
+ */
 export function MobileFirstLayout({
   children,
   session,
@@ -29,10 +38,8 @@ export function MobileFirstLayout({
   classNameSidebar?: ClassValue;
   classNameContents?: ClassValue;
 }) {
-  const { isDesktopCollapsed, isHydrated, toggleDesktopCollapsed, isMobile } =
-    useSidebar();
+  const { isDesktopCollapsed, toggleDesktopCollapsed, isMobile, isMobileOpen, setIsMobileOpen } = useSidebar();
 
-  // Add keyboard shortcut for toggling sidebar (Ctrl/Cmd + B)
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if ((event.ctrlKey || event.metaKey) && event.key === "b" && !isMobile) {
@@ -40,135 +47,96 @@ export function MobileFirstLayout({
         toggleDesktopCollapsed();
       }
     };
-
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [toggleDesktopCollapsed, isMobile]);
 
-  // Show loading state until hydrated to prevent layout shift
-  if (!isHydrated) {
-    return (
-      <div className={cn("bg-background min-h-screen", classNamePage)}>
-        <div className="flex h-screen flex-col lg:flex-row">
-          <aside className="lg:border-border lg:bg-muted/30 hidden lg:flex lg:w-64 lg:flex-col lg:border-r">
+  return (
+    <div className={cn("bg-background flex h-dvh overflow-hidden", classNamePage)}>
+      {/* iPad portrait: icon rail */}
+      <aside
+        className={cn(
+          "border-border bg-muted/30 hidden w-16 shrink-0 flex-col border-r pl-[env(safe-area-inset-left)] md:flex lg:hidden",
+          classNameSidebar,
+        )}
+      >
+        <div className="border-border flex h-14 shrink-0 items-center justify-center border-b pt-[env(safe-area-inset-top)] box-content">
+          <RailLogo />
+        </div>
+        <div className="flex-1 overflow-y-auto">
+          <Sidebar isCollapsed session={session} />
+        </div>
+      </aside>
+
+      {/* Landscape / desktop: full sidebar */}
+      <aside
+        className={cn(
+          "border-border bg-muted/30 hidden shrink-0 flex-col border-r pl-[env(safe-area-inset-left)] transition-[width] duration-300 ease-in-out lg:flex",
+          isDesktopCollapsed ? "w-16" : "w-64",
+          classNameSidebar,
+        )}
+      >
+        <div className="border-border box-content flex h-14 shrink-0 items-center border-b px-4 pt-[env(safe-area-inset-top)]">
+          {isDesktopCollapsed ? <RailLogo /> : <AppTitleLogo />}
+        </div>
+        <div className="flex-1 overflow-y-auto">
+          <Sidebar isCollapsed={isDesktopCollapsed} session={session} />
+        </div>
+      </aside>
+
+      <div className="flex min-w-0 flex-1 flex-col">
+        <Sheet open={isMobileOpen} onOpenChange={setIsMobileOpen}>
+          <header className="border-border bg-background/95 supports-backdrop-filter:bg-background/70 z-40 shrink-0 border-b pt-[env(safe-area-inset-top)] pr-[env(safe-area-inset-right)] backdrop-blur">
+            <div className="flex h-14 items-center">
+              <Navbar themeToggle sidebarTrigger desktopSidebarToggle session={session}>
+                <AppTitleLogo className="lg:hidden" />
+              </Navbar>
+            </div>
+          </header>
+
+          <SheetContent
+            side="left"
+            className="w-[min(20rem,85vw)] p-0 pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]"
+          >
+            <SheetTitle className="sr-only">Navigation</SheetTitle>
             <div className="flex h-full flex-col">
-              <div className="border-border flex h-14 items-center border-b px-4">
+              <div className="border-border flex h-14 shrink-0 items-center border-b px-4">
                 <AppTitleLogo />
               </div>
               <div className="flex-1 overflow-y-auto">
-                <div className="animate-pulse p-4">
-                  <div className="space-y-3">
-                    <div className="bg-muted h-4 rounded">&nbsp;</div>
-                    <div className="bg-muted h-4 w-3/4 rounded">&nbsp;</div>
-                    <div className="bg-muted h-4 w-1/2 rounded">&nbsp;</div>
-                  </div>
-                </div>
+                <Sidebar session={session} />
               </div>
             </div>
-          </aside>
-          <div className="flex flex-1 flex-col overflow-hidden">
-            <header className="border-border bg-background/95 supports-backdrop-filter:bg-background/60 sticky top-0 z-50 flex h-14 items-center border-b backdrop-blur">
-              <div className="flex w-full items-center justify-between px-4 py-2 sm:px-6">
-                <AppTitleLogo />
-              </div>
-            </header>
-            <main className="flex-1 overflow-y-auto">
-              <div className="animate-pulse p-4">
-                <div className="space-y-3">
-                  <div className="bg-muted h-8 rounded">&nbsp;</div>
-                  <div className="bg-muted h-4 rounded">&nbsp;</div>
-                  <div className="bg-muted h-4 w-2/3 rounded">&nbsp;</div>
-                </div>
-              </div>
-            </main>
-          </div>
-        </div>
-      </div>
-    );
-  }
+          </SheetContent>
+        </Sheet>
 
-  return (
-    <div className={cn("bg-background min-h-screen", classNamePage)}>
-      {/* Mobile-first responsive layout */}
-      <div className="flex h-screen flex-col lg:flex-row">
-        {/* Desktop Sidebar - Hidden on mobile, collapsible on large screens */}
-        <aside
+        <main
           className={cn(
-            "lg:border-border lg:bg-muted/30 hidden transition-all duration-300 ease-in-out lg:flex lg:flex-col lg:border-r",
-            isDesktopCollapsed ? "lg:w-16" : "lg:w-64",
-            classNameSidebar,
+            "flex-1 overflow-y-auto overscroll-contain pr-[env(safe-area-inset-right)]",
+            // Room for the bottom tab bar on phones.
+            "pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-[env(safe-area-inset-bottom)]",
           )}
         >
-          <div className="flex h-full flex-col">
-            <div className="border-border flex h-14 items-center border-b px-4">
-              {!isDesktopCollapsed && <AppTitleLogo />}
-              {isDesktopCollapsed && (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <div className="flex size-8 items-center justify-center">
-                      <Image
-                        src="/icon-192.svg"
-                        alt="App logo"
-                        width={24}
-                        height={24}
-                        className="size-6 shrink-0 sm:size-7 lg:size-8"
-                      />
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent side="right" className="ml-2">
-                    Home Hub
-                  </TooltipContent>
-                </Tooltip>
-              )}
-            </div>
-            <div className="flex-1 overflow-y-auto">
-              <Sidebar isCollapsed={isDesktopCollapsed} session={session} />
-            </div>
-          </div>
-        </aside>
+          <div className={cn("mx-auto sm:max-w-7xl lg:max-w-none", classNameContents)}>{children}</div>
+        </main>
 
-        {/* Main Content Area */}
-        <div className="flex flex-1 flex-col overflow-hidden">
-          {/* Mobile Sheet for sidebar */}
-          <Sheet>
-            {/* Top Navigation - Always visible with mobile-first design */}
-            <header className="border-border bg-background/95 supports-backdrop-filter:bg-background/60 sticky top-0 z-50 flex h-14 items-center border-b backdrop-blur">
-              <Navbar
-                themeToggle
-                sidebarTrigger
-                desktopSidebarToggle
-                session={session}
-              >
-                <AppTitleLogo className="lg:hidden" />
-              </Navbar>
-            </header>
-
-            {/* Mobile Sidebar Sheet */}
-            <SheetContent side="left" className="w-70 p-0 sm:w-75">
-              <div className="flex h-full flex-col">
-                <div className="border-border flex h-14 items-center border-b px-4">
-                  <AppTitleLogo />
-                </div>
-                <div className="flex-1 overflow-y-auto">
-                  <Sidebar session={session} />
-                </div>
-              </div>
-            </SheetContent>
-          </Sheet>
-
-          {/* Page Content */}
-          <main className="flex-1 overflow-y-auto">
-            <div
-              className={cn(
-                "mx-auto sm:max-w-7xl lg:max-w-none",
-                classNameContents,
-              )}
-            >
-              {children}
-            </div>
-          </main>
-        </div>
+        <BottomNav onMore={() => setIsMobileOpen(true)} />
       </div>
     </div>
+  );
+}
+
+function RailLogo() {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <div className="flex size-8 items-center justify-center">
+          <Image src="/icon-192.svg" alt="Home Hub" width={28} height={28} className="size-7 shrink-0" />
+        </div>
+      </TooltipTrigger>
+      <TooltipContent side="right" className="ml-2">
+        Home Hub
+      </TooltipContent>
+    </Tooltip>
   );
 }

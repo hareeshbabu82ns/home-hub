@@ -2,7 +2,7 @@
 
 import { atom, useAtom } from "jotai";
 import { useIsMobile } from "./use-mobile";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { usePathname } from "next/navigation";
 
 const SIDEBAR_STORAGE_KEY = "sidebar-collapsed";
@@ -57,12 +57,14 @@ export function useSidebar() {
   const setDesktopCollapsed = (collapsed: boolean) =>
     setIsDesktopCollapsed(collapsed);
 
-  // Auto-close mobile sidebar when route changes
+  // Auto-close the mobile sidebar after navigating. Only a pathname change
+  // counts: reacting to isMobileOpen itself closed the sheet as it opened.
+  const lastPathname = useRef(pathname);
   useEffect(() => {
-    if (isMobile && isMobileOpen) {
-      closeMobile();
-    }
-  }, [pathname, isMobile, isMobileOpen, closeMobile]);
+    if (lastPathname.current === pathname) return;
+    lastPathname.current = pathname;
+    closeMobile();
+  }, [pathname, closeMobile]);
 
   // Close mobile sidebar when screen size changes from mobile to desktop
   useEffect(() => {

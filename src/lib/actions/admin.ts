@@ -242,3 +242,23 @@ export async function toggleUserStatus( userId: string, isActive: boolean ) {
     return { error: "Failed to update user status", success: false };
   }
 }
+
+/**
+ * Controller: Turn off a user's two-factor authentication (lost phone and
+ * recovery codes). They can sign in with their password or OAuth again and
+ * set it up anew.
+ */
+export async function adminResetMfa( userId: string ) {
+  try {
+    await checkAdminAuth();
+    const { session } = await getUserAuth();
+    if ( session?.user.id === userId ) {
+      return { error: "Turn off your own two-factor authentication from Account → Security", success: false };
+    }
+    const { disableMfa } = await import( "@/lib/auth/mfa/service" );
+    await disableMfa( userId );
+    return { success: true };
+  } catch ( _error ) {
+    return { error: "Failed to reset two-factor authentication", success: false };
+  }
+}

@@ -25,6 +25,7 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { signOut } from "@/lib/actions/auth";
+import { InstallAppMenuItem } from "@/components/pwa/install-app-menu-item";
 
 export default function Navbar({
   children,
@@ -44,9 +45,9 @@ export default function Navbar({
   const { toggleDesktopCollapsed, isDesktopCollapsed } = useSidebar();
 
   return (
-    <nav className="flex w-full items-center justify-between px-4 py-2 sm:px-6">
+    <nav className="flex w-full items-center justify-between py-2 pr-2 pl-[max(0.5rem,env(safe-area-inset-left))] sm:px-6">
       {/* Left side - Logo and hamburger menu */}
-      <div className="flex items-center gap-3">
+      <div className="flex min-w-0 items-center gap-1 sm:gap-3">
         {sidebarTrigger && (
           <SheetTrigger asChild>
             <Button
@@ -81,7 +82,7 @@ export default function Navbar({
       </div>
 
       {/* Right side - Actions and theme toggle */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1 sm:gap-2">
         {actions}
         {themeToggle && <ThemeToggle />}
 
@@ -129,6 +130,7 @@ export default function Navbar({
                   Settings
                 </Link>
               </DropdownMenuItem>
+              <InstallAppMenuItem />
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 onClick={() => signOut()}
