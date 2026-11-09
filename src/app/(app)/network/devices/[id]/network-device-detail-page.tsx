@@ -1,11 +1,33 @@
 "use client";
 
 import { format, fromUnixTime } from "date-fns";
-import { ArrowLeft, Ban, CheckCircle2, RefreshCw, Router } from "lucide-react";
+import {
+  ArrowLeft,
+  Ban,
+  Check,
+  CheckCircle2,
+  Loader2,
+  Pencil,
+  RefreshCw,
+  Router,
+  Sparkles,
+  Trash2,
+} from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -26,8 +48,11 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
+  deleteNetworkDevice,
   getNetworkDeviceDetails,
   getNetworkDeviceDnsQueries,
+  reviewNetworkDevice,
+  updateNetworkDevice,
 } from "@/lib/actions/network";
 import { getDeviceDisplayName } from "@/lib/network/device-display";
 import type {
@@ -37,6 +62,7 @@ import type {
 } from "@/types/network";
 
 import { DeviceBadges, OnlineDot } from "../../components/device-badges";
+import { DeviceEditDialog, type DeviceEditInput } from "../../components/device-edit-dialog";
 import { DeviceInsights } from "./device-insights";
 import { DeviceAccessCard } from "./device-access-card";
 import { DeviceConnectionsCard } from "./device-connections-card";
@@ -128,7 +154,12 @@ function DnsQueryRows({ rows }: { rows: NetworkDnsQueryRow[] }) {
 export function NetworkDeviceDetailPage({
   deviceId,
 }: NetworkDeviceDetailPageProps) {
+  const router = useRouter();
   const [device, setDevice] = useState<NetworkDevice | null>(null);
+  const [canManage, setCanManage] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [busy, setBusy] = useState<"save" | "review" | "delete" | null>(null);
   const [dnsQueries, setDnsQueries] = useState<NetworkDnsQueryResult | null>(
     null,
   );
@@ -178,6 +209,7 @@ export function NetworkDeviceDetailPage({
     (result: Awaited<ReturnType<typeof getNetworkDeviceDetails>>) => {
       if (result.success && result.device) {
         setPageError(null);
+        setCanManage(!!result.canManage);
         setDevice(result.device as NetworkDevice);
       } else {
         setPageError(result.error || "Failed to load device details");
@@ -268,6 +300,40 @@ export function NetworkDeviceDetailPage({
     });
   }, [filteredDnsRows]);
 
+  async function handleSave(input: DeviceEditInput) {
+    setBusy("save");
+    const result = await updateNetworkDevice(input);
+    setBusy(null);
+    if (!result.success) {
+      toast.error(result.error || "Failed to update device");
+      return false;
+    }
+    toast.success("Device updated");
+    await loadPageData();
+    return true;
+  }
+
+  async function handleReview() {
+    if (!device) return;
+    setBusy("review");
+    const result = await reviewNetworkDevice(device.id);
+    setBusy(null);
+    if (!result.success) return void toast.error(result.error || "Failed to update device");
+    toast.success("Device marked as reviewed");
+    await loadPageData();
+  }
+
+  async function handleDelete() {
+    if (!device) return;
+    setBusy("delete");
+    const result = await deleteNetworkDevice(device.id);
+    setBusy(null);
+    setConfirmDelete(false);
+    if (!result.success) return void toast.error(result.error || "Failed to delete device");
+    toast.success("Device removed");
+    router.push("/network/devices");
+  }
+
   if (loading) {
     return (
       <main className="space-y-6 p-4">
@@ -295,30 +361,66 @@ export function NetworkDeviceDetailPage({
   }
 
   return (
-    <main className="space-y-6 p-4">
-      <div className="flex items-center gap-3">
-        <Button asChild variant="outline" size="sm">
-          <Link href="/network/devices">
-            <ArrowLeft className="mr-2 size-4" />
-            Back
-          </Link>
-        </Button>
+    <main className="space-y-4 p-4 sm:space-y-6">
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div className="flex min-w-0 items-center gap-3">
+          <Button asChild variant="outline" size="icon" className="shrink-0" aria-label="Back to devices">
+            <Link href="/network/devices">
+              <ArrowLeft className="size-4" />
+            </Link>
+          </Button>
 
-        <div className="flex size-10 items-center justify-center rounded-xl bg-linear-to-br from-emerald-500 to-cyan-500">
-          <Router className="size-5 text-white" />
-        </div>
+          <div className="hidden size-10 shrink-0 items-center justify-center rounded-xl bg-linear-to-br from-emerald-500 to-cyan-500 sm:flex">
+            <Router className="size-5 text-white" />
+          </div>
 
-        <div>
-          <h1 className="flex items-center gap-2 text-2xl font-bold">
-            <OnlineDot isOnline={device.isOnline} />
-            {getDeviceDisplayName(device)}
-          </h1>
-          <div className="text-muted-foreground flex flex-wrap items-center gap-2 text-sm">
-            <span className="font-mono">{device.ipAddress}</span>
-            <DeviceBadges device={device} />
+          <div className="min-w-0">
+            <h1 className="flex items-center gap-2 text-xl font-bold sm:text-2xl">
+              <OnlineDot isOnline={device.isOnline} />
+              <span className="truncate">{getDeviceDisplayName(device)}</span>
+            </h1>
+            <div className="text-muted-foreground flex flex-wrap items-center gap-2 text-sm">
+              <span className="font-mono">{device.ipAddress}</span>
+              <DeviceBadges device={device} />
+            </div>
           </div>
         </div>
+
+        {canManage && (
+          <div className="flex flex-wrap gap-2">
+            {device.isNew && (
+              <Button size="sm" onClick={() => void handleReview()} disabled={busy !== null}>
+                {busy === "review" ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Check className="mr-2 size-4" />}
+                Mark reviewed
+              </Button>
+            )}
+            <Button size="sm" variant="outline" onClick={() => setEditOpen(true)} disabled={busy !== null}>
+              <Pencil className="mr-2 size-4" />
+              Edit
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="text-destructive"
+              onClick={() => setConfirmDelete(true)}
+              disabled={busy !== null}
+            >
+              <Trash2 className="mr-2 size-4" />
+              Delete
+            </Button>
+          </div>
+        )}
       </div>
+
+      {canManage && device.isNew && (
+        <div className="flex items-start gap-3 rounded-lg border border-sky-300 bg-sky-50 p-3 text-sm dark:border-sky-900/50 dark:bg-sky-950/20">
+          <Sparkles className="mt-0.5 size-4 shrink-0 text-sky-600" />
+          <p>
+            New device. Give it a name and type with <strong>Edit</strong>, then <strong>Mark reviewed</strong>
+            {" "}so it stops showing as new (and is released if new-device quarantine is on).
+          </p>
+        </div>
+      )}
 
       <Card>
         <CardHeader>
@@ -616,6 +718,40 @@ export function NetworkDeviceDetailPage({
           )}
         </CardContent>
       </Card>
+      <DeviceEditDialog
+        key={editOpen ? device.id : "closed"}
+        device={device}
+        open={editOpen}
+        onOpenChange={setEditOpen}
+        onSave={handleSave}
+        saving={busy === "save"}
+      />
+
+      <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {getDeviceDisplayName(device)}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Removes the device, its name and notes from the inventory. It comes back as a new device the next time
+              it&apos;s seen on the network.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={busy === "delete"}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-white hover:bg-destructive/90"
+              onClick={(event) => {
+                event.preventDefault();
+                void handleDelete();
+              }}
+              disabled={busy === "delete"}
+            >
+              {busy === "delete" && <Loader2 className="mr-2 size-4 animate-spin" />}
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </main>
   );
 }

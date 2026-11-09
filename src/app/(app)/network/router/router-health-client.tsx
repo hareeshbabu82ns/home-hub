@@ -1,6 +1,7 @@
 "use client";
 
 import { format, formatDistanceToNowStrict } from "date-fns";
+import { CollectorBanner } from "@/components/network/collector-banner";
 import { Loader2, TriangleAlert } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
@@ -135,25 +136,17 @@ export function RouterHealthClient() {
     return (
       <div className="flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm dark:border-amber-900/50 dark:bg-amber-950/20">
         <TriangleAlert className="mt-0.5 size-4 shrink-0 text-amber-600" />
-        No router data yet. Start the background collector with{" "}
-        <code className="font-mono">pnpm collector</code> or set{" "}
-        <code className="font-mono">NETWORK_COLLECTOR=embedded</code>.
+        No router data yet.
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
-      {!status.running && (
-        <div className="flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm dark:border-amber-900/50 dark:bg-amber-950/20">
-          <TriangleAlert className="mt-0.5 size-4 shrink-0 text-amber-600" />
-          The collector isn&apos;t running; figures are from{" "}
-          {report.infoAt ? formatDistanceToNowStrict(new Date(report.infoAt), { addSuffix: true }) : "earlier"}.
-        </div>
-      )}
-      {status.lastError && (
-        <p className="text-destructive text-sm">Last collector error: {status.lastError}</p>
-      )}
+      <CollectorBanner
+        status={status}
+        fallback={`Figures below are from ${report.infoAt ? formatDistanceToNowStrict(new Date(report.infoAt), { addSuffix: true }) : "earlier"}.`}
+      />
 
       <Card>
         <CardHeader>

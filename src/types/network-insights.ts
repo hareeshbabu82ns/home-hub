@@ -1,7 +1,10 @@
 /** Data produced by the network collector (Phase 2), as served to the UI. */
 
 export interface CollectorStatus {
+  /** Fresh router data for this user (traffic/discovery/health succeeding). */
   running: boolean;
+  /** A collector process holds the lease, whether or not its router calls work. */
+  alive: boolean;
   heartbeatAt: string | null;
   lastDiscoveryAt: string | null;
   lastError: string | null;

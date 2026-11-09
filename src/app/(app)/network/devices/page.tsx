@@ -27,14 +27,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -52,7 +44,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Textarea } from "@/components/ui/textarea";
 import { useNetworkDevices } from "@/hooks/use-network-devices";
 import { getUsageToday } from "@/lib/actions/network-insights";
 import { formatBytes } from "@/lib/network/format";
@@ -62,20 +53,12 @@ import {
 } from "@/lib/network/device-display";
 import type { NetworkDevice } from "@/types/network";
 
+import { DeviceEditDialog } from "../components/device-edit-dialog";
 import {
   blockDisabledReason,
   DeviceBadges,
   OnlineDot,
 } from "../components/device-badges";
-
-const defaultEditState = {
-  id: "",
-  name: "",
-  hostname: "",
-  vendor: "",
-  deviceType: "",
-  notes: "",
-};
 
 type PendingAction =
   | { kind: "block" | "unblock" | "delete"; device: NetworkDevice }
@@ -101,7 +84,6 @@ export default function NetworkDevicesPage() {
   const [showInfrastructure, setShowInfrastructure] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [editDevice, setEditDevice] = useState<NetworkDevice | null>(null);
-  const [editState, setEditState] = useState(defaultEditState);
   const [pending, setPending] = useState<PendingAction | null>(null);
   const [usageToday, setUsageToday] = useState<Record<string, number>>({});
 
@@ -147,31 +129,7 @@ export default function NetworkDevicesPage() {
 
   function openEdit(device: NetworkDevice) {
     setEditDevice(device);
-    setEditState({
-      id: device.id,
-      name: device.name || "",
-      hostname: device.hostname || "",
-      vendor: device.vendor || "",
-      deviceType: device.deviceType || "",
-      notes: device.notes || "",
-    });
     setEditOpen(true);
-  }
-
-  async function handleSaveEdit() {
-    const success = await saveDevice({
-      id: editState.id,
-      name: editState.name || undefined,
-      hostname: editState.hostname || undefined,
-      vendor: editState.vendor || undefined,
-      deviceType: editState.deviceType || undefined,
-      notes: editState.notes || undefined,
-    });
-
-    if (success) {
-      setEditOpen(false);
-      setEditState(defaultEditState);
-    }
   }
 
   async function runPendingAction() {
@@ -487,72 +445,14 @@ export default function NetworkDevicesPage() {
         </AlertDialogContent>
       </AlertDialog>
 
-      <Dialog open={editOpen} onOpenChange={setEditOpen}>
-        <DialogContent className="sm:max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Edit Device</DialogTitle>
-            <DialogDescription>
-              {editDevice
-                ? `${editDevice.macAddress} · ${editDevice.ipAddress}${editDevice.dhcpHostname ? ` · DHCP name "${editDevice.dhcpHostname}"` : ""}`
-                : "Update the label and classification for this device."}
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="grid gap-4 md:grid-cols-2">
-            {(
-              [
-                ["name", "Name", "Shown everywhere instead of the DHCP name"],
-                ["deviceType", "Device Type", "e.g. Phone, TV, Laptop, Camera"],
-                ["hostname", "Hostname", undefined],
-                ["vendor", "Vendor", undefined],
-              ] as const
-            ).map(([field, label, hint]) => (
-              <div key={field} className="space-y-2">
-                <Label htmlFor={field}>{label}</Label>
-                <Input
-                  id={field}
-                  value={editState[field]}
-                  onChange={(event) =>
-                    setEditState((previous) => ({
-                      ...previous,
-                      [field]: event.target.value,
-                    }))
-                  }
-                />
-                {hint && (
-                  <p className="text-muted-foreground text-xs">{hint}</p>
-                )}
-              </div>
-            ))}
-            <div className="space-y-2 md:col-span-2">
-              <Label htmlFor="notes">Notes</Label>
-              <Textarea
-                id="notes"
-                rows={3}
-                value={editState.notes}
-                onChange={(event) =>
-                  setEditState((previous) => ({
-                    ...previous,
-                    notes: event.target.value,
-                  }))
-                }
-              />
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setEditOpen(false)}>
-              Cancel
-            </Button>
-            <Button
-              onClick={() => void handleSaveEdit()}
-              disabled={actionLoading}
-            >
-              Save
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <DeviceEditDialog
+        key={editDevice?.id ?? "none"}
+        device={editDevice}
+        open={editOpen}
+        onOpenChange={setEditOpen}
+        onSave={saveDevice}
+        saving={actionLoading}
+      />
     </main>
   );
 }

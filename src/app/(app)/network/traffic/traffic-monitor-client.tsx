@@ -1,5 +1,6 @@
 "use client";
 
+import { CollectorBanner } from "@/components/network/collector-banner";
 import { Activity, Loader2, TriangleAlert } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -206,8 +207,10 @@ export function TrafficMonitorClient() {
     // Switch back to the live feed once the collector is running again.
     const recheck = setInterval(() => {
       void getTrafficOverview(1).then((result) => {
-        if (!cancelled && result.success && result.data.status.running) {
-          setStatus(result.data.status);
+        if (cancelled || !result.success) return;
+        // Keeps the banner's error current while waiting.
+        setStatus(result.data.status);
+        if (result.data.status.running) {
           setTopToday(result.data.topToday);
           setMode("collector");
         }
@@ -296,16 +299,10 @@ export function TrafficMonitorClient() {
   return (
     <div className="space-y-6">
       {mode === "direct" && (
-        <div className="flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm dark:border-amber-900/50 dark:bg-amber-950/20">
-          <TriangleAlert className="mt-0.5 size-4 shrink-0 text-amber-600" />
-          <div>
-            The background collector isn&apos;t running, so this page polls the
-            router directly and keeps no history. Start it with{" "}
-            <code className="font-mono">pnpm collector</code> or set{" "}
-            <code className="font-mono">NETWORK_COLLECTOR=embedded</code>. The page
-            switches back to the live feed automatically when it&apos;s running.
-          </div>
-        </div>
+        <CollectorBanner
+          status={status ?? { running: false, alive: false, heartbeatAt: null, lastDiscoveryAt: null, lastError: null }}
+          fallback="Meanwhile this page polls the router directly and keeps no history. It switches back to the live feed automatically."
+        />
       )}
 
       <Card>

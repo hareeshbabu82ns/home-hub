@@ -85,6 +85,12 @@ Notes:
 - Put a reverse proxy (TLS) in front of port 3000. Blocking-yourself
   protection uses `X-Forwarded-For`, so forward it.
 - MongoDB has no auth and isn't published outside the compose network. Enabling
-  auth on a replica set also needs a keyfile.
+  auth on a replica set also needs a keyfile. With auth, give the app's user
+  `readWrite` **and** `dbAdmin` on its database: the collector changes
+  time-series retention with `collMod` (without `dbAdmin` it logs a warning
+  and keeps the old retention).
 - Back up the `mongo-data` volume (`mongodump`). It holds users, device
   inventory, history and settings.
+- ```sh
+  mongosh -u <admin-user> -p --authenticationDatabase admin --eval 'db.getSiblingDB("hhub").grantRolesToUser("hhub", [{ role: "dbAdmin", db: "hhub" }])'
+  ```

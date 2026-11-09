@@ -49,15 +49,30 @@ export interface RouterHealthDoc {
 
 let ensured: Promise<void> | undefined;
 
+const UNAUTHORIZED = 13;
+
 async function ensureTimeSeries(db: Db, name: string, expireAfterSeconds: number) {
-  const existing = await db.listCollections({ name }).toArray();
-  if (existing.length === 0) {
+  const [existing] = await db.listCollections({ name }).toArray();
+  if (!existing) {
     await db.createCollection(name, {
       timeseries: { timeField: "ts", metaField: "meta", granularity: "seconds" },
       expireAfterSeconds,
     });
-  } else {
+    return;
+  }
+  const current = (existing as { options?: { expireAfterSeconds?: number } }).options?.expireAfterSeconds;
+  if (current === expireAfterSeconds) return;
+  // Changing retention needs collMod, which a plain readWrite database user
+  // (common when MongoDB auth is on) may not have. Keep the old retention
+  // rather than refusing to collect.
+  try {
     await db.command({ collMod: name, expireAfterSeconds });
+  } catch (error) {
+    if ((error as { code?: number }).code !== UNAUTHORIZED) throw error;
+    console.warn(
+      `[collector] can't change retention of ${name} to ${expireAfterSeconds}s (currently ${current ?? "none"}): ` +
+        `the MongoDB user lacks collMod. Grant it the dbAdmin role on this database to fix.`,
+    );
   }
 }
 

@@ -58,7 +58,7 @@ export async function GET(request: Request) {
           }
         } catch (error) {
           console.error("[network/live] tick failed", error);
-          send("status", { running: false, heartbeatAt: null, lastDiscoveryAt: null, lastError: "Live feed error" });
+          send("status", { running: false, alive: false, heartbeatAt: null, lastDiscoveryAt: null, lastError: "Live feed error" });
         }
         if (!closed) timer = setTimeout(() => void tick(), TICK_MS);
       };

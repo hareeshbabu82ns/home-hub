@@ -45,8 +45,14 @@ class NetworkInsightsService {
         { projection: { heartbeatAt: 1, lastError: 1, lastErrorAt: 1, lastDiscoveryAt: 1 } },
       );
     const heartbeatAt = state?.heartbeatAt as Date | undefined;
+    // The heartbeat only moves when router calls succeed; the lease shows
+    // whether a collector process exists at all.
+    const lease = await mongo
+      .collection<{ _id: string; expiresAt: Date }>(COLLECTIONS.lease)
+      .findOne({ _id: "network-collector" });
     return {
       running: !!heartbeatAt && Date.now() - heartbeatAt.getTime() < COLLECTOR_STALE_MS,
+      alive: !!lease && lease.expiresAt.getTime() > Date.now(),
       heartbeatAt: heartbeatAt?.toISOString() ?? null,
       lastDiscoveryAt: (state?.lastDiscoveryAt as Date | undefined)?.toISOString() ?? null,
       lastError:
