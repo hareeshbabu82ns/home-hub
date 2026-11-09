@@ -1,0 +1,57 @@
+{
+  "name": "home-hub (Next.js + pnpm + MongoDB RS)",
+  "dockerComposeFile": ["docker-compose.yml"],
+  "service": "app",
+  "workspaceFolder": "/workspaces/home-hub",
+  "runServices": ["app", "mongo", "mongo-init"],
+  "shutdownAction": "stopCompose",
+  "overrideCommand": false,
+  "updateRemoteUserUID": true,
+  "remoteUser": "node",
+  "postCreateCommand": "bash .devcontainer/post-create.sh",
+  "forwardPorts": [3000, 27017, 5555],
+  "portsAttributes": {
+    "3000": {
+      "label": "Next.js",
+      "onAutoForward": "notify"
+    },
+    "27017": {
+      "label": "MongoDB Replica Set",
+      "onAutoForward": "silent"
+    },
+    "5555": {
+      "label": "Prisma Studio",
+      "onAutoForward": "notify"
+    }
+  },
+  "remoteEnv": {
+    "NODE_ENV": "development",
+    "DATABASE_URL": "mongodb://mongo:27017/home-hub?replicaSet=rs0"
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "bradlc.vscode-tailwindcss",
+        "prisma.prisma",
+        "mongodb.mongodb-vscode",
+        "GitHub.copilot"
+      ],
+      "settings": {
+        "editor.formatOnSave": true,
+        "editor.defaultFormatter": "esbenp.prettier-vscode",
+        "editor.codeActionsOnSave": {
+          "source.fixAll.eslint": "explicit",
+          "source.organizeImports": "explicit"
+        },
+        "files.watcherExclude": {
+          "**/.git/objects/**": true,
+          "**/.git/subtree-cache/**": true,
+          "**/node_modules/*/**": true,
+          "**/.next/**": true
+        }
+      }
+    }
+  }
+}

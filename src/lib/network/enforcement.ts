@@ -1,0 +1,237 @@
+import { ObjectId } from "mongodb";
+
+import { db } from "@/lib/db";
+import { getAppDb } from "@/lib/db/mongo-native";
+import {
+  decideAccess,
+  resolveTimeZone,
+  startOfLocalDay,
+  type AccessDecision,
+} from "@/lib/network/access-policy";
+import { COLLECTIONS } from "@/lib/network/collector/collections";
+import { networkAuditService } from "@/lib/services/network-audit.service";
+import { BLOCK_ALIAS, networkControlService } from "@/lib/services/network-control.service";
+import { networkSettingsService } from "@/lib/services/network-settings.service";
+
+/**
+ * Makes the router match the desired access state (MAC control mode).
+ *
+ *  1. Alias HH_Block content = MACs of devices that should be blocked
+ *     (persistent; OPNsense resolves MACs to IPv4/IPv6 via ARP/NDP).
+ *  2. Live pf table: add those devices' current addresses immediately and
+ *     remove addresses of devices that are no longer blocked, so changes don't
+ *     wait for OPNsense's next alias refresh.
+ *  3. Kill open connections of newly blocked addresses.
+ *
+ * Runs every minute from the collector and right after every control action.
+ */
+
+export interface EnforcementResult {
+  mode: "mac" | "ip";
+  at: string;
+  blockedDevices: number;
+  aliasUpdated: boolean;
+  addressesAdded: string[];
+  addressesRemoved: string[];
+  statesKilled: number;
+  errors: string[];
+}
+
+const ADDRESS_MAX_AGE_MS = 30 * 60 * 1000;
+const inFlight = new Map<string, Promise<EnforcementResult | null>>();
+
+function isRoutableAddress(ip: string) {
+  // Link-local IPv6 (fe80::…%if) never crosses the router.
+  return !ip.includes("%") && !ip.toLowerCase().startsWith("fe80:");
+}
+
+/** deviceId → estimated bytes (in + out) since local midnight. */
+export async function getUsageSinceLocalMidnight(userId: string, timeZone: string, now = new Date()) {
+  // Usage is bucketed by UTC hour; include the hour that contains midnight.
+  const since = startOfLocalDay(now, timeZone);
+  since.setMinutes(0, 0, 0);
+  const mongo = await getAppDb();
+  const rows = await mongo
+    .collection(COLLECTIONS.usageHourly)
+    .aggregate<{ _id: ObjectId; bytes: number }>([
+      { $match: { userId: new ObjectId(userId), hour: { $gte: since } } },
+      { $group: { _id: "$deviceId", bytes: { $sum: { $add: ["$bytesIn", "$bytesOut"] } } } },
+    ])
+    .toArray();
+  return Object.fromEntries(rows.map((row) => [row._id.toHexString(), row.bytes]));
+}
+
+export async function loadAccessDecisions(userId: string, now = new Date()) {
+  const [settings, devices, schedules] = await Promise.all([
+    db.networkIntegrationSettings.findUnique({ where: { userId } }),
+    db.networkDevice.findMany({ where: { userId } }),
+    db.networkAccessSchedule.findMany({ where: { userId } }),
+  ]);
+  const timeZone = resolveTimeZone(settings?.timezone);
+  const usageToday = devices.some((device) => device.dailyQuotaMB)
+    ? await getUsageSinceLocalMidnight(userId, timeZone, now)
+    : {};
+  const context = {
+    schedules,
+    quarantineNewDevices: settings?.quarantineNewDevices ?? false,
+    now,
+    timeZone,
+    usageToday,
+  };
+  const decisions = new Map<string, AccessDecision>(
+    devices.map((device) => [device.id, decideAccess(device, context)]),
+  );
+  return { settings, devices, decisions, timeZone, usageToday };
+}
+
+export function reconcileAccess(
+  userId: string,
+  options: { actorEmail?: string | null; trigger: string },
+): Promise<EnforcementResult | null> {
+  // One reconcile per user at a time; callers share the running one.
+  const running = inFlight.get(userId);
+  if (running) return running;
+  const task = runReconcile(userId, options).finally(() => inFlight.delete(userId));
+  inFlight.set(userId, task);
+  return task;
+}
+
+async function runReconcile(
+  userId: string,
+  options: { actorEmail?: string | null; trigger: string },
+): Promise<EnforcementResult | null> {
+  const now = new Date();
+  const { settings, devices, decisions } = await loadAccessDecisions(userId, now);
+  if (!settings || settings.controlMode !== "mac" || !settings.blockAliasUuid) return null;
+
+  const connection = await networkSettingsService.getConnection(userId);
+  if (!connection) return null;
+
+  const result: EnforcementResult = {
+    mode: "mac",
+    at: now.toISOString(),
+    blockedDevices: 0,
+    aliasUpdated: false,
+    addressesAdded: [],
+    addressesRemoved: [],
+    statesKilled: 0,
+    errors: [],
+  };
+
+  const blocked = devices.filter((device) => decisions.get(device.id)?.blocked);
+  result.blockedDevices = blocked.length;
+
+  // 1. Persistent MAC alias.
+  const desiredMacs = [...new Set(blocked.map((device) => device.macAddress))].sort();
+  const alias = await networkControlService.findAlias(connection, BLOCK_ALIAS);
+  if (!alias) throw new Error(`Alias ${BLOCK_ALIAS} is missing on the router; run "Prepare router" again`);
+  const currentMacs = [...new Set(alias.content.map((mac) => mac.toLowerCase()))].sort();
+  if (desiredMacs.join() !== currentMacs.join()) {
+    await networkControlService.writeAliasMacs(connection, alias.uuid, desiredMacs);
+    result.aliasUpdated = true;
+  }
+
+  // 2. Live table, from addresses seen recently.
+  const addresses = await db.networkDeviceAddress.findMany({
+    where: {
+      deviceId: { in: devices.map((device) => device.id) },
+      lastSeenAt: { gt: new Date(now.getTime() - ADDRESS_MAX_AGE_MS) },
+    },
+    select: { deviceId: true, ip: true },
+  });
+  // An address can be reassigned by DHCP. Who holds it *now* (online
+  // devices) wins, and a device's last-known IP only counts while it's recent;
+  // otherwise a long-gone blocked device would block whoever got its old IP.
+  const onlineOwner = new Map(
+    devices.filter((device) => device.isOnline).map((device) => [device.ipAddress, device.id]),
+  );
+  const recentCutoff = now.getTime() - ADDRESS_MAX_AGE_MS;
+  const addressesOf = (deviceId: string) => {
+    const device = devices.find((d) => d.id === deviceId)!;
+    const current =
+      device.isOnline || new Date(device.lastSeenAt).getTime() > recentCutoff ? [device.ipAddress] : [];
+    return [...current, ...addresses.filter((a) => a.deviceId === deviceId).map((a) => a.ip)]
+      .filter(isRoutableAddress)
+      .filter((ip) => (onlineOwner.get(ip) ?? deviceId) === deviceId);
+  };
+  const desiredIps = new Set(blocked.flatMap((device) => addressesOf(device.id)));
+  const releasedIps = new Set(
+    devices
+      .filter((device) => !decisions.get(device.id)?.blocked)
+      .flatMap((device) => addressesOf(device.id))
+      .filter((ip) => !desiredIps.has(ip)),
+  );
+
+  const table = new Set(await networkControlService.listTable(connection, BLOCK_ALIAS));
+  for (const ip of desiredIps) {
+    if (table.has(ip)) continue;
+    try {
+      await networkControlService.addToTable(connection, BLOCK_ALIAS, ip);
+      result.addressesAdded.push(ip);
+    } catch (error) {
+      result.errors.push(`add ${ip}: ${(error as Error).message}`);
+    }
+  }
+  // Only remove addresses we know belong to unblocked devices; anything else
+  // in the table was resolved by OPNsense from a blocked MAC.
+  for (const ip of table) {
+    if (!releasedIps.has(ip)) continue;
+    try {
+      await networkControlService.removeFromTable(connection, BLOCK_ALIAS, ip);
+      result.addressesRemoved.push(ip);
+    } catch (error) {
+      result.errors.push(`remove ${ip}: ${(error as Error).message}`);
+    }
+  }
+
+  // 3. Cut existing connections of newly blocked devices. The alias reload
+  // may already have put their addresses in the table, so don't rely on
+  // addressesAdded alone.
+  const previouslyBlocked = new Set(currentMacs);
+  const killTargets = new Set([
+    ...result.addressesAdded,
+    ...blocked
+      .filter((device) => !previouslyBlocked.has(device.macAddress))
+      .flatMap((device) => addressesOf(device.id)),
+  ]);
+  for (const ip of killTargets) {
+    try {
+      result.statesKilled += await networkControlService.killStates(connection, ip);
+    } catch (error) {
+      result.errors.push(`kill states ${ip}: ${(error as Error).message}`);
+    }
+  }
+
+  // Expired pauses are no longer relevant; clear them.
+  await db.networkDevice.updateMany({
+    where: { userId, pausedUntil: { lte: now } },
+    data: { pausedUntil: null },
+  });
+
+  await db.networkCollectorState.upsert({
+    where: { userId },
+    create: { userId, enforcement: result as object, enforcementAt: now },
+    update: { enforcement: result as object, enforcementAt: now },
+  });
+
+  const changed =
+    result.aliasUpdated || result.addressesAdded.length > 0 || result.addressesRemoved.length > 0;
+  if (changed || result.errors.length > 0) {
+    await networkAuditService.record({
+      userId,
+      actorEmail: options.actorEmail ?? null,
+      action: "enforce",
+      target: options.trigger,
+      success: result.errors.length === 0,
+      error: result.errors.join("; ") || undefined,
+      details: {
+        blockedMacs: desiredMacs,
+        added: result.addressesAdded,
+        removed: result.addressesRemoved,
+        statesKilled: result.statesKilled,
+      },
+    });
+  }
+
+  return result;
+}

@@ -1,29 +1,57 @@
 import { createEnv } from "@t3-oss/env-nextjs";
+import "dotenv/config";
 import { z } from "zod";
 
-export const env = createEnv({
+export const env = createEnv( {
   server: {
     NODE_ENV: z
-      .enum(["development", "test", "production"])
-      .default("development"),
-    DATABASE_URL: z.string().min(1),
+      .enum( [ "development", "test", "production" ] )
+      .default( "development" ),
+    DATABASE_URL:
+      process.env.SKIP_ENV_VALIDATION === "true"
+        ? z.string().optional()
+        : z.string().min( 1 ),
 
     NEXTAUTH_SECRET:
-      process.env.NODE_ENV === "production"
-        ? z.string().min(1)
-        : z.string().min(1).optional(),
-    NEXTAUTH_URL: z.preprocess(
-      // This makes Vercel deployments not fail if you don't set NEXTAUTH_URL
-      // Since NextAuth.js automatically uses the VERCEL_URL if present.
-      (str) => process.env.VERCEL_URL ?? str,
-      // VERCEL_URL doesn't include `https` so it cant be validated as a URL
-      process.env.VERCEL_URL ? z.string().min(1) : z.string().url()
-    ),
-    GOOGLE_CLIENT_ID: z.string().min(1),
-    GOOGLE_CLIENT_SECRET: z.string().min(1),
-    GITHUB_CLIENT_ID: z.string().min(1),
-    GITHUB_CLIENT_SECRET: z.string().min(1),
-    RESEND_API_KEY: z.string().min(1),
+      process.env.SKIP_ENV_VALIDATION === "true"
+        ? z.string().optional()
+        : process.env.NODE_ENV === "production"
+          ? z.string().min( 1 )
+          : z.string().min( 1 ).optional(),
+    NEXTAUTH_URL:
+      process.env.SKIP_ENV_VALIDATION === "true"
+        ? z.string().optional()
+        : z.preprocess(
+          // This makes Vercel deployments not fail if you don't set NEXTAUTH_URL
+          // Since NextAuth.js automatically uses the VERCEL_URL if present.
+          ( str ) => process.env.VERCEL_URL ?? str,
+          // VERCEL_URL doesn't include `https` so it cant be validated as a URL
+          process.env.VERCEL_URL ? z.string().min( 1 ) : z.string().url(),
+        ),
+    GOOGLE_CLIENT_ID:
+      process.env.SKIP_ENV_VALIDATION === "true"
+        ? z.string().optional()
+        : z.string().min( 1 ),
+    GOOGLE_CLIENT_SECRET:
+      process.env.SKIP_ENV_VALIDATION === "true"
+        ? z.string().optional()
+        : z.string().min( 1 ),
+    GITHUB_CLIENT_ID:
+      process.env.SKIP_ENV_VALIDATION === "true"
+        ? z.string().optional()
+        : z.string().min( 1 ),
+    GITHUB_CLIENT_SECRET:
+      process.env.SKIP_ENV_VALIDATION === "true"
+        ? z.string().optional()
+        : z.string().min( 1 ),
+    RESEND_API_KEY: z.string().min( 1 ).optional(),
+    BYPASS_AUTH: z.string().optional(),
+    ADMIN_EMAILS: z.string().optional(),
+    // Encrypts router API secrets at rest; falls back to NEXTAUTH_SECRET.
+    NETWORK_SECRET_KEY: z.string().min( 16 ).optional(),
+    NETWORK_COLLECTOR: z.enum( [ "embedded" ] ).optional(),
+    // e.g. "Home Hub <alerts@your-verified-domain>"; defaults to Resend's test sender.
+    HOME_HUB_EMAIL_FROM: z.string().min( 3 ).optional(),
   },
   client: {
     // NEXT_PUBLIC_PUBLISHABLE_KEY: z.string().min(1),
@@ -37,4 +65,4 @@ export const env = createEnv({
   experimental__runtimeEnv: {
     // NEXT_PUBLIC_PUBLISHABLE_KEY: process.env.NEXT_PUBLIC_PUBLISHABLE_KEY,
   },
-});
+} );

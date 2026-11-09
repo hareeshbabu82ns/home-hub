@@ -1,0 +1,116 @@
+import type { ISidebarLink } from "@/components/SidebarItems";
+import {
+  Activity,
+  Bell,
+  Clock,
+  Database,
+  Dumbbell,
+  Gauge,
+  Globe,
+  HomeIcon,
+  IndianRupee as Loans,
+  Router,
+  Shield,
+  ShieldCheck,
+  Timer as Tracks,
+  Users,
+} from "lucide-react";
+
+type AdditionalLinks = {
+  title: string;
+  links: ISidebarLink[];
+};
+
+export const defaultLinks: ISidebarLink[] = [
+  { href: "/dashboard", title: "Home", icon: HomeIcon },
+  // Account and Settings moved to top-nav user menu
+];
+
+export const additionalLinks: AdditionalLinks[] = [
+  {
+    title: "Network",
+    links: [
+      {
+        href: "/network/devices",
+        title: "Devices",
+        icon: Router,
+      },
+      {
+        href: "/network/traffic",
+        title: "Traffic",
+        icon: Activity,
+      },
+      {
+        href: "/network/router",
+        title: "Router",
+        icon: Gauge,
+      },
+      {
+        href: "/network/access",
+        title: "Access",
+        icon: ShieldCheck,
+      },
+      {
+        href: "/network/sites",
+        title: "Websites",
+        icon: Globe,
+      },
+      {
+        href: "/network/alerts",
+        title: "Alerts",
+        icon: Bell,
+        badge: "network-alerts",
+      },
+    ],
+  },
+  {
+    title: "Database",
+    links: [
+      {
+        href: "/db-management",
+        title: "DB Management",
+        icon: Database,
+      },
+    ],
+  },
+  {
+    title: "Entities",
+    links: [
+      {
+        href: "/time-tracking",
+        title: "Time Tracking",
+        icon: Clock,
+      },
+      {
+        href: "/tracks",
+        title: "Tracks",
+        icon: Tracks,
+      },
+      {
+        href: "/loans",
+        title: "Loans",
+        icon: Loans,
+      },
+      {
+        href: "/exercises",
+        title: "Exercises",
+        icon: Dumbbell,
+      },
+    ],
+  },
+  {
+    title: "Admin",
+    links: [
+      {
+        href: "/admin/users",
+        title: "Users",
+        icon: Users,
+      },
+      {
+        href: "/admin/registration",
+        title: "Registration",
+        icon: Shield,
+      },
+    ],
+  },
+];

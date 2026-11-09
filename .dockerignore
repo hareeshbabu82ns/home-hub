@@ -1,0 +1,20 @@
+node_modules
+npm-debug.log
+README.md
+.next
+!.next/static
+!.next/standalone
+.git
+data
+
+# Secrets come from env_file / environment at runtime, never the image.
+.env
+.env.*
+!.env.sample
+
+# Local tooling and caches.
+.pnpm-store
+.devcontainer
+.claude
+coverage
+tsconfig.tsbuildinfo

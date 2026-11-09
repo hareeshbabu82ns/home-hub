@@ -1,12 +1,93 @@
-version: '3.1'
+# Production deployment example for Home Hub (Next.js + MongoDB replica set).
+#
+#   cp .env.sample .env.production    # fill in secrets (see CLAUDE.md)
+#   docker compose up -d --build        # first start runs the schema push
+#   docker compose logs -f app          # "[collector] started" = network collector up
+#
+# To run the images CI publishes instead of building locally, replace each
+# `build:` block with the matching `image:` line shown in comments.
+#
+# Services:
+#   mongo       MongoDB 7 as a single-node replica set (Prisma requires one)
+#   mongo-init  one-shot: initiates replica set rs0, then exits
+#   schema      one-shot: `prisma db push` (collections/indexes), then exits
+#   app         Next.js standalone server with the embedded network collector
+#
+# The app reaches the router over the host's network, so the Docker host must
+# be able to reach the OPNsense API (e.g. https://192.168.86.1).
 
 services:
-  db:
-    image: postgres
-    restart: always
+  mongo:
+    image: mongo:7
+    command: ["mongod", "--replSet", "rs0", "--bind_ip_all", "--port", "27017"]
+    restart: unless-stopped
+    # Not published: only the app talks to MongoDB. Uncomment for admin tools.
+    # ports:
+    #   - "127.0.0.1:27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: ["CMD-SHELL", "mongosh --quiet --eval 'db.adminCommand({ ping: 1 }).ok' >/dev/null 2>&1"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 10s
+
+  mongo-init:
+    image: mongo:7
+    restart: "no"
+    depends_on:
+      mongo:
+        condition: service_healthy
+    # Same idempotent script the devcontainer uses (replica set "rs0" on mongo:27017).
+    volumes:
+      - ./.devcontainer/scripts/init-replica.sh:/init-replica.sh:ro
+    entrypoint: ["/bin/bash", "/init-replica.sh"]
+
+  schema:
+    # Dockerfile "schema" stage: deps + Prisma schema, runs `prisma db push`.
+    build:
+      context: .
+      target: schema
+    # image: ghcr.io/hareeshbabu82ns/home-hub-schema:latest
+    restart: "no"
+    depends_on:
+      mongo-init:
+        condition: service_completed_successfully
     environment:
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_DB: ${POSTGRES_DB}
+      DATABASE_URL: mongodb://mongo:27017/home-hub?replicaSet=rs0
+
+  app:
+    build:
+      context: .
+      target: runner
+    # image: ghcr.io/hareeshbabu82ns/home-hub:latest
+    restart: unless-stopped
+    depends_on:
+      schema:
+        condition: service_completed_successfully
     ports:
-      - 15432:5432
+      - "3000:3000"
+    env_file:
+      - .env.production
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: mongodb://mongo:27017/home-hub?replicaSet=rs0
+      # Run the router collector inside the server (traffic, presence, DNS,
+      # health, access enforcement, alerts). Only one collector works at a time.
+      NETWORK_COLLECTOR: embedded
+      # Auth.js v5 needs this when not running on Vercel / behind a proxy.
+      AUTH_TRUST_HOST: "true"
+      # Prisma's per-query logging is noisy with the collector running.
+      PRISMA_LOG_QUERIES: "false"
+      # Schedules and "today" use this zone unless set in Settings.
+      TZ: ${TZ:-UTC}
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS -o /dev/null http://localhost:3000/sign-in || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+volumes:
+  mongo-data:

@@ -1,0 +1,10 @@
+allowBuilds:
+  '@prisma/client': true
+  '@prisma/engines': true
+  core-js: false
+  ejs: false
+  esbuild: true
+  fsevents: false
+  prisma: true
+  sharp: true
+  unrs-resolver: true

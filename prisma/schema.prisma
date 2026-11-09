@@ -3,6 +3,7 @@
 
 generator client {
   provider = "prisma-client-js"
+  output   = "../src/app/generated/prisma"
 }
 
 datasource db {
@@ -10,6 +11,53 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// Track Items Schema
+model TrackItem {
+  id     String @id @default(auto()) @map("_id") @db.ObjectId
+  userId String @db.ObjectId
+
+  title       String
+  description String?
+
+  user            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  TrackAttributes TrackAttributes[]
+}
+
+enum TrackAttributeValueType {
+  STRING
+  INT
+  FLOAT
+  DATETIME
+  DURATION
+}
+
+model TrackAttributes {
+  id      String @id @default(auto()) @map("_id") @db.ObjectId
+  userId  String @db.ObjectId
+  trackId String @db.ObjectId
+
+  title         String
+  value         String?
+  valueInt      Int?
+  valueFloat    Float?
+  valueDate     DateTime?
+  valueDuration Int? // Duration in minutes
+  valueType     TrackAttributeValueType @default(STRING)
+
+  // Timer state fields for DURATION type attributes
+  timerStartTime DateTime? // When timer was started
+  timerEndTime   DateTime? // When timer was stopped (null if running)
+  isTimerRunning Boolean?  @default(false) // True if timer is currently running
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  trackItem TrackItem @relation(fields: [trackId], references: [id], onDelete: Cascade)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+// User Management Schema
 model Account {
   id                String  @id @default(auto()) @map("_id") @db.ObjectId
   userId            String  @db.ObjectId
@@ -39,14 +87,274 @@ model Session {
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
+enum UserRole {
+  USER
+  ADMIN
+}
+
 model User {
-  id            String    @id @default(auto()) @map("_id") @db.ObjectId
-  name          String?
-  email         String?   @unique
-  emailVerified DateTime?
-  image         String?
-  accounts      Account[]
-  sessions      Session[]
+  id              String            @id @default(auto()) @map("_id") @db.ObjectId
+  name            String?
+  email           String?           @unique
+  emailVerified   DateTime?
+  image           String?
+  password        String?           // For credentials-based auth
+  role            UserRole          @default(USER)
+  isActive        Boolean           @default(true)
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  
+  accounts        Account[]
+  sessions        Session[]
+  TrackItem       TrackItem[]
+  TrackAttributes TrackAttributes[]
+  passwordResets  PasswordReset[]
+  timeTopics      TimeTopic[]
+  timeSessions    TimeSession[]
+  networkDevices  NetworkDevice[]
+  networkSettings NetworkIntegrationSettings?
+}
+
+model NetworkIntegrationSettings {
+  id      String @id @default(auto()) @map("_id") @db.ObjectId
+  userId  String @unique @db.ObjectId
+
+  apiBaseUrl       String
+  apiKey           String
+  apiSecret        String
+  defaultSubnet    String?
+  verifyTls        Boolean  @default(false)
+  // Phase 3 control. Optional so pre-existing documents stay readable.
+  controlMode          String? // "ip" (legacy Blocked_Devices) | "mac" (HH_Block alias)
+  blockAliasUuid       String?
+  blockRuleUuid        String?
+  quarantineNewDevices Boolean?
+  timezone             String? // IANA zone for schedules; defaults to TZ / UTC
+  // Phase 4 alerts.
+  alertEmailEnabled    Boolean?
+  alertEmail           String? // defaults to the account email
+  alertMinSeverity     String? // info | warning | critical (default warning)
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum NetworkDeviceRole {
+  CLIENT
+  // The router's own interfaces and its upstream gateways. Never blockable.
+  INFRASTRUCTURE
+}
+
+// One document per physical device, identified by MAC address. The IP is the
+// last-known IPv4 address; every address seen is kept in NetworkDeviceAddress.
+model NetworkDevice {
+  id     String @id @default(auto()) @map("_id") @db.ObjectId
+  userId String @db.ObjectId
+
+  macAddress      String // lower-case, colon separated
+  ipAddress       String // last-known IPv4 address
+  name            String? // user label
+  hostname        String?
+  dhcpHostname    String? // from DHCP leases
+  vendor          String?
+  deviceType      String? // user-owned category
+  intf            String?
+  intfDescription String?
+  role            NetworkDeviceRole @default(CLIENT)
+  // Seen on an interface with an upstream gateway (WAN): this firewall's
+  // LAN rules don't filter it.
+  isUpstream      Boolean           @default(false)
+  // Locally administered MAC (phone/laptop privacy address); may rotate.
+  isRandomMac     Boolean           @default(false)
+  isOnline        Boolean           @default(false)
+  isNew           Boolean           @default(true)
+  // Desired access state (Phase 3, MAC control mode).
+  blocked         Boolean?
+  pausedUntil     DateTime?
+  // Phase 4 daily data quota (estimated bytes, local day).
+  dailyQuotaMB    Int?
+  quotaAction     String? // "alert" (default) | "block" until midnight
+  firstSeenAt     DateTime          @default(now())
+  lastSeenAt      DateTime          @default(now())
+  notes           String?
+
+  user      User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  addresses NetworkDeviceAddress[]
+  createdAt DateTime               @default(now())
+  updatedAt DateTime               @updatedAt
+
+  @@unique([userId, macAddress])
+  @@index([userId, ipAddress])
+  @@index([userId, isNew])
+  @@index([userId, lastSeenAt])
+}
+
+model NetworkDeviceAddress {
+  id       String @id @default(auto()) @map("_id") @db.ObjectId
+  deviceId String @db.ObjectId
+
+  ip          String
+  family      String // ip4 | ip6
+  source      String // arp | ndp | dhcp
+  intf        String?
+  firstSeenAt DateTime @default(now())
+  lastSeenAt  DateTime @default(now())
+
+  device NetworkDevice @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  @@unique([deviceId, ip])
+  @@index([deviceId, lastSeenAt])
+}
+
+// Phase 2 (collector). High-frequency samples live in native MongoDB
+// time-series collections (network_traffic_samples, network_router_health),
+// created with TTLs by src/lib/network/collector/collections.ts.
+
+model NetworkPresenceEvent {
+  id       String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId   String   @db.ObjectId
+  deviceId String   @db.ObjectId
+  online   Boolean
+  at       DateTime
+
+  @@index([deviceId, at])
+  @@index([userId, at])
+}
+
+// Per device per hour. Bytes are estimated from sampled top-talker rates.
+model NetworkUsageHourly {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId     String   @db.ObjectId
+  deviceId   String   @db.ObjectId
+  hour       DateTime
+  bytesIn    Float    @default(0)
+  bytesOut   Float    @default(0)
+  dnsQueries Int      @default(0)
+  dnsBlocked Int      @default(0)
+
+  @@unique([deviceId, hour])
+  @@index([userId, hour])
+}
+
+model NetworkDnsDaily {
+  id       String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId   String   @db.ObjectId
+  deviceId String   @db.ObjectId
+  day      DateTime
+  domain   String
+  queries  Int      @default(0)
+  blocked  Int      @default(0)
+
+  @@unique([deviceId, day, domain])
+  @@index([userId, day])
+}
+
+// One per user: what the collector last saw, read by live views.
+model NetworkCollectorState {
+  id              String    @id @default(auto()) @map("_id") @db.ObjectId
+  userId          String    @unique @db.ObjectId
+  heartbeatAt     DateTime?
+  liveTraffic     Json?
+  liveTrafficAt   DateTime?
+  routerInfo      Json?
+  routerInfoAt    DateTime?
+  dnsWatermark    Int       @default(0)
+  enforcement     Json? // last reconcile result
+  enforcementAt   DateTime?
+  routerControl   Json? // cached control setup status (alias, rule, WoL…)
+  routerControlAt DateTime?
+  siteFilter      Json? // last website-filter sync result
+  siteFilterAt    DateTime?
+  lastDiscoveryAt DateTime?
+  lastError       String?
+  lastErrorAt     DateTime?
+}
+
+// Recurring "no internet" windows for selected devices (Phase 3).
+model NetworkAccessSchedule {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId      String   @db.ObjectId
+  name        String
+  enabled     Boolean  @default(true)
+  days        Int[] // 0 = Sunday … 6 = Saturday (day the window starts)
+  startMinute Int // minutes after local midnight
+  endMinute   Int // may be < startMinute: window crosses midnight
+  deviceIds   String[] @db.ObjectId
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId])
+}
+
+// Every control action and enforcement change (Phase 3).
+model NetworkAuditLog {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId     String   @db.ObjectId
+  actorEmail String? // null for the collector/reconciler
+  action     String
+  target     String?
+  deviceId   String?  @db.ObjectId
+  success    Boolean
+  error      String?
+  details    Json?
+  at         DateTime @default(now())
+
+  @@index([userId, at])
+  @@index([deviceId, at])
+}
+
+// Phase 4. One open alert per dedupeKey; resolved when the condition clears.
+model NetworkAlert {
+  id         String    @id @default(auto()) @map("_id") @db.ObjectId
+  userId     String    @db.ObjectId
+  kind       String
+  severity   String // info | warning | critical
+  title      String
+  message    String
+  deviceId   String?   @db.ObjectId
+  dedupeKey  String
+  createdAt  DateTime  @default(now())
+  resolvedAt DateTime?
+  readAt     DateTime?
+  notifiedAt DateTime?
+
+  @@index([userId, createdAt])
+  @@index([userId, dedupeKey, resolvedAt])
+}
+
+// Phase 4. Connections from LAN devices to other private networks, sampled
+// from pf states (same-LAN traffic never reaches the router).
+model NetworkInternalFlowDaily {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId      String   @db.ObjectId
+  day         DateTime
+  srcDeviceId String   @db.ObjectId
+  dstIp       String
+  dstDeviceId String?  @db.ObjectId
+  proto       String
+  dstPort     Int
+  samples     Int      @default(0)
+  lastSeenAt  DateTime
+
+  @@unique([srcDeviceId, day, dstIp, proto, dstPort])
+  @@index([userId, day])
+}
+
+// Website (domain) rules enforced through Unbound DNSBL policies managed by
+// Home Hub: scope "global" (all devices) or a device id. A domain covers its
+// subdomains. "allow" (device scope only) exempts the device from blocks.
+model NetworkSiteRule {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId     String   @db.ObjectId
+  scope      String // "global" | device id
+  domain     String // lower-case, no scheme/path/trailing dot
+  action     String // "block" | "allow"
+  createdBy  String?
+  createdAt  DateTime @default(now())
+
+  @@unique([userId, scope, domain])
+  @@index([userId])
 }
 
 model VerificationToken {
@@ -56,4 +364,117 @@ model VerificationToken {
   expires    DateTime
 
   @@unique([identifier, token])
+}
+
+model PasswordReset {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String   @db.ObjectId
+  token     String   @unique
+  expires   DateTime
+  createdAt DateTime @default(now())
+  
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+enum RegistrationPolicyType {
+  DOMAIN
+  EMAIL
+}
+
+model RegistrationPolicy {
+  id        String                    @id @default(auto()) @map("_id") @db.ObjectId
+  type      RegistrationPolicyType
+  value     String                    // Either domain (e.g., "example.com") or specific email
+  isAllowed Boolean                   @default(true)
+  createdAt DateTime                  @default(now())
+  updatedAt DateTime                  @updatedAt
+  
+  @@unique([type, value])
+}
+
+// Time Tracking Schema - Separate from Track Items
+model TimeTopic {
+  id          String  @id @default(auto()) @map("_id") @db.ObjectId
+  userId      String  @db.ObjectId
+  name        String
+  color       String  @default("#6366f1") // Indigo default
+  icon        String? // Lucide icon name
+  isFavorite  Boolean @default(false)
+  isArchived  Boolean @default(false)
+  sortOrder   Int     @default(0)
+
+  // Cached statistics (pre-computed)
+  durationBreakdown   Json?                // Hierarchical breakdown by year/month/day for charts
+  lastTrackedAt       DateTime?
+  sessionCount        Int      @default(0) // Total number of sessions
+
+  user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sessions  TimeSession[]
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+
+  @@unique([userId, name])
+  @@index([userId, isFavorite])
+  @@index([userId, isArchived])
+}
+
+model TimeSession {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String   @db.ObjectId
+  topicId   String   @db.ObjectId
+  
+  startTime   DateTime
+  endTime     DateTime?
+  durationMs  BigInt?   // Calculated on stop
+  isRunning   Boolean   @default(true)
+  notes       String?
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  topic     TimeTopic @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([userId, isRunning])
+  @@index([topicId, startTime])
+}
+
+// Exercise Schema
+model Exercise {
+  id         String @id @default(auto()) @map("_id") @db.ObjectId
+  exerciseId Int    @unique // Original exercise ID from the data source
+  title      String
+  titleRaw   String @map("title_raw")
+
+  // Image data as JSON for flexibility
+  img         Json? // Contains male, female, mid, fid URLs
+  imgPng      Json? @map("img_png") // PNG versions
+  anim        Json? // Animation URLs and IDs
+  singleAnim  Json? @map("single_anim") // Single animation URLs
+  localImages Json? @map("local_images") // Local downloaded images with numbered indexes for animation
+
+  permalink            String?
+  type                 String  @default("Work Out")
+  tags                 String?
+  isCardio             Boolean @default(false) @map("is_cardio")
+  isNewEx              Boolean @default(false) @map("is_new_ex")
+  presetNotes          String? @map("preset_notes")
+  isPersonalPresetNote Boolean @default(false) @map("is_personal_preset_note")
+  isYoga               Boolean @default(false) @map("is_yoga")
+  sanskrit             String?
+  sanskritRaw          String? @map("sanskrit_raw")
+  alignmentCues        String? @map("alignment_cues")
+  commonName           String? @map("common_name")
+  eet                  String?
+  isYogaPremium        Boolean @default(false) @map("is_yoga_premium")
+  audio                String?
+  isFav                Boolean @default(false) @map("is_fav")
+
+  // Equipment and muscle groups as comma-separated strings
+  equipment        String? // Comma-separated list of equipment
+  primaryMuscles   String? @map("primary_muscles") // Comma-separated list of primary muscles
+  secondaryMuscles String? @map("secondary_muscles") // Comma-separated list of secondary muscles
+  instructions     String? // Exercise instructions
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
