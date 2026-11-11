@@ -22,6 +22,7 @@ interface NetworkDeviceUpdateInput {
   deviceType?: string;
   notes?: string;
   isNew?: boolean;
+  isFavorite?: boolean;
 }
 
 interface AliasSearchRow {

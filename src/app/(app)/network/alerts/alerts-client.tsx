@@ -28,6 +28,7 @@ import {
   getNetworkAlerts,
   markAlertsRead,
   saveAlertSettings,
+  sendDailyReportNow,
   sendTestAlertEmail,
 } from "@/lib/actions/network-monitoring";
 
@@ -47,6 +48,8 @@ export function AlertsClient() {
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [testOpen, setTestOpen] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
+  const [sendingReport, setSendingReport] = useState(false);
 
   const loadAlerts = useCallback(async (includeResolved: boolean) => {
     const result = await getNetworkAlerts({ includeResolved });
@@ -84,6 +87,8 @@ export function AlertsClient() {
       alertEmailEnabled: settings.alertEmailEnabled,
       alertEmail: settings.alertEmail,
       alertMinSeverity: settings.alertMinSeverity,
+      dailyReportEnabled: settings.dailyReportEnabled,
+      dailyReportHour: settings.dailyReportHour,
     });
     setSaving(false);
     if (result.success) toast.success("Alert settings saved");
@@ -94,6 +99,15 @@ export function AlertsClient() {
     setTestOpen(false);
     const result = await sendTestAlertEmail();
     if (result.success) toast.success(`Test email sent to ${result.to}`);
+    else toast.error(result.error);
+  }
+
+  async function sendReport() {
+    setReportOpen(false);
+    setSendingReport(true);
+    const result = await sendDailyReportNow();
+    setSendingReport(false);
+    if (result.success) toast.success(`Report for ${result.date} (${result.devices} device(s)) sent to ${result.to}`);
     else toast.error(result.error);
   }
 
@@ -171,7 +185,7 @@ export function AlertsClient() {
           <CardDescription>
             {settings && !settings.emailConfigured
               ? "Email isn't configured on the server (RESEND_API_KEY)."
-              : "Each alert is emailed once when it opens (at most 10 per hour)."}
+              : "Each alert is emailed once when it opens (at most 10 per hour). The daily report goes to the same address."}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -218,6 +232,42 @@ export function AlertsClient() {
                   </SelectContent>
                 </Select>
               </div>
+              <div className="space-y-3 border-t pt-4">
+                <div className="flex items-center justify-between gap-2">
+                  <div>
+                    <Label htmlFor="daily-report-enabled">Daily favorites report</Label>
+                    <p className="text-muted-foreground text-xs">
+                      Yesterday&apos;s usage, time online, busiest hour, DNS and top domains for each
+                      favorite device.
+                    </p>
+                  </div>
+                  <Switch
+                    id="daily-report-enabled"
+                    disabled={!settings.canManage || !settings.emailConfigured}
+                    checked={settings.dailyReportEnabled}
+                    onCheckedChange={(checked) => setSettings({ ...settings, dailyReportEnabled: checked })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Send at</Label>
+                  <Select
+                    disabled={!settings.canManage || !settings.dailyReportEnabled}
+                    value={String(settings.dailyReportHour)}
+                    onValueChange={(value) => setSettings({ ...settings, dailyReportHour: Number(value) })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Array.from({ length: 24 }, (_, hour) => (
+                        <SelectItem key={hour} value={String(hour)}>
+                          {String(hour).padStart(2, "0")}:00
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
               {settings.canManage && (
                 <div className="flex flex-wrap gap-2">
                   <Button onClick={() => void save()} disabled={saving}>
@@ -231,12 +281,36 @@ export function AlertsClient() {
                   >
                     Send test email
                   </Button>
+                  <Button
+                    variant="outline"
+                    disabled={!settings.emailConfigured || !testRecipient || sendingReport}
+                    onClick={() => setReportOpen(true)}
+                  >
+                    {sendingReport && <Loader2 className="mr-2 size-4 animate-spin" />}
+                    Send report now
+                  </Button>
                 </div>
               )}
             </>
           )}
         </CardContent>
       </Card>
+
+      <AlertDialog open={reportOpen} onOpenChange={setReportOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Send yesterday&apos;s report now?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Emails yesterday&apos;s stats for your favorite devices to {testRecipient}. This doesn&apos;t
+              change the daily schedule.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => void sendReport()}>Send</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog open={testOpen} onOpenChange={setTestOpen}>
         <AlertDialogContent>

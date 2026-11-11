@@ -8,6 +8,7 @@ import {
   getNetworkDevices,
   reviewNetworkDevice,
   scanNetworkDevices,
+  setNetworkDeviceFavorite,
   toggleNetworkDeviceBlocked,
   updateNetworkDevice,
 } from "@/lib/actions/network";
@@ -126,6 +127,21 @@ export function useNetworkDevices() {
     return false;
   }, [] );
 
+  const toggleFavorite = useCallback( async ( id: string, isFavorite: boolean ) => {
+    // Optimistic: the star should respond instantly.
+    const apply = ( value: boolean ) =>
+      setDevices( ( previous ) =>
+        previous.map( ( device ) => ( device.id === id ? { ...device, isFavorite: value } : device ) ),
+      );
+    apply( isFavorite );
+    const result = await setNetworkDeviceFavorite( id, isFavorite );
+    if ( !result.success ) {
+      apply( !isFavorite );
+      toast.error( result.error || "Failed to update device" );
+    }
+    return result.success;
+  }, [] );
+
   /** "confirm" means the server wants explicit confirmation (blocking yourself). */
   const toggleBlocked = useCallback(
     async (
@@ -167,5 +183,6 @@ export function useNetworkDevices() {
     removeDevice,
     markReviewed,
     toggleBlocked,
+    toggleFavorite,
   };
 }

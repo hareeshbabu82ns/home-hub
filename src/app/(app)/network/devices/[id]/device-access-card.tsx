@@ -1,7 +1,7 @@
 "use client";
 
 import { format } from "date-fns";
-import { Ban, CheckCircle2, Loader2, Pause, Pin, Play, Power } from "lucide-react";
+import { Ban, CheckCircle2, Loader2, Pause, Pin, Play, Power, Timer, TimerOff } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 
@@ -20,13 +20,14 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toggleNetworkDeviceBlocked } from "@/lib/actions/network";
 import {
+  allowDevice,
   getDeviceControlOptions,
   getNetworkAuditLog,
   pauseDevice,
   reserveDeviceIp,
   wakeDevice,
 } from "@/lib/actions/network-control";
-import { describeReason } from "@/lib/network/access-policy";
+import { describeAllowance, describeReason } from "@/lib/network/access-policy";
 import { getDeviceDisplayName } from "@/lib/network/device-display";
 import type { NetworkDevice } from "@/types/network";
 
@@ -38,12 +39,18 @@ type AuditEntry = Extract<Awaited<ReturnType<typeof getNetworkAuditLog>>, { succ
 type Pending =
   | { kind: "block" | "unblock" | "reserve" | "wake" }
   | { kind: "pause"; minutes: number }
+  | { kind: "allow"; until: number | "schedule" | "end" }
   | { kind: "confirm-self"; retry: "block" | { pause: number }; message: string };
 
 const PAUSE_OPTIONS = [
   { minutes: 15, label: "15 min" },
   { minutes: 60, label: "1 hour" },
   { minutes: 240, label: "4 hours" },
+];
+
+const ALLOW_OPTIONS = [
+  { minutes: 15, label: "15 min" },
+  { minutes: 30, label: "30 min" },
 ];
 
 export function DeviceAccessCard({
@@ -84,7 +91,17 @@ export function DeviceAccessCard({
   const name = getDeviceDisplayName(device);
   const macMode = options?.mode === "mac";
   const exempt = device.access?.exempt ?? null;
-  const paused = device.access?.reasons.some((reason) => reason.kind === "paused") ?? false;
+  const activeOrSuspended = [...(device.access?.reasons ?? []), ...(device.access?.suspended ?? [])];
+  const paused = activeOrSuspended.some((reason) => reason.kind === "paused");
+  const manuallyBlocked = activeOrSuspended.some((reason) => reason.kind === "manual");
+
+  const allowedUntil = device.access?.allowedUntil ?? null;
+  const suspended = device.access?.suspended ?? [];
+  // Refetched after each action; a schedule that has started since is stale.
+  const nextSchedule =
+    options?.nextScheduleStart && new Date(options.nextScheduleStart) > new Date()
+      ? options.nextScheduleStart
+      : null;
 
   async function finish(ok: boolean, message?: string, error?: string) {
     setBusy(false);
@@ -128,6 +145,21 @@ export function DeviceAccessCard({
       );
     }
 
+    if (action.kind === "allow") {
+      const result = await allowDevice({ id: device.id, until: action.until });
+      if (result.success) {
+        const opts = await getDeviceControlOptions(device.id);
+        if (opts.success) setOptions(opts.data);
+      }
+      return finish(
+        result.success,
+        result.success && result.allowedUntil
+          ? `${name}: ${describeAllowance(result.allowedUntil).toLowerCase()}`
+          : `Temporary access for ${name} ended`,
+        result.success ? undefined : result.error,
+      );
+    }
+
     if (action.kind === "reserve") {
       const result = await reserveDeviceIp({ id: device.id, hostname: dnsForm.hostname || undefined });
       return finish(result.success, result.success ? `Reserved ${result.ip} for ${name}` : undefined, result.success ? undefined : result.error);
@@ -160,6 +192,8 @@ export function DeviceAccessCard({
           confirm: "Pause",
           destructive: true,
         };
+      case "allow":
+        return null;
       case "reserve":
         return {
           title: `Reserve ${device.ipAddress} for ${name}?`,
@@ -198,6 +232,19 @@ export function DeviceAccessCard({
             ))}
           </div>
         ) : null}
+        {allowedUntil && (
+          <div className="flex flex-wrap gap-1">
+            <Badge variant="secondary" className="gap-1">
+              <Timer className="size-3" />
+              {describeAllowance(allowedUntil)}
+            </Badge>
+            {suspended.map((reason) => (
+              <Badge key={JSON.stringify(reason)} variant="outline" className="text-muted-foreground">
+                Then: {describeReason(reason)}
+              </Badge>
+            ))}
+          </div>
+        )}
         {exempt && <p className="text-muted-foreground text-sm">{exempt}</p>}
       </CardHeader>
 
@@ -214,10 +261,10 @@ export function DeviceAccessCard({
                   variant={device.isBlocked ? "secondary" : "destructive"}
                   size="sm"
                   disabled={busy}
-                  onClick={() => setPending({ kind: device.access?.reasons.some((r) => r.kind === "manual") || (!macMode && device.isBlocked) ? "unblock" : "block" })}
+                  onClick={() => setPending({ kind: manuallyBlocked || (!macMode && device.isBlocked) ? "unblock" : "block" })}
                 >
                   <Ban className="mr-1 size-4" />
-                  {device.access?.reasons.some((r) => r.kind === "manual") || (!macMode && device.isBlocked) ? "Unblock" : "Block"}
+                  {manuallyBlocked || (!macMode && device.isBlocked) ? "Unblock" : "Block"}
                 </Button>
               )}
               {!exempt && macMode && !paused &&
@@ -234,6 +281,43 @@ export function DeviceAccessCard({
                 </Button>
               )}
             </div>
+            {macMode && !exempt && (device.isBlocked || allowedUntil) && (
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-muted-foreground text-xs">
+                  {allowedUntil ? "Temporary access:" : "Allow temporarily:"}
+                </span>
+                {ALLOW_OPTIONS.map((option) => (
+                  <Button
+                    key={option.minutes}
+                    variant="outline"
+                    size="sm"
+                    disabled={busy}
+                    onClick={() => void run({ kind: "allow", until: option.minutes })}
+                  >
+                    <Timer className="mr-1 size-4" />
+                    {option.label}
+                  </Button>
+                ))}
+                {nextSchedule && nextSchedule !== allowedUntil && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={busy}
+                    title={`Next schedule starts ${format(new Date(nextSchedule), "EEE HH:mm")}`}
+                    onClick={() => void run({ kind: "allow", until: "schedule" })}
+                  >
+                    <Timer className="mr-1 size-4" />
+                    Until next schedule ({format(new Date(nextSchedule), "EEE HH:mm")})
+                  </Button>
+                )}
+                {allowedUntil && (
+                  <Button variant="outline" size="sm" disabled={busy} onClick={() => void run({ kind: "allow", until: "end" })}>
+                    <TimerOff className="mr-1 size-4" />
+                    End now
+                  </Button>
+                )}
+              </div>
+            )}
             {!macMode && !exempt && (
               <p className="text-muted-foreground text-xs">
                 Pause, schedules and quarantine need MAC control: Settings → Network → Router control.
@@ -291,7 +375,7 @@ export function DeviceAccessCard({
         )}
       </CardContent>
 
-      <AlertDialog open={!!pending} onOpenChange={(open) => !open && setPending(null)}>
+      <AlertDialog open={!!dialog} onOpenChange={(open) => !open && setPending(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>{dialog?.title}</AlertDialogTitle>

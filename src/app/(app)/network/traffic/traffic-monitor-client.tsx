@@ -1,7 +1,8 @@
 "use client";
 
 import { CollectorBanner } from "@/components/network/collector-banner";
-import { Activity, Loader2, TriangleAlert } from "lucide-react";
+import { Activity, Loader2, Star, TriangleAlert } from "lucide-react";
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Area,
@@ -32,6 +33,7 @@ import { breakGaps } from "@/lib/network/chart-gaps";
 import { formatBytes, formatRateBits } from "@/lib/network/format";
 import type {
   CollectorStatus,
+  FavoriteDevice,
   LiveTrafficRow,
   TopConsumer,
   TrafficHistoryPoint,
@@ -59,6 +61,10 @@ const SERIES_COLORS = [
   "#ec4899",
   "#8b5cf6",
 ] as const;
+
+const favoriteMark = (
+  <Star className="size-4 shrink-0 fill-amber-400 text-amber-500" aria-label="Favorite" />
+);
 
 type Mode = "loading" | "collector" | "direct";
 /** One chart point: time plus bits/s per address. */
@@ -88,6 +94,7 @@ export function TrafficMonitorClient() {
   const [history, setHistory] = useState<TrafficHistoryPoint[]>([]);
   const [liveRows, setLiveRows] = useState<LiveTrafficRow[]>([]);
   const [topToday, setTopToday] = useState<TopConsumer[]>([]);
+  const [favorites, setFavorites] = useState<FavoriteDevice[]>([]);
   const [nameMap, setNameMap] = useState<Record<string, string>>({});
   const [lastLatencyMs, setLastLatencyMs] = useState<number | null>(null);
   const inFlightRef = useRef(false);
@@ -121,6 +128,7 @@ export function TrafficMonitorClient() {
       setError(null);
       setStatus(result.data.status);
       setTopToday(result.data.topToday);
+      setFavorites(result.data.favorites);
       setHistory(result.data.history);
       setMode(result.data.status.running ? "collector" : "direct");
     });
@@ -158,7 +166,9 @@ export function TrafficMonitorClient() {
     let cancelled = false;
     const timer = setInterval(() => {
       void getTrafficOverview(1).then((result) => {
-        if (!cancelled && result.success) setTopToday(result.data.topToday);
+        if (cancelled || !result.success) return;
+        setTopToday(result.data.topToday);
+        setFavorites(result.data.favorites);
       });
     }, 60_000);
     return () => {
@@ -210,6 +220,7 @@ export function TrafficMonitorClient() {
         if (cancelled || !result.success) return;
         // Keeps the banner's error current while waiting.
         setStatus(result.data.status);
+        setFavorites(result.data.favorites);
         if (result.data.status.running) {
           setTopToday(result.data.topToday);
           setMode("collector");
@@ -230,7 +241,17 @@ export function TrafficMonitorClient() {
     return history.filter((row) => row.timestamp >= minTimestamp);
   }, [history, windowMinutes]);
 
-  // Chart the busiest hosts in the window (by peak rate).
+  const favoriteIds = useMemo(() => new Set(favorites.map((f) => f.deviceId)), [favorites]);
+  // Addresses that belong to favorites: their main IP plus any live address.
+  const favoriteAddresses = useMemo(() => {
+    const addresses = new Set(favorites.map((f) => f.ipAddress));
+    for (const row of liveRows) {
+      if (row.deviceId && favoriteIds.has(row.deviceId)) addresses.add(row.address);
+    }
+    return addresses;
+  }, [favorites, favoriteIds, liveRows]);
+
+  // Chart favorites first, then the busiest hosts in the window (by peak rate).
   const trackedAddresses = useMemo(() => {
     const peak = new Map<string, number>();
     for (const point of visibleHistory) {
@@ -239,10 +260,29 @@ export function TrafficMonitorClient() {
       }
     }
     return Array.from(peak.entries())
-      .sort((a, b) => b[1] - a[1])
+      .sort(
+        (a, b) =>
+          Number(favoriteAddresses.has(b[0])) - Number(favoriteAddresses.has(a[0])) || b[1] - a[1],
+      )
       .slice(0, MAX_SERIES)
       .map(([address]) => address);
-  }, [visibleHistory]);
+  }, [visibleHistory, favoriteAddresses]);
+
+  // Every favorite with its current rate, including the idle ones.
+  const favoriteRows = useMemo(
+    () =>
+      favorites.map((favorite) => {
+        const rows = liveRows.filter(
+          (row) => row.deviceId === favorite.deviceId || (!row.deviceId && row.address === favorite.ipAddress),
+        );
+        return {
+          ...favorite,
+          rateBitsIn: rows.reduce((sum, row) => sum + row.rateBitsIn, 0),
+          rateBitsOut: rows.reduce((sum, row) => sum + row.rateBitsOut, 0),
+        };
+      }),
+    [favorites, liveRows],
+  );
 
   const chartData = useMemo(() => {
     const raw = visibleHistory.map((point) => {
@@ -277,8 +317,9 @@ export function TrafficMonitorClient() {
         sublabel: row.address,
         value: row.rateBits,
         split: [row.rateBitsIn, row.rateBitsOut] as [number, number],
+        extra: favoriteAddresses.has(row.address) ? favoriteMark : undefined,
       })),
-    [liveRows],
+    [liveRows, favoriteAddresses],
   );
 
   const topItems = useMemo(
@@ -290,8 +331,9 @@ export function TrafficMonitorClient() {
         sublabel: row.ipAddress ?? undefined,
         value: row.bytesIn + row.bytesOut,
         split: [row.bytesIn, row.bytesOut] as [number, number],
+        extra: favoriteIds.has(row.deviceId) ? favoriteMark : undefined,
       })),
-    [topToday],
+    [topToday, favoriteIds],
   );
 
   const longWindow = windowMinutes > 5;
@@ -303,6 +345,40 @@ export function TrafficMonitorClient() {
           status={status ?? { running: false, alive: false, heartbeatAt: null, lastDiscoveryAt: null, lastError: null }}
           fallback="Meanwhile this page polls the router directly and keeps no history. It switches back to the live feed automatically."
         />
+      )}
+
+      {favoriteRows.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Star className="size-5 fill-amber-400 text-amber-500" />
+              Favorites
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              {favoriteRows.map((favorite) => (
+                <li key={favorite.deviceId} className="rounded-lg border p-3">
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={`inline-block size-2 shrink-0 rounded-full ${favorite.isOnline ? "bg-emerald-500" : "bg-muted-foreground/40"}`}
+                      title={favorite.isOnline ? "Online" : "Offline"}
+                    />
+                    <Link href={`/network/devices/${favorite.deviceId}`} className="truncate font-medium hover:underline">
+                      {favorite.name}
+                    </Link>
+                  </div>
+                  <p className="mt-1 text-sm tabular-nums">
+                    ↓ {formatRateBits(favorite.rateBitsIn)} · ↑ {formatRateBits(favorite.rateBitsOut)}
+                  </p>
+                  <p className="text-muted-foreground text-xs">
+                    {favorite.bytesToday ? `${formatBytes(favorite.bytesToday)} today` : "No usage recorded today"}
+                  </p>
+                </li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
       )}
 
       <Card>

@@ -52,6 +52,7 @@ import {
   getNetworkDeviceDetails,
   getNetworkDeviceDnsQueries,
   reviewNetworkDevice,
+  setNetworkDeviceFavorite,
   updateNetworkDevice,
 } from "@/lib/actions/network";
 import { getDeviceDisplayName } from "@/lib/network/device-display";
@@ -61,7 +62,7 @@ import type {
   NetworkDnsQueryRow,
 } from "@/types/network";
 
-import { DeviceBadges, OnlineDot } from "../../components/device-badges";
+import { DeviceBadges, FavoriteStar, OnlineDot } from "../../components/device-badges";
 import { DeviceEditDialog, type DeviceEditInput } from "../../components/device-edit-dialog";
 import { DeviceInsights } from "./device-insights";
 import { DeviceAccessCard } from "./device-access-card";
@@ -378,6 +379,22 @@ export function NetworkDeviceDetailPage({
             <h1 className="flex items-center gap-2 text-xl font-bold sm:text-2xl">
               <OnlineDot isOnline={device.isOnline} />
               <span className="truncate">{getDeviceDisplayName(device)}</span>
+              <FavoriteStar
+                isFavorite={!!device.isFavorite}
+                onToggle={
+                  canManage
+                    ? (next) => {
+                        // Optimistic; put it back if the server refuses.
+                        setDevice((current) => current && { ...current, isFavorite: next });
+                        void setNetworkDeviceFavorite(device.id, next).then((result) => {
+                          if (result.success) return;
+                          setDevice((current) => current && { ...current, isFavorite: !next });
+                          toast.error(result.error || "Failed to update device");
+                        });
+                      }
+                    : undefined
+                }
+              />
             </h1>
             <div className="text-muted-foreground flex flex-wrap items-center gap-2 text-sm">
               <span className="font-mono">{device.ipAddress}</span>

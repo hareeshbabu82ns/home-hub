@@ -294,7 +294,11 @@ Still open:
   - `mac`: enabled by Settings → Network → Router control → _Prepare router_. That creates the MAC alias `HH_Block` and one floating rule `home-hub:block` (block, quick, `inet46`, logged, sequence 1), moves legacy IP blocks to device blocks, and switches modes. Both objects are inert until a device is added.
 - **Desired state** lives in the database:
   - per device: `NetworkDevice.blocked`, `pausedUntil`
-  - recurring windows: `NetworkAccessSchedule` (days, start/end minute, crossing midnight; timezone from settings, then `TZ`, then UTC)
+  - favorites: `NetworkDevice.isFavorite` (label only, no router effect): listed first with their own card on the devices page, and on the traffic page always charted and shown with live rate and today's usage.
+  - device history: `getDeviceHistory()` (`src/lib/network/device-history.ts`) returns one local day (hourly usage, totals, busiest hour, time online, presence changes, top domains) plus the 30 days before it; the device page steps through days with it.
+  - daily favorites report: `src/lib/network/daily-report.ts` emails yesterday's stats for every favorite once a day after `dailyReportHour` (settings: `dailyReportEnabled`, `dailyReportHour`; sent-marker `NetworkCollectorState.dailyReportDate`). The collector's enforce tick triggers it; it goes to the alert address.
+  - temporary allowance: `NetworkDevice.allowedUntil` (15/30 min, or until the device's next schedule window starts via `nextScheduleStart()`). While it is in the future no reason blocks the device; the decision lists them as `suspended`. Blocking or pausing the device clears it.
+  - recurring windows: `NetworkAccessSchedule` (days, start/end minute, crossing midnight; timezone from settings, then `TZ`, then UTC). A schedule can be started or stopped by hand (`manualState` on/off until `manualUntil`, the schedule's next end time); editing or toggling `enabled` clears that.
   - quarantine: `quarantineNewDevices` blocks devices still marked New
 
   `decideAccess()` (`src/lib/network/access-policy.ts`) combines these. Router/gateway and WAN-side devices are always exempt.

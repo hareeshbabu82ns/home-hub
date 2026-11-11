@@ -9,6 +9,7 @@ import { networkDeviceService } from "@/lib/services/network-device.service";
 import { networkSettingsService } from "@/lib/services/network-settings.service";
 import { networkTrafficService } from "@/lib/services/network-traffic.service";
 import { opnsenseRequest, type OpnsenseConnection } from "@/lib/services/opnsense-client";
+import { maybeSendDailyReport } from "@/lib/network/daily-report";
 import { reconcileAccess } from "@/lib/network/enforcement";
 import { syncSiteFilter } from "@/lib/network/site-filter";
 
@@ -520,6 +521,10 @@ export async function startNetworkCollector(
         const result = await reconcileAccess(user.userId, { trigger: "collector" });
         await alertsFromEnforcement(user.userId, result);
         await checkQuotas(user.userId);
+        // Not a router problem if this fails; don't fail the enforce round.
+        await maybeSendDailyReport(user.userId).catch((error) =>
+          log.warn(`[collector] user ${user.userId} daily report: ${errorText(error)}`),
+        );
         // Website rules follow device address changes.
         const sites = await syncSiteFilter(user.userId, { trigger: "collector", wait: false });
         if (sites?.errors.length) throw new Error(`websites: ${sites.errors.join("; ")}`);

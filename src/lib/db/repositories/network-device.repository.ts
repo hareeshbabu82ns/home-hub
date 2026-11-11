@@ -153,6 +153,7 @@ export const networkDeviceRepository = {
       deviceType?: string;
       notes?: string;
       isNew?: boolean;
+      isFavorite?: boolean;
     },
   ) => {
     const { count } = await db.networkDevice.updateMany( {

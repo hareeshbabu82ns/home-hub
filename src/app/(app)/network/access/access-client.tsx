@@ -1,7 +1,7 @@
 "use client";
 
 import { format } from "date-fns";
-import { CalendarClock, Loader2, Pencil, Plus, Trash2 } from "lucide-react";
+import { CalendarClock, Loader2, Pencil, Play, Plus, Square, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -44,6 +44,7 @@ import {
   getNetworkAuditLog,
   listAccessSchedules,
   saveAccessSchedule,
+  setAccessScheduleState,
 } from "@/lib/actions/network-control";
 import { formatMinute } from "@/lib/network/access-policy";
 
@@ -148,6 +149,26 @@ export function AccessClient() {
     }
   }
 
+  async function setState(schedule: Schedule, action: "start" | "stop" | "enable" | "disable") {
+    setBusy(true);
+    const result = await setAccessScheduleState({ id: schedule.id, action });
+    setBusy(false);
+    if (result.success) {
+      const until = result.until ? ` until ${format(new Date(result.until), "EEE HH:mm")}` : "";
+      toast.success(
+        {
+          start: `"${schedule.name}" is active now${until}`,
+          stop: `"${schedule.name}" stopped${until}`,
+          enable: `"${schedule.name}" turned on`,
+          disable: `"${schedule.name}" turned off`,
+        }[action],
+      );
+    } else {
+      toast.error(result.error);
+    }
+    await load();
+  }
+
   async function remove(schedule: Schedule) {
     setDeleting(null);
     setBusy(true);
@@ -210,7 +231,22 @@ export function AccessClient() {
                 <div className="min-w-0">
                   <p className="flex items-center gap-2 font-medium">
                     {schedule.name}
-                    {!schedule.enabled && <Badge variant="outline">Off</Badge>}
+                    {!schedule.enabled ? (
+                      <Badge variant="outline">Off</Badge>
+                    ) : schedule.active ? (
+                      <Badge variant="destructive">
+                        {schedule.override === "on" && schedule.overrideUntil
+                          ? `Started manually · until ${format(new Date(schedule.overrideUntil), "EEE HH:mm")}`
+                          : "Active now"}
+                      </Badge>
+                    ) : (
+                      schedule.override === "off" &&
+                      schedule.overrideUntil && (
+                        <Badge variant="secondary">
+                          Stopped until {format(new Date(schedule.overrideUntil), "EEE HH:mm")}
+                        </Badge>
+                      )
+                    )}
                   </p>
                   <p className="text-muted-foreground text-sm">
                     {describeDays(schedule.days)} · {formatMinute(schedule.startMinute)}–{formatMinute(schedule.endMinute)}
@@ -221,7 +257,29 @@ export function AccessClient() {
                   </p>
                 </div>
                 {canEdit && (
-                  <div className="flex gap-2">
+                  <div className="flex items-center gap-2">
+                    {schedule.enabled && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={busy}
+                        title={
+                          schedule.active
+                            ? "Give the devices access back for the rest of this window"
+                            : "Block the devices now, until the schedule's end time"
+                        }
+                        onClick={() => void setState(schedule, schedule.active ? "stop" : "start")}
+                      >
+                        {schedule.active ? <Square className="mr-1 size-4" /> : <Play className="mr-1 size-4" />}
+                        {schedule.active ? "Stop now" : "Start now"}
+                      </Button>
+                    )}
+                    <Switch
+                      checked={schedule.enabled}
+                      disabled={busy}
+                      aria-label={`${schedule.name} enabled`}
+                      onCheckedChange={(on) => void setState(schedule, on ? "enable" : "disable")}
+                    />
                     <Button
                       size="sm"
                       variant="ghost"

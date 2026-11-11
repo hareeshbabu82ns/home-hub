@@ -144,6 +144,9 @@ model NetworkIntegrationSettings {
   alertEmailEnabled    Boolean?
   alertEmail           String? // defaults to the account email
   alertMinSeverity     String? // info | warning | critical (default warning)
+  // Daily email with yesterday's stats of the favorite devices.
+  dailyReportEnabled   Boolean?
+  dailyReportHour      Int? // local hour to send at (default 7)
 
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
@@ -179,9 +182,13 @@ model NetworkDevice {
   isRandomMac     Boolean           @default(false)
   isOnline        Boolean           @default(false)
   isNew           Boolean           @default(true)
+  // Pinned by the user: shown first and always charted.
+  isFavorite      Boolean?
   // Desired access state (Phase 3, MAC control mode).
   blocked         Boolean?
   pausedUntil     DateTime?
+  // Temporary override: no block reason applies until this instant.
+  allowedUntil    DateTime?
   // Phase 4 daily data quota (estimated bytes, local day).
   dailyQuotaMB    Int?
   quotaAction     String? // "alert" (default) | "block" until midnight
@@ -276,6 +283,7 @@ model NetworkCollectorState {
   routerControlAt DateTime?
   siteFilter      Json? // last website-filter sync result
   siteFilterAt    DateTime?
+  dailyReportDate String? // local day (YYYY-MM-DD) the last daily report covered
   lastDiscoveryAt DateTime?
   lastError       String?
   lastErrorAt     DateTime?
@@ -291,6 +299,10 @@ model NetworkAccessSchedule {
   startMinute Int // minutes after local midnight
   endMinute   Int // may be < startMinute: window crosses midnight
   deviceIds   String[] @db.ObjectId
+  // Manual override until `manualUntil`: "on" = active outside its window
+  // (started early), "off" = inactive inside it (skipped).
+  manualState String?
+  manualUntil DateTime?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 

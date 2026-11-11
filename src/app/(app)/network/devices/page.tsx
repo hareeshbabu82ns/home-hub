@@ -8,6 +8,7 @@ import {
   Pencil,
   Router,
   Search,
+  Star,
   Trash2,
   Wifi,
 } from "lucide-react";
@@ -57,6 +58,7 @@ import { DeviceEditDialog } from "../components/device-edit-dialog";
 import {
   blockDisabledReason,
   DeviceBadges,
+  FavoriteStar,
   OnlineDot,
 } from "../components/device-badges";
 
@@ -78,10 +80,12 @@ export default function NetworkDevicesPage() {
     removeDevice,
     markReviewed,
     toggleBlocked,
+    toggleFavorite,
   } = useNetworkDevices();
 
   const [subnet, setSubnet] = useState("");
   const [showInfrastructure, setShowInfrastructure] = useState(false);
+  const [favoritesOnly, setFavoritesOnly] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [editDevice, setEditDevice] = useState<NetworkDevice | null>(null);
   const [pending, setPending] = useState<PendingAction | null>(null);
@@ -103,10 +107,18 @@ export default function NetworkDevicesPage() {
     [devices],
   );
 
+  const favorites = useMemo(
+    () => devices.filter((device) => device.isFavorite),
+    [devices],
+  );
+  const onlyFavorites = favoritesOnly && favorites.length > 0;
+
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase();
-    return devices.filter((device) => {
-      if (!showInfrastructure && device.role === "INFRASTRUCTURE") {
+    const matching = devices.filter((device) => {
+      if (onlyFavorites && !device.isFavorite) return false;
+      // A favorite is always listed, even if it's a router or gateway.
+      if (!showInfrastructure && device.role === "INFRASTRUCTURE" && !device.isFavorite) {
         return false;
       }
       if (!query) return true;
@@ -125,7 +137,9 @@ export default function NetworkDevicesPage() {
         .toLowerCase()
         .includes(query);
     });
-  }, [devices, search, showInfrastructure]);
+    // Favorites first; the sort is stable, so the server order is kept within each group.
+    return matching.sort((a, b) => Number(!!b.isFavorite) - Number(!!a.isFavorite));
+  }, [devices, search, showInfrastructure, onlyFavorites]);
 
   function openEdit(device: NetworkDevice) {
     setEditDevice(device);
@@ -212,11 +226,64 @@ export default function NetworkDevicesPage() {
         </CardContent>
       </Card>
 
+      {favorites.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Star className="size-5 fill-amber-400 text-amber-500" />
+              Favorites
+              <span className="text-muted-foreground text-sm font-normal">
+                {favorites.filter((device) => device.isOnline).length} of {favorites.length} online
+              </span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+              {favorites.map((device) => (
+                <li
+                  key={device.id}
+                  className={`space-y-1 rounded-lg border p-3 ${device.isBlocked ? "border-destructive/40" : ""}`}
+                >
+                  <div className="flex items-center gap-2">
+                    <OnlineDot isOnline={device.isOnline} />
+                    <DeviceLink device={device} />
+                    <FavoriteStar
+                      isFavorite
+                      className="ml-auto"
+                      onToggle={canManage ? (next) => void toggleFavorite(device.id, next) : undefined}
+                    />
+                  </div>
+                  <p className="text-muted-foreground truncate text-xs">
+                    <span className="font-mono">{device.ipAddress}</span>
+                    {" · "}
+                    {lastSeenLabel(device)}
+                    {usageToday[device.id] ? ` · ${formatBytes(usageToday[device.id])} today` : ""}
+                  </p>
+                  <DeviceBadges device={device} />
+                </li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardHeader>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <CardTitle>Device Inventory</CardTitle>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+              {favorites.length > 0 && (
+                <div className="flex items-center gap-2">
+                  <Switch
+                    id="favorites-only"
+                    checked={favoritesOnly}
+                    onCheckedChange={setFavoritesOnly}
+                  />
+                  <Label htmlFor="favorites-only" className="text-sm">
+                    Favorites only
+                  </Label>
+                </div>
+              )}
               <div className="flex items-center gap-2">
                 <Switch
                   id="show-infrastructure"
@@ -260,6 +327,10 @@ export default function NetworkDevicesPage() {
                         <div className="flex items-center gap-2">
                           <OnlineDot isOnline={device.isOnline} />
                           <DeviceLink device={device} />
+                          <FavoriteStar
+                            isFavorite={!!device.isFavorite}
+                            onToggle={canManage ? (next) => void toggleFavorite(device.id, next) : undefined}
+                          />
                         </div>
                         <p className="text-muted-foreground truncate pl-4 text-xs">
                           <span className="font-mono">{device.ipAddress}</span>
@@ -326,6 +397,10 @@ export default function NetworkDevicesPage() {
                           <div className="flex items-center gap-2">
                             <OnlineDot isOnline={device.isOnline} />
                             <DeviceLink device={device} />
+                            <FavoriteStar
+                              isFavorite={!!device.isFavorite}
+                              onToggle={canManage ? (next) => void toggleFavorite(device.id, next) : undefined}
+                            />
                           </div>
                           <div className="text-muted-foreground truncate pl-4 text-xs">
                             {[
@@ -492,7 +567,7 @@ function DeviceActions({
   // In MAC mode only a manual block is undone here; pauses, schedules and
   // quarantine are managed elsewhere.
   const manuallyBlocked = device.access
-    ? device.access.reasons.some((r) => r.kind === "manual")
+    ? [...device.access.reasons, ...device.access.suspended].some((r) => r.kind === "manual")
     : device.isBlocked;
 
   return (

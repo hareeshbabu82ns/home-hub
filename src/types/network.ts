@@ -29,10 +29,12 @@ export interface NetworkDevice {
   isRandomMac: boolean;
   isOnline: boolean;
   isNew: boolean;
+  isFavorite?: boolean | null;
   isBlocked: boolean;
   /** Desired-state fields (MAC control mode). */
   blocked?: boolean | null;
   pausedUntil?: Date | string | null;
+  allowedUntil?: Date | string | null;
   dailyQuotaMB?: number | null;
   quotaAction?: string | null;
   /** Why the device is (or would be) blocked; present in MAC control mode. */

@@ -81,7 +81,7 @@ export async function loadAccessDecisions(userId: string, now = new Date()) {
   const decisions = new Map<string, AccessDecision>(
     devices.map((device) => [device.id, decideAccess(device, context)]),
   );
-  return { settings, devices, decisions, timeZone, usageToday };
+  return { settings, devices, schedules, decisions, timeZone, usageToday };
 }
 
 export function reconcileAccess(
@@ -202,10 +202,14 @@ async function runReconcile(
     }
   }
 
-  // Expired pauses are no longer relevant; clear them.
+  // Expired pauses and allowances are no longer relevant; clear them.
   await db.networkDevice.updateMany({
     where: { userId, pausedUntil: { lte: now } },
     data: { pausedUntil: null },
+  });
+  await db.networkDevice.updateMany({
+    where: { userId, allowedUntil: { lte: now } },
+    data: { allowedUntil: null },
   });
 
   await db.networkCollectorState.upsert({

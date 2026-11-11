@@ -8,6 +8,7 @@ import { getAppDb } from "@/lib/db/mongo-native";
 import { resend } from "@/lib/email";
 import { errorMessage, getActor, NOT_CONFIGURED, requireManager } from "@/lib/network/action-helpers";
 import { unset } from "@/lib/network/alerts";
+import { DEFAULT_REPORT_HOUR, sendDailyReport } from "@/lib/network/daily-report";
 import { COLLECTIONS } from "@/lib/network/collector/collections";
 import { getDeviceDisplayName } from "@/lib/network/device-display";
 import { networkAuditService } from "@/lib/services/network-audit.service";
@@ -98,6 +99,8 @@ const alertSettingsSchema = z.object( {
   alertEmailEnabled: z.boolean(),
   alertEmail: z.union( [ z.literal( "" ), z.string().email( "Enter a valid email" ) ] ).optional(),
   alertMinSeverity: z.enum( [ "info", "warning", "critical" ] ),
+  dailyReportEnabled: z.boolean().optional(),
+  dailyReportHour: z.number().int().min( 0 ).max( 23 ).optional(),
 } );
 
 export async function getAlertSettings() {
@@ -113,6 +116,8 @@ export async function getAlertSettings() {
         alertEmailEnabled: settings?.alertEmailEnabled ?? false,
         alertEmail: settings?.alertEmail ?? "",
         alertMinSeverity: ( settings?.alertMinSeverity ?? "warning" ) as "info" | "warning" | "critical",
+        dailyReportEnabled: settings?.dailyReportEnabled ?? false,
+        dailyReportHour: settings?.dailyReportHour ?? DEFAULT_REPORT_HOUR,
       },
     };
   } catch ( error ) {
@@ -135,6 +140,8 @@ export async function saveAlertSettings( values: z.infer<typeof alertSettingsSch
             alertEmailEnabled: parsed.alertEmailEnabled,
             alertEmail: parsed.alertEmail || null,
             alertMinSeverity: parsed.alertMinSeverity,
+            ...( parsed.dailyReportEnabled === undefined ? {} : { dailyReportEnabled: parsed.dailyReportEnabled } ),
+            ...( parsed.dailyReportHour === undefined ? {} : { dailyReportHour: parsed.dailyReportHour } ),
           },
         } ),
     );
@@ -163,6 +170,19 @@ export async function sendTestAlertEmail() {
     return { success: true as const, to };
   } catch ( error ) {
     return fail( error, "Failed to send test email" );
+  }
+}
+
+/** Sends yesterday's favorite-devices report right away. */
+export async function sendDailyReportNow() {
+  try {
+    const { userId, email } = await requireManager();
+    const sent = await sendDailyReport( userId );
+    await networkAuditService.record( { userId, actorEmail: email, action: "daily-report-email", target: sent.to, success: true } );
+    return { success: true as const, ...sent };
+  } catch ( error ) {
+    // sendDailyReport's messages are written for the user.
+    return { success: false as const, error: error instanceof Error ? error.message : "Failed to send the report" };
   }
 }
 

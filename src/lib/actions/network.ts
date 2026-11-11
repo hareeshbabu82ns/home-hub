@@ -267,6 +267,19 @@ export async function reviewNetworkDevice( id: string ) {
   }
 }
 
+export async function setNetworkDeviceFavorite( id: string, isFavorite: boolean ) {
+  try {
+    const { userId, email } = await requireManager();
+    const device = await networkAuditService.track(
+      { userId, actorEmail: email, action: isFavorite ? "favorite" : "unfavorite", deviceId: id },
+      () => networkDeviceService.update( userId, id, { isFavorite: !!isFavorite } ),
+    );
+    return { success: true, device };
+  } catch ( error ) {
+    return { success: false, error: errorMessage( error, "Failed to update device" ) };
+  }
+}
+
 export async function toggleNetworkDeviceBlocked(
   values: z.infer<typeof toggleNetworkDeviceBlockSchema>,
 ) {
@@ -310,7 +323,7 @@ export async function toggleNetworkDeviceBlocked(
       await networkAuditService.track( { ...audit, details: { mode: "mac", mac: device.macAddress } }, async () => {
         await db.networkDevice.update( {
           where: { id: device.id },
-          data: parsed.isBlocked ? { blocked: true } : { blocked: false, pausedUntil: null },
+          data: parsed.isBlocked ? { blocked: true, allowedUntil: null } : { blocked: false, pausedUntil: null },
         } );
         const result = await reconcileAccess( userId, { actorEmail: email, trigger: audit.action } );
         if ( result?.errors.length ) throw new Error( result.errors.join( "; " ) );

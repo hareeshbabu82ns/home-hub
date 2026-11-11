@@ -1,7 +1,7 @@
-import { Ban, CalendarClock, Fingerprint, Gauge, Globe, Pause, ShieldAlert, Waypoints } from "lucide-react";
+import { Ban, CalendarClock, Fingerprint, Gauge, Globe, Pause, ShieldAlert, Star, Timer, Waypoints } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
-import { describeReason } from "@/lib/network/access-policy";
+import { describeAllowance, describeReason } from "@/lib/network/access-policy";
 import type { NetworkDevice } from "@/types/network";
 
 type BadgeFields = Pick<
@@ -27,6 +27,43 @@ export function OnlineDot({ isOnline }: { isOnline: boolean }) {
   );
 }
 
+/** Star toggle; a plain (non-interactive) star when `onToggle` is omitted. */
+export function FavoriteStar({
+  isFavorite,
+  onToggle,
+  disabled,
+  className = "",
+}: {
+  isFavorite: boolean;
+  onToggle?: (next: boolean) => void;
+  disabled?: boolean;
+  className?: string;
+}) {
+  const star = (
+    <Star className={`size-4 ${isFavorite ? "fill-amber-400 text-amber-500" : "text-muted-foreground/50"}`} />
+  );
+  if (!onToggle) {
+    return isFavorite ? (
+      <span className={`shrink-0 ${className}`} title="Favorite" aria-label="Favorite">
+        {star}
+      </span>
+    ) : null;
+  }
+  return (
+    <button
+      type="button"
+      className={`hover:bg-muted shrink-0 rounded p-1 disabled:opacity-50 ${className}`}
+      aria-pressed={isFavorite}
+      aria-label={isFavorite ? "Remove from favorites" : "Add to favorites"}
+      title={isFavorite ? "Remove from favorites" : "Add to favorites"}
+      disabled={disabled}
+      onClick={() => onToggle(!isFavorite)}
+    >
+      {star}
+    </button>
+  );
+}
+
 export function DeviceBadges({ device }: { device: BadgeFields }) {
   return (
     <div className="flex flex-wrap gap-1">
@@ -46,6 +83,20 @@ export function DeviceBadges({ device }: { device: BadgeFields }) {
               Blocked
             </Badge>
           )}
+      {device.access?.allowedUntil && (
+        <Badge
+          variant="secondary"
+          className="gap-1"
+          title={
+            device.access.suspended.length
+              ? `Then: ${device.access.suspended.map(describeReason).join(", ")}`
+              : undefined
+          }
+        >
+          <Timer className="size-3" />
+          {describeAllowance(device.access.allowedUntil)}
+        </Badge>
+      )}
       {device.isNew && !device.access?.reasons.some((r) => r.kind === "quarantine") && (
         <Badge variant="destructive" className="gap-1">
           <ShieldAlert className="size-3" />

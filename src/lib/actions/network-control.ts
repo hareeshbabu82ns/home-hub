@@ -10,7 +10,14 @@ import {
   NOT_CONFIGURED,
   requireManager,
 } from "@/lib/network/action-helpers";
-import { resolveTimeZone } from "@/lib/network/access-policy";
+import {
+  isInScheduleWindow,
+  isScheduleActive,
+  nextScheduleEnd,
+  nextScheduleStart,
+  resolveTimeZone,
+  scheduleOverride,
+} from "@/lib/network/access-policy";
 import { getDeviceDisplayName } from "@/lib/network/device-display";
 import { loadAccessDecisions, reconcileAccess, type EnforcementResult } from "@/lib/network/enforcement";
 import { networkAuditService } from "@/lib/services/network-audit.service";
@@ -224,7 +231,11 @@ export async function pauseDevice(values: z.infer<typeof pauseSchema>) {
         details: pausedUntil ? { until: pausedUntil.toISOString(), minutes: parsed.minutes } : {},
       },
       async () => {
-        await db.networkDevice.update({ where: { id: device.id }, data: { pausedUntil } });
+        await db.networkDevice.update({
+          where: { id: device.id },
+          // An explicit pause ends a temporary allowance.
+          data: pausedUntil ? { pausedUntil, allowedUntil: null } : { pausedUntil },
+        });
         const result = await reconcileAccess(userId, { actorEmail: email, trigger: "pause" });
         if (result?.errors.length) throw new Error(result.errors.join("; "));
       },
@@ -232,6 +243,54 @@ export async function pauseDevice(values: z.infer<typeof pauseSchema>) {
     return { success: true as const, pausedUntil: pausedUntil?.toISOString() ?? null };
   } catch (error) {
     return fail(error, "Failed to pause device");
+  }
+}
+
+// ----------------------------------------------------------- temporary allow
+
+const allowSchema = z.object({
+  id: z.string().min(1),
+  // Minutes of access (up to 24h), "schedule" = until the device's next
+  // schedule window starts, "end" = stop the allowance now.
+  until: z.union([z.number().int().min(1).max(24 * 60), z.literal("schedule"), z.literal("end")]),
+});
+
+/** Lets a blocked device online for a while without changing its rules. */
+export async function allowDevice(values: z.infer<typeof allowSchema>) {
+  try {
+    const { userId, email } = await requireManager();
+    const parsed = allowSchema.parse(values);
+    await requireMacMode(userId);
+    const device = await getDeviceOrThrow(userId, parsed.id);
+
+    const now = new Date();
+    let allowedUntil: Date | null = null;
+    if (typeof parsed.until === "number") {
+      allowedUntil = new Date(now.getTime() + parsed.until * 60_000);
+    } else if (parsed.until === "schedule") {
+      const { schedules, timeZone } = await loadAccessDecisions(userId, now);
+      allowedUntil = nextScheduleStart(schedules, device.id, now, timeZone);
+      if (!allowedUntil) return { success: false as const, error: "No schedule applies to this device" };
+    }
+
+    await networkAuditService.track(
+      {
+        userId,
+        actorEmail: email,
+        action: allowedUntil ? "allow" : "allow-end",
+        target: getDeviceDisplayName(device),
+        deviceId: device.id,
+        details: allowedUntil ? { until: allowedUntil.toISOString(), requested: parsed.until } : {},
+      },
+      async () => {
+        await db.networkDevice.update({ where: { id: device.id }, data: { allowedUntil } });
+        const result = await reconcileAccess(userId, { actorEmail: email, trigger: allowedUntil ? "allow" : "allow-end" });
+        if (result?.errors.length) throw new Error(result.errors.join("; "));
+      },
+    );
+    return { success: true as const, allowedUntil: allowedUntil?.toISOString() ?? null };
+  } catch (error) {
+    return fail(error, "Failed to allow device");
   }
 }
 
@@ -262,13 +321,21 @@ export async function listAccessSchedules() {
       }),
       db.networkIntegrationSettings.findUnique({ where: { userId } }),
     ]);
+    const now = new Date();
+    const timeZone = resolveTimeZone(settings?.timezone);
     return {
       success: true as const,
       data: {
         canManage,
         mode: settings?.controlMode === "mac" ? ("mac" as const) : ("ip" as const),
-        timeZone: resolveTimeZone(settings?.timezone),
-        schedules,
+        timeZone,
+        schedules: schedules.map((schedule) => ({
+          ...schedule,
+          // Blocking its devices right now (window or manual start).
+          active: isScheduleActive(schedule, now, timeZone),
+          override: scheduleOverride(schedule, now)?.state ?? null,
+          overrideUntil: scheduleOverride(schedule, now)?.until.toISOString() ?? null,
+        })),
         devices: devices.map((device) => ({
           id: device.id,
           name: getDeviceDisplayName(device),
@@ -299,6 +366,9 @@ export async function saveAccessSchedule(values: z.infer<typeof scheduleSchema>)
       startMinute: parsed.startMinute,
       endMinute: parsed.endMinute,
       deviceIds: allowed.map((device) => device.id),
+      // Editing resets a manual start/skip: the window it referred to may have moved.
+      manualState: null,
+      manualUntil: null,
     };
 
     const schedule = await networkAuditService.track(
@@ -323,6 +393,61 @@ export async function saveAccessSchedule(values: z.infer<typeof scheduleSchema>)
     return { success: true as const, schedule };
   } catch (error) {
     return fail(error, "Failed to save schedule");
+  }
+}
+
+const scheduleStateSchema = z.object({
+  id: z.string().min(1),
+  // start/stop: begin or end blocking right now, until the schedule's next
+  // end time. enable/disable: switch the whole schedule on or off.
+  action: z.enum(["start", "stop", "enable", "disable"]),
+});
+
+export async function setAccessScheduleState(values: z.infer<typeof scheduleStateSchema>) {
+  try {
+    const { userId, email } = await requireManager();
+    const parsed = scheduleStateSchema.parse(values);
+    const settings = await requireMacMode(userId);
+    const schedule = await db.networkAccessSchedule.findFirst({ where: { id: parsed.id, userId } });
+    if (!schedule) return { success: false as const, error: "Schedule not found" };
+
+    const now = new Date();
+    const timeZone = resolveTimeZone(settings.timezone);
+    const clear = { manualState: null, manualUntil: null };
+    let data: { enabled?: boolean; manualState: string | null; manualUntil: Date | null };
+    if (parsed.action === "enable" || parsed.action === "disable") {
+      data = { enabled: parsed.action === "enable", ...clear };
+    } else {
+      if (!schedule.enabled) return { success: false as const, error: "Turn the schedule on first" };
+      const inWindow = isInScheduleWindow(schedule, now, timeZone);
+      // Inside its own window "start" just undoes a skip, and outside it
+      // "stop" just undoes a manual start.
+      data =
+        (parsed.action === "start") === inWindow
+          ? clear
+          : {
+              manualState: parsed.action === "start" ? "on" : "off",
+              manualUntil: nextScheduleEnd(schedule, now, timeZone),
+            };
+    }
+
+    await networkAuditService.track(
+      {
+        userId,
+        actorEmail: email,
+        action: `schedule-${parsed.action}`,
+        target: schedule.name,
+        details: data.manualUntil ? { until: data.manualUntil.toISOString() } : {},
+      },
+      async () => {
+        await db.networkAccessSchedule.update({ where: { id: schedule.id }, data });
+        const result = await reconcileAccess(userId, { actorEmail: email, trigger: "schedule" });
+        if (result?.errors.length) throw new Error(result.errors.join("; "));
+      },
+    );
+    return { success: true as const, until: data.manualUntil?.toISOString() ?? null };
+  } catch (error) {
+    return fail(error, "Failed to update schedule");
   }
 }
 
@@ -351,9 +476,10 @@ export async function getDeviceControlOptions(id: string) {
     const { userId, canManage } = await getActor();
     const device = await getDeviceOrThrow(userId, id);
     const connection = await requireConnection(userId);
-    const [settings, state] = await Promise.all([
+    const [settings, state, schedules] = await Promise.all([
       db.networkIntegrationSettings.findUnique({ where: { userId } }),
       db.networkCollectorState.findUnique({ where: { userId } }),
+      db.networkAccessSchedule.findMany({ where: { userId, deviceIds: { has: device.id } } }),
     ]);
     // The collector refreshes this every 2 minutes; fall back to the router.
     const cacheFresh =
@@ -374,6 +500,9 @@ export async function getDeviceControlOptions(id: string) {
         wolAvailable: setup.wolAvailable,
         routerDomain: setup.routerDomain,
         suggestedHostname: suggested || null,
+        nextScheduleStart:
+          nextScheduleStart(schedules, device.id, new Date(), resolveTimeZone(settings?.timezone))?.toISOString() ??
+          null,
       },
     };
   } catch (error) {
